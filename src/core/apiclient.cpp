@@ -928,8 +928,7 @@ void ApiClient::downloadVideoRenderFile(const QString &jobId, const QString &sav
 
 void ApiClient::fetchNeteasePlaylist(qint64 playlistId, NeteasePlaylistCb cb)
 {
-    // 与 Android 一致：通过服务端 NeteaseCloudMusicApi 代理获取歌单详情
-    QUrl url(QString::fromUtf8("%1/loser/playlist/detail?id=%2").arg(Theme::kApiBase).arg(playlistId));
+    QUrl url(QString::fromUtf8("%1/loser/playlist/track/all?id=%2").arg(Theme::kApiBase).arg(playlistId));
     QNetworkRequest req(url);
     req.setTransferTimeout(120000);
 
@@ -961,19 +960,11 @@ void ApiClient::fetchNeteasePlaylist(qint64 playlistId, NeteasePlaylistCb cb)
             return;
         }
 
-        const auto playlist = root.value(QStringLiteral("playlist")).toObject();
-        if (playlist.isEmpty()) {
-            if (cb) cb(false, QStringLiteral("歌单不存在"), info);
-            return;
-        }
+        info.id = playlistId;
+        info.name = QStringLiteral("网易云歌单 %1").arg(playlistId);
 
-        info.id = playlist.value(QStringLiteral("id")).toVariant().toLongLong();
-        if (info.id <= 0)
-            info.id = playlistId;
-        info.name = playlist.value(QStringLiteral("name")).toString();
-        info.trackCount = playlist.value(QStringLiteral("trackCount")).toInt();
-
-        const auto tracks = playlist.value(QStringLiteral("tracks")).toArray();
+        const auto tracks = root.value(QStringLiteral("songs")).toArray();
+        info.trackCount = tracks.size();
         for (const auto &trackVal : tracks) {
             const auto track = trackVal.toObject();
             NeteaseTrack t;
