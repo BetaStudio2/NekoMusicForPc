@@ -1,5 +1,5 @@
 #!/bin/bash
-# Post-removal script for Neko云音乐
+# Post-removal script for Neko歌姬计划
 set -e
 
 # Remove desktop symlink if still exists

@@ -14,12 +14,12 @@ BEGIN
         BLOCK "080404b0"
         BEGIN
             VALUE "CompanyName", "Neko"
-            VALUE "FileDescription", "Neko云音乐"
+            VALUE "FileDescription", "Neko歌姬计划"
             VALUE "FileVersion", "2026.417.0-beta"
             VALUE "InternalName", "NekoMusic"
             VALUE "LegalCopyright", "Copyright (C) Neko"
             VALUE "OriginalFilename", "NekoMusic.exe"
-            VALUE "ProductName", "Neko云音乐"
+            VALUE "ProductName", "Neko歌姬计划"
             VALUE "ProductVersion", "2026.417.0-beta"
         END
     END

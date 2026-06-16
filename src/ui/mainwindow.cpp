@@ -2140,7 +2140,7 @@ void MainWindow::createTrayIcon()
         if (trayIcon.isNull())
             trayIcon = QApplication::windowIcon();
         m_trayIcon->setIcon(trayIcon);
-        m_trayIcon->setToolTip("Neko云音乐");
+        m_trayIcon->setToolTip("Neko歌姬计划");
         
         // 创建托盘菜单
         QAction *previousAction = new QAction("上一首", this);

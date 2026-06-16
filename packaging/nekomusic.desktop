@@ -2,7 +2,7 @@
 # --- 基础身份 ---
 Type=Application
 Version=1.5
-Name=Neko云音乐
+Name=Neko歌姬计划
 Name[en]=Neko Music
 GenericName=梦幻网络出品的免费无损云音乐平台
 GenericName[en]=Free Lossless Cloud Music Platform by Fantasy Network
@@ -11,7 +11,7 @@ Comment[en]=High-quality Lossless Music Player
 
 # --- 执行与路径 ---
 # %F = 本地文件路径（推荐）；%U = file:/// URL（程序内两种均支持）
-Exec=/opt/Neko云音乐/NekoMusic %F
+Exec=/opt/Neko歌姬计划/NekoMusic %F
 Icon=nekomusic
 Terminal=false
 StartupNotify=true
@@ -30,14 +30,14 @@ Actions=PlayPause;Next;Previous;
 [Desktop Action PlayPause]
 Name=播放/暂停
 Name[en]=Play/Pause
-Exec=/opt/Neko云音乐/NekoMusic --toggle-play
+Exec=/opt/Neko歌姬计划/NekoMusic --toggle-play
 
 [Desktop Action Next]
 Name=下一首
 Name[en]=Next Track
-Exec=/opt/Neko云音乐/NekoMusic --next
+Exec=/opt/Neko歌姬计划/NekoMusic --next
 
 [Desktop Action Previous]
 Name=上一首
 Name[en]=Previous Track
-Exec=/opt/Neko云音乐/NekoMusic --previous
+Exec=/opt/Neko歌姬计划/NekoMusic --previous

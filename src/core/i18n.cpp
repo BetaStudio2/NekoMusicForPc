@@ -403,16 +403,16 @@ static QMap<QString, QString> zhCN()
     m["shareLocalCopied"] = QStringLiteral("分享文案已复制到剪贴板");
     m["shareNothingPlaying"] = QStringLiteral("当前没有可分享的曲目");
     m["shareClipboardHeaderOnline"] = QStringLiteral(
-        "【Neko云音乐】线上曲库 · 流媒体与歌单发现 · 免费高品质播放");
-    m["shareClipboardHeaderLocal"] = QStringLiteral("【Neko云音乐客户端】本地播放中");
+        "【Neko歌姬计划】线上曲库 · 流媒体与歌单发现 · 免费高品质播放");
+    m["shareClipboardHeaderLocal"] = QStringLiteral("【Neko歌姬计划客户端】本地播放中");
     m["shareClipboardTrack"] = QStringLiteral("曲目：%1");
     m["shareClipboardArtist"] = QStringLiteral("歌手：%1");
     m["shareClipboardAlbum"] = QStringLiteral("专辑：%1");
     m["shareClipboardPromo"] = QStringLiteral(
         "海量曲库、歌单与排行榜，支持桌面歌词与云歌单。完全免费；下载 Windows / macOS / Linux / "
-        "移动端客户端，体验更完整的播放与个性化功能。欢迎把 Neko云音乐 推荐给朋友一起使用。");
+        "移动端客户端，体验更完整的播放与个性化功能。欢迎把 Neko歌姬计划 推荐给朋友一起使用。");
     m["shareClipboardPromoLocal"] = QStringLiteral(
-        "本首为本地音频文件。Neko云音乐 同样提供丰富的在线曲库与歌单发现，完全免费；可继续使用客户端管理本地与在线音乐。");
+        "本首为本地音频文件。Neko歌姬计划 同样提供丰富的在线曲库与歌单发现，完全免费；可继续使用客户端管理本地与在线音乐。");
     m["shareClipboardLinkOnline"] = QStringLiteral("歌曲详情页链接（在浏览器中打开）：");
     m["shareClipboardLinkLocal"] = QStringLiteral("本地文件（可粘贴到支持 file:// 的环境）：");
     m["deleteConfirmWithPlaylistName"] = QStringLiteral("确定要删除歌单\"{name}\"吗？此操作不可恢复。");
@@ -605,8 +605,8 @@ static QMap<QString, QString> nyaCN()
     m["shareOnlineCopied"] = QStringLiteral("嘿嘿，分享咒语已经抓到剪贴板里了喵！");
     m["shareLocalCopied"] = QStringLiteral("本地好歌也想让大家听到喵~ 复制好啦！");
     m["shareNothingPlaying"] = QStringLiteral("现在没有在唱歌，没法分享的说喵...");
-    m["shareClipboardHeaderOnline"] = QStringLiteral("【Neko云音乐】线上曲库 · 把喜欢的歌留在身边喵");
-    m["shareClipboardHeaderLocal"] = QStringLiteral("【Neko云音乐客户端】本地曲库播放中喵");
+    m["shareClipboardHeaderOnline"] = QStringLiteral("【Neko歌姬计划】线上曲库 · 把喜欢的歌留在身边喵");
+    m["shareClipboardHeaderLocal"] = QStringLiteral("【Neko歌姬计划客户端】本地曲库播放中喵");
     m["shareClipboardTrack"] = QStringLiteral("幻之曲目：%1");
     m["shareClipboardArtist"] = QStringLiteral("灵动歌姬：%1");
     m["shareClipboardAlbum"] = QStringLiteral("梦境专辑：%1");

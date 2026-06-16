@@ -51,7 +51,7 @@ jobs:
       - name: Show pkg info (sanity)
         run: |
           set -euo pipefail
-          PKG="$(find "$GITHUB_WORKSPACE/dist" -name 'Neko云音乐-*-macos-universal.pkg' -type f | head -n1 || true)"
+          PKG="$(find "$GITHUB_WORKSPACE/dist" -name 'Neko歌姬计划-*-macos-universal.pkg' -type f | head -n1 || true)"
           if [[ -z "$PKG" ]]; then
             echo "No pkg found in dist/"
             ls -la "$GITHUB_WORKSPACE/dist" || true

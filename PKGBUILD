@@ -40,6 +40,6 @@ package() {
     "${pkgdir}/usr/share/applications/nekomusic.desktop"
 
   sed -i \
-    -e 's#Exec=/opt/Neko云音乐/NekoMusic#Exec=/usr/bin/nekomusic#g' \
+    -e 's#Exec=/opt/Neko歌姬计划/NekoMusic#Exec=/usr/bin/nekomusic#g' \
     "${pkgdir}/usr/share/applications/nekomusic.desktop"
 }

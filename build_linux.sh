@@ -1,6 +1,6 @@
 #!/bin/bash
-# Neko云音乐 Linux Build & Package Script
-# Produces: Neko云音乐-{version}-linux-amd64.deb
+# Neko歌姬计划 Linux Build & Package Script
+# Produces: Neko歌姬计划-{version}-linux-amd64.deb
 
 set -e
 
@@ -11,7 +11,7 @@ BUILD_DIR="build-linux"
 BUILD_TYPE="${1:-Release}"
 
 echo "========================================="
-echo "  Neko云音乐 Linux Build Script"
+echo "  Neko歌姬计划 Linux Build Script"
 echo "========================================="
 echo "Build type: $BUILD_TYPE"
 echo ""
@@ -52,7 +52,7 @@ echo "Packaging .deb..."
 cpack -G DEB
 
 # Find the output .deb file
-DEB_FILE=$(find . -name "Neko云音乐-*.deb" -type f | head -1)
+DEB_FILE=$(find . -name "Neko歌姬计划-*.deb" -type f | head -1)
 
 if [ -n "$DEB_FILE" ]; then
     DEB_BASENAME=$(basename "$DEB_FILE")

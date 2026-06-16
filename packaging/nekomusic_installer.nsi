@@ -1,4 +1,4 @@
-; Neko云音乐 Windows Installer Script
+; Neko歌姬计划 Windows Installer Script
 ; NSIS 3.0+
 
 !include "MUI2.nsh"
@@ -9,10 +9,10 @@
 !endif
 
 ; General
-Name "Neko云音乐"
+Name "Neko歌姬计划"
 ; OutFile 须用 ${VERSION}（编译期）；$VERSION 在 NSIS 中为运行时变量，展开为空会导致文件名与 build_windows.sh 不一致
-OutFile "..\Neko云音乐-${VERSION}-win.exe"
-InstallDir "$PROGRAMFILES64\Neko云音乐"
+OutFile "..\Neko歌姬计划-${VERSION}-win.exe"
+InstallDir "$PROGRAMFILES64\Neko歌姬计划"
 SetCompressor lzma
 
 ; Manifest
@@ -37,7 +37,7 @@ RequestExecutionLevel admin
 !insertmacro MUI_LANGUAGE "English"
 
 ; Installer
-Section "Neko云音乐" SecMain
+Section "Neko歌姬计划" SecMain
     SetOutPath "$INSTDIR"
 
     ; Install main executable
@@ -85,27 +85,27 @@ Section "Neko云音乐" SecMain
     File /nonfatal "../build/libcrypto*.dll"
 
     ; Create Start Menu Shortcut
-    CreateDirectory "$SMPROGRAMS\Neko云音乐"
-    CreateShortCut "$SMPROGRAMS\Neko云音乐\Neko云音乐.lnk" "$INSTDIR\NekoMusic.exe"
-    CreateShortCut "$SMPROGRAMS\Neko云音乐\卸载Neko云音乐.lnk" "$INSTDIR\uninst.exe"
+    CreateDirectory "$SMPROGRAMS\Neko歌姬计划"
+    CreateShortCut "$SMPROGRAMS\Neko歌姬计划\Neko歌姬计划.lnk" "$INSTDIR\NekoMusic.exe"
+    CreateShortCut "$SMPROGRAMS\Neko歌姬计划\Neko歌姬计划.lnk" "$INSTDIR\uninst.exe"
 
     ; Create Desktop Shortcut
-    CreateShortCut "$DESKTOP\Neko云音乐.lnk" "$INSTDIR\NekoMusic.exe"
+    CreateShortCut "$DESKTOP\Neko歌姬计划.lnk" "$INSTDIR\NekoMusic.exe"
 
     ; Registry for uninstall
-    WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Neko云音乐" \
-                     "DisplayName" "Neko云音乐"
-    WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Neko云音乐" \
+    WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Neko歌姬计划" \
+                     "DisplayName" "Neko歌姬计划"
+    WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Neko歌姬计划" \
                      "UninstallString" "$INSTDIR\uninst.exe"
-    WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Neko云音乐" \
+    WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Neko歌姬计划" \
                      "QuietUninstallString" "$\"$INSTDIR\uninst.exe$\" /S"
-    WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Neko云音乐" \
+    WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Neko歌姬计划" \
                      "InstallLocation" "$INSTDIR"
-    WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Neko云音乐" \
+    WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Neko歌姬计划" \
                      "DisplayIcon" "$INSTDIR\NekoMusic.exe"
-    WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Neko云音乐" \
+    WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Neko歌姬计划" \
                      "Publisher" "Neko"
-    WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Neko云音乐" \
+    WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Neko歌姬计划" \
                      "DisplayVersion" "${VERSION}"
 
     ; Create uninstaller
@@ -115,11 +115,11 @@ SectionEnd
 ; Uninstaller
 Section "Uninstall"
     ; Remove registry keys
-    DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Neko云音乐"
+    DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Neko歌姬计划"
 
     ; Remove shortcuts
-    Delete "$DESKTOP\Neko云音乐.lnk"
-    RMDir /r "$SMPROGRAMS\Neko云音乐"
+    Delete "$DESKTOP\Neko歌姬计划.lnk"
+    RMDir /r "$SMPROGRAMS\Neko歌姬计划"
 
     ; Remove installed files
     RMDir /r "$INSTDIR"

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Post-installation script for Neko云音乐
+# Post-installation script for Neko歌姬计划
 set -e
 
 # Update desktop database and icon cache

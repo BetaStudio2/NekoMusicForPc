@@ -1,6 +1,6 @@
 #!/bin/bash
-# Neko云音乐 Windows Cross-Build Script (Linux -> Windows)
-# Produces: Neko云音乐-INSTALLER-win-x64.exe
+# Neko歌姬计划 Windows Cross-Build Script (Linux -> Windows)
+# Produces: Neko歌姬计划-INSTALLER-win-x64.exe
 #
 # Prerequisites:
 #   sudo apt install g++-mingw-w64-x86-64 nsis
@@ -94,7 +94,7 @@ fi
 # Build
 # ============================================================
 echo "========================================="
-echo "  Neko云音乐 Windows Cross-Build Script"
+echo "  Neko歌姬计划 Windows Cross-Build Script"
 echo "========================================="
 echo "Build type:    $BUILD_TYPE"
 echo "Qt Windows:    $QT_WIN_ROOT"
@@ -278,9 +278,9 @@ if [ $NSIS_EXIT -ne 0 ]; then
 fi
 
 # NSIS OutFile 为 packaging/../*.exe（仓库根目录）；若版本宏展开异常，再按通配兜底
-EXE_FILE="$SCRIPT_DIR/Neko云音乐-${FULL_VERSION}-win.exe"
+EXE_FILE="$SCRIPT_DIR/Neko歌姬计划-${FULL_VERSION}-win.exe"
 if [ ! -f "$EXE_FILE" ]; then
-    EXE_FILE=$(find "$SCRIPT_DIR" -maxdepth 1 -name 'Neko云音乐-*-win.exe' -type f -printf '%T@\t%p\n' 2>/dev/null | sort -n | tail -1 | cut -f2-)
+    EXE_FILE=$(find "$SCRIPT_DIR" -maxdepth 1 -name 'Neko歌姬计划-*-win.exe' -type f -printf '%T@\t%p\n' 2>/dev/null | sort -n | tail -1 | cut -f2-)
 fi
 
 if [ -n "$EXE_FILE" ] && [ -f "$EXE_FILE" ]; then

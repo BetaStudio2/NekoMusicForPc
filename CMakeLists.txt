@@ -403,9 +403,9 @@ target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_BINARY_DIR}/generated
 
 # Install - platform-specific rules
 if(LINUX)
-    # Linux: install to /opt/Neko云音乐 (matches auto-update code)
+    # Linux: install to /opt/Neko歌姬计划 (matches auto-update code)
     install(TARGETS ${PROJECT_NAME}
-            RUNTIME DESTINATION /opt/Neko云音乐
+            RUNTIME DESTINATION /opt/Neko歌姬计划
     )
 
     # Desktop entry file
@@ -418,7 +418,7 @@ if(LINUX)
         file(MAKE_DIRECTORY \"\$ENV{DESTDIR}/usr/local/bin\")
         execute_process(
             COMMAND \${CMAKE_COMMAND} -E create_symlink
-            \"/opt/Neko云音乐/NekoMusic\"
+            \"/opt/Neko歌姬计划/NekoMusic\"
             \"\$ENV{DESTDIR}/usr/local/bin/nekomusic\"
         )
     ")
@@ -441,12 +441,12 @@ else()
 endif()
 
 # CPack configuration
-set(CPACK_PACKAGE_NAME "Neko云音乐")
+set(CPACK_PACKAGE_NAME "Neko歌姬计划")
 set(CPACK_PACKAGE_VERSION ${PROJECT_VERSION}${PROJECT_VERSION_SUFFIX})
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "梦幻网络CN免费云音乐平台的官方客户端")
 set(CPACK_PACKAGE_VENDOR "FantasyNetwork")
 set(CPACK_PACKAGE_CONTACT "support@cnmsb.xin")
-set(CPACK_PACKAGE_FILE_NAME "Neko云音乐-${CPACK_PACKAGE_VERSION}-${CMAKE_SYSTEM_PROCESSOR}")
+set(CPACK_PACKAGE_FILE_NAME "Neko歌姬计划-${CPACK_PACKAGE_VERSION}-${CMAKE_SYSTEM_PROCESSOR}")
 
 if(LINUX)
     # Debian package settings
@@ -476,7 +476,7 @@ if(LINUX)
     set(CPACK_DEBIAN_PACKAGE_POSTRM "${CMAKE_SOURCE_DIR}/packaging/debian/postrm")
 
     # Output filename format matching version.json URL pattern
-    set(CPACK_PACKAGE_FILE_NAME "Neko云音乐-${CPACK_PACKAGE_VERSION}-linux-amd64")
+    set(CPACK_PACKAGE_FILE_NAME "Neko歌姬计划-${CPACK_PACKAGE_VERSION}-linux-amd64")
 
 elseif(WIN32)
     # Windows uses NSIS (external script, not CPack)
@@ -484,7 +484,7 @@ elseif(WIN32)
 
 elseif(APPLE)
     set(CPACK_GENERATOR "productbuild")
-    set(CPACK_PACKAGE_FILE_NAME "Neko云音乐-${CPACK_PACKAGE_VERSION}-macos-${CMAKE_SYSTEM_PROCESSOR}")
+    set(CPACK_PACKAGE_FILE_NAME "Neko歌姬计划-${CPACK_PACKAGE_VERSION}-macos-${CMAKE_SYSTEM_PROCESSOR}")
 endif()
 
 include(CPack)

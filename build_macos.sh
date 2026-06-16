@@ -1,6 +1,6 @@
 #!/bin/bash
-# Neko云音乐 macOS Build & Package Script
-# Produces: dist/Neko云音乐-{version}-macos-universal.pkg
+# Neko歌姬计划 macOS Build & Package Script
+# Produces: dist/Neko歌姬计划-{version}-macos-universal.pkg
 #
 # Builds a single universal .app (arm64 + x86_64) and packages it with pkgbuild.
 #
@@ -100,7 +100,7 @@ if [[ -n "$MISSING" ]]; then
 fi
 
 echo "========================================="
-echo "  Neko云音乐 macOS Build Script"
+echo "  Neko歌姬计划 macOS Build Script"
 echo "========================================="
 echo "Build type:           $BUILD_TYPE"
 echo "Qt macOS:             $QT_MAC_ROOT"
@@ -304,7 +304,7 @@ SUFFIX=""
 FULL_VERSION="${VERSION}${SUFFIX}"
 
 mkdir -p "$PKG_OUTDIR"
-PKG_NAME="Neko云音乐-${FULL_VERSION}-macos-universal.pkg"
+PKG_NAME="Neko歌姬计划-${FULL_VERSION}-macos-universal.pkg"
 PKG_PATH="$PKG_OUTDIR/$PKG_NAME"
 
 echo ""

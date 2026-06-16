@@ -1,8 +1,8 @@
-# Neko云音乐 PC版
+# Neko歌姬计划 PC版
 ![](https://count.getloli.com/get/@:NekoMusicPC?theme=moebooru)
 
 > [!TIP]
-> 🐾 **移动端入口**：[点击这里查看 Neko云音乐 安卓版仓库](https://github.com/MinecraftNekoServer/NekoMusicForAndroid)
+> 🐾 **移动端入口**：[点击这里查看 Neko歌姬计划 安卓版仓库](https://github.com/MinecraftNekoServer/NekoMusicForAndroid)
 
 # 官网 https://music.cnmsb.xin
 
