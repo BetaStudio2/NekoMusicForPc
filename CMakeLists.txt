@@ -384,9 +384,9 @@ endif()
 if(WIN32)
     # MSVC 使用 Shlwapi.lib；MinGW 交叉编译使用 libshlwapi.a（小写 -lshlwapi）
     if(MINGW)
-        target_link_libraries(${PROJECT_NAME} PRIVATE shlwapi)
+        target_link_libraries(${PROJECT_NAME} PRIVATE shlwapi advapi32)
     else()
-        target_link_libraries(${PROJECT_NAME} PRIVATE Shlwapi)
+        target_link_libraries(${PROJECT_NAME} PRIVATE Shlwapi Advapi32)
     endif()
 endif()
 

@@ -2484,9 +2484,6 @@ void MainWindow::maybePromptDefaultMusicPlayer()
         return;
 
     DefaultMusicAppChecker::trySetAsDefaultMusicPlayer();
-#if defined(Q_OS_WIN)
-    DefaultMusicPlayerDialog::showWindowsDefaultAppsFollowUp(this);
-#endif
 }
 
 void MainWindow::checkForUpdates(bool showNoUpdateToast)

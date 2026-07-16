@@ -51,7 +51,7 @@ static QMap<QString, QString> zhCN()
     m["defaultMusicPlayerDontAskAgain"] = QStringLiteral("不再询问");
     m["defaultMusicPlayerWinFollowUp"] = QStringLiteral(
         "已打开 Windows「默认应用」设置。\n"
-        "请在列表中为「音乐播放器」或为 .mp3、.m4a、.aac、.flac、.wav、.wma、.m3u 等格式指定本程序。");
+        "请将所有支持的媒体文件类型（.mp3、.flac、.wav、.m4a、.aac、.ogg、.wma、.m3u 等）的默认打开方式设置为本程序。");
     m["inputRequired"] = QStringLiteral("请输入");
     m["inputValid"] = QStringLiteral("请输入有效的内容");
     m["justNow"] = QStringLiteral("刚刚");
@@ -748,7 +748,7 @@ static QMap<QString, QString> nyaCN()
     m["defaultMusicPlayerDontAskAgain"] = QStringLiteral("别再问了喵，真讨厌！");
     m["defaultMusicPlayerWinFollowUp"] = QStringLiteral(
         "已经带你去 Windows 的设置页面了喵~\n"
-        "在那里把 Neko 云音乐点亮就好啦喵！");
+        "把所有支持的音乐文件格式都交给 Neko 云音乐打开就好啦喵！");
     m["playModeList"] = QStringLiteral("乖乖排队循环喵~");
     m["playModeSingle"] = QStringLiteral("就喜欢这一首，死不放手喵！");
     m["playModeRandom"] = QStringLiteral("随心所欲乱点兵喵~");
@@ -933,7 +933,7 @@ static QMap<QString, QString> enUS()
     m["defaultMusicPlayerDontAskAgain"] = "Don't ask again";
     m["defaultMusicPlayerWinFollowUp"] =
         "The Windows Default apps page has been opened.\n"
-        "Choose Neko Music as the default music player or for .mp3, .m4a, .aac, .flac, .wav, .wma, .m3u, etc.";
+        "Set Neko Music as the default opener for all supported media types such as .mp3, .flac, .wav, .m4a, .aac, .ogg, .wma, and .m3u.";
     m["inputRequired"] = "Please input";
     m["inputValid"] = "Please enter valid content";
     m["justNow"] = "Just now";
