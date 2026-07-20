@@ -362,6 +362,17 @@ void SongListWidget::scrollToPlaying()
     scheduleVisibleUpdate();
 }
 
+void SongListWidget::showEvent(QShowEvent *event)
+{
+    QWidget::showEvent(event);
+    syncContainerHeight();
+    updateVisibleRows();
+    QTimer::singleShot(0, this, [this]() {
+        syncContainerHeight();
+        updateVisibleRows();
+    });
+}
+
 void SongListWidget::resizeEvent(QResizeEvent *event)
 {
     QWidget::resizeEvent(event);
@@ -416,6 +427,12 @@ void SongListWidget::updateVisibleRows()
     if (count <= 0 || !m_scroll)
         return;
 
+    const int viewW = m_scroll->viewport() ? m_scroll->viewport()->width() : 0;
+    if (viewW <= 80) {
+        scheduleVisibleUpdate();
+        return;
+    }
+
     const int scrollY = m_scroll->verticalScrollBar()->value();
     const int viewH = m_scroll->viewport()->height();
     const int first = qMax(0, scrollY / kRowStride - kVisibleBuffer);
@@ -429,7 +446,7 @@ void SongListWidget::updateVisibleRows()
     for (int row : stale)
         releaseCard(m_rowCards.take(row));
 
-    const int w = qMax(40, m_container->width());
+    const int w = viewW;
     for (int row = first; row <= last; ++row) {
         const MusicInfo &song = m_songs[row];
         SongCardWidget *card = m_rowCards.value(row, nullptr);

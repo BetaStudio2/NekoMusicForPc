@@ -1308,11 +1308,11 @@ void MainWindow::showMusicListPage(bool isHot)
 {
     syncListPageFavoriteIds();
     if (isHot) {
-        m_hotMusicPage->refresh();
         switchPage(m_hotMusicPage);
+        QTimer::singleShot(0, m_hotMusicPage, &MusicListPage::refresh);
     } else {
-        m_latestMusicPage->refresh();
         switchPage(m_latestMusicPage);
+        QTimer::singleShot(0, m_latestMusicPage, &MusicListPage::refresh);
     }
 }
 

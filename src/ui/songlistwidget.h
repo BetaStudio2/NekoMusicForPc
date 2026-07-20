@@ -11,6 +11,7 @@ class QScrollArea;
 class QLabel;
 class QPushButton;
 class QTimer;
+class QShowEvent;
 class QWidget;
 class SongCardWidget;
 
@@ -66,6 +67,7 @@ signals:
     void scrolled(int scrollTop);
 
 protected:
+    void showEvent(QShowEvent *event) override;
     void resizeEvent(QResizeEvent *event) override;
 
 private:
