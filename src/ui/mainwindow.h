@@ -202,6 +202,9 @@ private:
     bool m_streamFailHandledThisRound = false;
     /** 播放中途断流恢复进行中，避免 Demux 错误连发时叠多个 stop/重试。 */
     bool m_midPlaybackRecoveryInFlight = false;
+    /** 本地文件异步探测序号，避免连续打开多个文件时旧回调覆盖当前播放。 */
+    quint64 m_localOpenSeq = 0;
+    bool m_defaultMusicPromptInFlight = false;
 
     QWidget *m_shellBackdrop = nullptr;
     QTimer *m_shellBackdropRebuildTimer = nullptr;

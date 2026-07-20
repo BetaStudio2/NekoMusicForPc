@@ -64,6 +64,7 @@
 #include <QGraphicsOpacityEffect>
 #include <QPropertyAnimation>
 #include <QEasingCurve>
+#include <QtConcurrent>
 #include <functional>
 
 namespace {
@@ -1356,10 +1357,14 @@ void MainWindow::openAudioFileFromPath(const QString &path)
     raise();
     activateWindow();
 
-    MusicInfo info = LocalMusic::probeAndBuildInfo(playbackPath);
-    if (!info.isLocalFile())
-        return;
-    playLocalMusicInfo(info);
+    const quint64 openSeq = ++m_localOpenSeq;
+    QtConcurrent::run([playbackPath]() {
+        return LocalMusic::probeAndBuildInfo(playbackPath);
+    }).then(this, [this, openSeq](const MusicInfo &info) {
+        if (openSeq != m_localOpenSeq || !info.isLocalFile())
+            return;
+        playLocalMusicInfo(info);
+    });
 }
 
 void MainWindow::playLocalMusicInfo(const MusicInfo &info)
@@ -2473,17 +2478,33 @@ void MainWindow::maybePromptDefaultMusicPlayer()
     QSettings settings;
     if (settings.value(QStringLiteral("defaultMusicPlayer/skipPrompt"), false).toBool())
         return;
-    if (DefaultMusicAppChecker::isDefaultMusicPlayer())
+    if (m_defaultMusicPromptInFlight)
         return;
 
-    DefaultMusicPlayerDialog dlg(this);
-    const int r = dlg.exec();
-    if (dlg.dontAskAgain())
-        settings.setValue(QStringLiteral("defaultMusicPlayer/skipPrompt"), true);
-    if (r != QDialog::Accepted)
-        return;
+    m_defaultMusicPromptInFlight = true;
+    QtConcurrent::run([]() {
+        return DefaultMusicAppChecker::isDefaultMusicPlayer();
+    }).then(this, [this](bool isDefault) {
+        m_defaultMusicPromptInFlight = false;
+        if (isDefault)
+            return;
 
-    DefaultMusicAppChecker::trySetAsDefaultMusicPlayer();
+        QSettings settings;
+        if (settings.value(QStringLiteral("defaultMusicPlayer/skipPrompt"), false).toBool())
+            return;
+
+        DefaultMusicPlayerDialog dlg(this);
+        const int r = dlg.exec();
+        if (dlg.dontAskAgain())
+            settings.setValue(QStringLiteral("defaultMusicPlayer/skipPrompt"), true);
+        if (r != QDialog::Accepted)
+            return;
+
+        auto setDefaultFuture = QtConcurrent::run([]() {
+            DefaultMusicAppChecker::trySetAsDefaultMusicPlayer();
+        });
+        Q_UNUSED(setDefaultFuture);
+    });
 }
 
 void MainWindow::checkForUpdates(bool showNoUpdateToast)

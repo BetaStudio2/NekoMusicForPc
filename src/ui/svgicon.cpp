@@ -12,12 +12,45 @@
 #include <QByteArray>
 #include <QDebug>
 #include <QFile>
+#include <QHash>
 #include <QtMath>
 
 namespace Icons {
 
 namespace {
 constexpr qreal kIconRenderScale = 2.0;
+
+QString cacheKey(const QString &kind, const QString &source, int width, int height, const QColor &color, int viewBox = 0)
+{
+    return QStringLiteral("%1|%2|%3x%4|%5|%6")
+        .arg(kind, source)
+        .arg(width)
+        .arg(height)
+        .arg(viewBox)
+        .arg(QString::number(color.rgba(), 16));
+}
+
+QHash<QString, QPixmap> &pixmapCache()
+{
+    static QHash<QString, QPixmap> cache;
+    return cache;
+}
+
+QPixmap cachedPixmap(const QString &key)
+{
+    const auto it = pixmapCache().constFind(key);
+    return it == pixmapCache().constEnd() ? QPixmap() : it.value();
+}
+
+void storePixmap(const QString &key, const QPixmap &pix)
+{
+    if (pix.isNull())
+        return;
+    auto &cache = pixmapCache();
+    if (cache.size() > 256)
+        cache.clear();
+    cache.insert(key, pix);
+}
 
 QPixmap createIconPixmap(int width, int height)
 {
@@ -43,6 +76,11 @@ static QString svgPathFillAttrs(const QColor &color)
 
 QPixmap render(const char *pathD, int size, const QColor &color, int viewBox)
 {
+    const QString pathText = QString::fromUtf8(pathD);
+    const QString key = cacheKey(QStringLiteral("path"), pathText, size, size, color, viewBox);
+    if (QPixmap hit = cachedPixmap(key); !hit.isNull())
+        return hit;
+
     QString svg = QString(
         "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 %1 %1\" width=\"%2\" height=\"%2\">"
         "<path %3 d=\"%4\"/>"
@@ -50,7 +88,7 @@ QPixmap render(const char *pathD, int size, const QColor &color, int viewBox)
         .arg(viewBox)
         .arg(size)
         .arg(svgPathFillAttrs(color))
-        .arg(QString::fromUtf8(pathD));
+        .arg(pathText);
 
     QSvgRenderer renderer(svg.toUtf8());
     QPixmap pix = createIconPixmap(size, size);
@@ -67,6 +105,7 @@ QPixmap render(const char *pathD, int size, const QColor &color, int viewBox)
     p.setRenderHint(QPainter::Antialiasing, true);
     p.setRenderHint(QPainter::SmoothPixmapTransform, true);
     renderer.render(&p, QRectF(0, 0, size, size));
+    storePixmap(key, pix);
     return pix;
 }
 
@@ -116,6 +155,10 @@ static QString loadTintedSvg(const QString &resourcePath, const QColor &color)
 
 QPixmap renderResource(const QString &resourcePath, int size, const QColor &color)
 {
+    const QString key = cacheKey(QStringLiteral("resource"), resourcePath, size, size, color);
+    if (QPixmap hit = cachedPixmap(key); !hit.isNull())
+        return hit;
+
     const QString svg = loadTintedSvg(resourcePath, color);
     if (svg.isEmpty())
         return {};
@@ -130,11 +173,16 @@ QPixmap renderResource(const QString &resourcePath, int size, const QColor &colo
     p.setRenderHint(QPainter::Antialiasing, true);
     p.setRenderHint(QPainter::SmoothPixmapTransform, true);
     renderer.render(&p, QRectF(0, 0, size, size));
+    storePixmap(key, pix);
     return pix;
 }
 
 QPixmap renderResourceHeight(const QString &resourcePath, int height, const QColor &color)
 {
+    const QString key = cacheKey(QStringLiteral("resourceHeight"), resourcePath, 0, height, color);
+    if (QPixmap hit = cachedPixmap(key); !hit.isNull())
+        return hit;
+
     const QString svg = loadTintedSvg(resourcePath, color);
     if (svg.isEmpty() || height <= 0)
         return {};
@@ -153,6 +201,7 @@ QPixmap renderResourceHeight(const QString &resourcePath, int height, const QCol
     p.setRenderHint(QPainter::Antialiasing, true);
     p.setRenderHint(QPainter::SmoothPixmapTransform, true);
     renderer.render(&p, QRectF(0, 0, w, height));
+    storePixmap(key, pix);
     return pix;
 }
 

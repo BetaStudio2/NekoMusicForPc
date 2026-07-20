@@ -20,8 +20,12 @@
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QNetworkRequest>
+#include <QBuffer>
+#include <QImageReader>
 
 namespace {
+
+constexpr int kMaxCoverLongSide = 960;
 
 QString safeCacheKey(const QString &value)
 {
@@ -59,6 +63,45 @@ QString resourcePathFromUrl(const QString &url)
     if (url.startsWith(QLatin1Char(':')))
         return url;
     return {};
+}
+
+void constrainReaderSize(QImageReader &reader)
+{
+    QSize sz = reader.size();
+    if (!sz.isValid())
+        return;
+    const int longSide = qMax(sz.width(), sz.height());
+    if (longSide <= kMaxCoverLongSide)
+        return;
+    sz.scale(kMaxCoverLongSide, kMaxCoverLongSide, Qt::KeepAspectRatio);
+    reader.setScaledSize(sz);
+}
+
+QPixmap readCoverPixmap(QIODevice *device)
+{
+    QImageReader reader(device);
+    reader.setAutoTransform(true);
+    reader.setDecideFormatFromContent(true);
+    constrainReaderSize(reader);
+    const QImage image = reader.read();
+    return image.isNull() ? QPixmap() : QPixmap::fromImage(image);
+}
+
+QPixmap loadCoverPixmap(const QString &path)
+{
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly))
+        return {};
+    return readCoverPixmap(&file);
+}
+
+QPixmap loadCoverPixmapFromData(const QByteArray &data)
+{
+    QBuffer buffer;
+    buffer.setData(data);
+    if (!buffer.open(QIODevice::ReadOnly))
+        return {};
+    return readCoverPixmap(&buffer);
 }
 
 } // namespace
@@ -218,8 +261,8 @@ QPixmap CoverCache::get(const QString &musicId) const
 #else
     QString path = cacheDir() + QLatin1Char('/') + cacheKey + QStringLiteral(".jpg");
     if (QFile::exists(path)) {
-        QPixmap pix;
-        if (pix.load(path)) return pix;
+        QPixmap pix = loadCoverPixmap(path);
+        if (!pix.isNull()) return pix;
         QFile::remove(path);
     }
     return QPixmap();
@@ -251,8 +294,8 @@ void CoverCache::fetchCover(const QString &musicId, const QString &coverUrl)
 
     const QString resourcePath = resourcePathFromUrl(absolute);
     if (!resourcePath.isEmpty()) {
-        QPixmap pix;
-        if (pix.load(resourcePath)) {
+        QPixmap pix = loadCoverPixmap(resourcePath);
+        if (!pix.isNull()) {
             set(cacheKey, pix);
             emit coverLoaded(cacheKey, pix);
         } else {
@@ -262,8 +305,8 @@ void CoverCache::fetchCover(const QString &musicId, const QString &coverUrl)
     }
 
     if (absolute.startsWith(QLatin1String("file:"), Qt::CaseInsensitive)) {
-        QPixmap pix;
-        if (pix.load(QUrl(absolute).toLocalFile())) {
+        QPixmap pix = loadCoverPixmap(QUrl(absolute).toLocalFile());
+        if (!pix.isNull()) {
             set(cacheKey, pix);
             emit coverLoaded(cacheKey, pix);
         } else {
@@ -297,8 +340,8 @@ void CoverCache::fetchCover(const QString &musicId, const QString &coverUrl)
         }
 
         const QByteArray data = reply->readAll();
-        QPixmap pix;
-        if (pix.loadFromData(data)) {
+        QPixmap pix = loadCoverPixmapFromData(data);
+        if (!pix.isNull()) {
             set(cacheKey, pix);
             emit coverLoaded(cacheKey, pix);
         } else {

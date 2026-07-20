@@ -17,6 +17,7 @@
 #include <QTimer>
 #include <QMetaObject>
 #include <QGraphicsOpacityEffect>
+#include <QPixmap>
 
 struct CarouselItem {
     int playlistId = -1;
@@ -43,6 +44,7 @@ private:
     void setupUi();
     void goToIndex(int index);
     void updateDisplay();
+    QPixmap scaledCoverPixmap(const QPixmap &source, const QString &cacheKey);
     QPushButton *createArrowBtn(const QString &objName);
     /** 淡入淡出切换动画 */
     void animateTransition();
@@ -50,7 +52,11 @@ private:
     QList<CarouselItem> m_items;
     int m_currentIndex = 0;
     QTimer m_timer;
+    QTimer m_resizeUpdateTimer;
     bool m_animating = false;   // 动画进行中标记
+    QString m_scaledCoverKey;
+    QSize m_scaledCoverSize;
+    QPixmap m_scaledCoverPixmap;
 
     QLabel *m_bgLabel      = nullptr;
     QLabel *m_titleLabel   = nullptr;

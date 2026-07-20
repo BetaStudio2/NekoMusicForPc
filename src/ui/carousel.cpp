@@ -37,6 +37,13 @@ Carousel::Carousel(QWidget *parent) : QWidget(parent)
         if (m_items.size() > 1 && !m_animating)
             goToIndex((m_currentIndex + 1) % m_items.size());
     });
+
+    m_resizeUpdateTimer.setSingleShot(true);
+    m_resizeUpdateTimer.setInterval(90);
+    connect(&m_resizeUpdateTimer, &QTimer::timeout, this, [this]() {
+        if (!m_items.isEmpty())
+            updateDisplay();
+    });
 }
 
 void Carousel::setupUi()
@@ -145,6 +152,9 @@ QPushButton *Carousel::createArrowBtn(const QString &objName)
 void Carousel::setItems(const QList<CarouselItem> &items)
 {
     m_items = items;
+    m_scaledCoverKey.clear();
+    m_scaledCoverSize = QSize();
+    m_scaledCoverPixmap = QPixmap();
 
     auto *dotsLay = qobject_cast<QHBoxLayout *>(m_dotsWidget->layout());
     QLayoutItem *child;
@@ -233,7 +243,7 @@ void Carousel::updateDisplay()
             if (!cached.isNull()) {
                 disconnect(m_coverConn);
                 m_coverConn = {};
-                m_bgLabel->setPixmap(cached.scaled(m_bgLabel->size(), Qt::KeepAspectRatioByExpanding, Qt::SmoothTransformation));
+                m_bgLabel->setPixmap(scaledCoverPixmap(cached, musicId));
             } else {
                 disconnect(m_coverConn);
                 m_coverConn = connect(CoverCache::instance(), &CoverCache::coverLoaded, this,
@@ -241,7 +251,7 @@ void Carousel::updateDisplay()
                     if (id == musicId) {
                         disconnect(m_coverConn);
                         m_coverConn = {};
-                        m_bgLabel->setPixmap(pix.scaled(m_bgLabel->size(), Qt::KeepAspectRatioByExpanding, Qt::SmoothTransformation));
+                        m_bgLabel->setPixmap(scaledCoverPixmap(pix, musicId));
                     }
                 });
                 CoverCache::instance()->fetchCover(musicId, item.coverUrl);
@@ -259,8 +269,28 @@ void Carousel::updateDisplay()
     }
 }
 
+QPixmap Carousel::scaledCoverPixmap(const QPixmap &source, const QString &cacheKey)
+{
+    if (source.isNull() || !m_bgLabel)
+        return {};
+
+    const QSize target = m_bgLabel->size();
+    if (target.isEmpty())
+        return source;
+
+    if (m_scaledCoverKey == cacheKey && m_scaledCoverSize == target && !m_scaledCoverPixmap.isNull())
+        return m_scaledCoverPixmap;
+
+    m_scaledCoverKey = cacheKey;
+    m_scaledCoverSize = target;
+    m_scaledCoverPixmap = source.scaled(target, Qt::KeepAspectRatioByExpanding,
+                                        Qt::SmoothTransformation);
+    return m_scaledCoverPixmap;
+}
+
 void Carousel::resizeEvent(QResizeEvent *e)
 {
     QWidget::resizeEvent(e);
-    if (!m_items.isEmpty()) updateDisplay();
+    if (!m_items.isEmpty())
+        m_resizeUpdateTimer.start();
 }

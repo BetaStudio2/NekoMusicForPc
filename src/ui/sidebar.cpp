@@ -25,6 +25,7 @@
 #include <QLabel>
 #include <QPainter>
 #include <QStyle>
+#include <QTimer>
 
 namespace {
 
@@ -208,6 +209,16 @@ void Sidebar::setupUi()
     nekoPolishScrollAreaViewport(scroll);
 
     outer->addWidget(scroll, 1);
+
+    m_playlistRefreshTimer = new QTimer(this);
+    m_playlistRefreshTimer->setSingleShot(true);
+    m_playlistRefreshTimer->setInterval(90);
+    connect(m_playlistRefreshTimer, &QTimer::timeout, this, &Sidebar::refreshPlaylistList);
+
+    m_favPlaylistRefreshTimer = new QTimer(this);
+    m_favPlaylistRefreshTimer->setSingleShot(true);
+    m_favPlaylistRefreshTimer->setInterval(90);
+    connect(m_favPlaylistRefreshTimer, &QTimer::timeout, this, &Sidebar::refreshFavPlaylistList);
 }
 
 void Sidebar::refreshPlaylists()
@@ -258,7 +269,7 @@ void Sidebar::loadPlaylists()
                             break;
                         }
                     }
-                    refreshPlaylistList();
+                    schedulePlaylistListRefresh();
                 });
             }
         } else {
@@ -268,6 +279,15 @@ void Sidebar::loadPlaylists()
         refreshPlaylistList();
         loadFavPlaylists();
     });
+}
+
+void Sidebar::schedulePlaylistListRefresh()
+{
+    if (!m_playlistRefreshTimer) {
+        refreshPlaylistList();
+        return;
+    }
+    m_playlistRefreshTimer->start();
 }
 
 void Sidebar::refreshPlaylistList()
@@ -410,7 +430,7 @@ void Sidebar::loadFavPlaylists()
                     for (auto &info : m_favPlaylists) {
                         if (info.id == playlistId) { info.coverUrl = coverUrl; break; }
                     }
-                    refreshFavPlaylistList();
+                    scheduleFavPlaylistListRefresh();
                 });
             }
         } else {
@@ -418,6 +438,15 @@ void Sidebar::loadFavPlaylists()
         }
         refreshFavPlaylistList();
     });
+}
+
+void Sidebar::scheduleFavPlaylistListRefresh()
+{
+    if (!m_favPlaylistRefreshTimer) {
+        refreshFavPlaylistList();
+        return;
+    }
+    m_favPlaylistRefreshTimer->start();
 }
 
 void Sidebar::refreshFavPlaylistList()
