@@ -106,7 +106,7 @@ int main(int argc, char *argv[])
     // 初始化播放列表数据库
     PlaylistDatabase::instance().init();
 
-    QFont font(QStringLiteral("Segoe UI"), 14);
+    QFont font(QStringLiteral("Segoe UI Variable"), 14);
     font.setStyleHint(QFont::SansSerif);
     app.setFont(font);
     app.setWindowIcon(QIcon(QStringLiteral(":/icons/app.png")));

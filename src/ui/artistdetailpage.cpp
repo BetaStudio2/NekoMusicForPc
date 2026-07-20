@@ -126,7 +126,7 @@ void ArtistDetailPage::applyPageStyle()
             "  font-weight: 500;"
             "  padding: 0 12px 0 4px;"
             "}"
-            "QPushButton:hover { color: #E63950; }")
+            "QPushButton:hover { color: #D84B63; }")
                                      .arg(titleFg));
     }
     if (m_titleLbl) {
@@ -144,7 +144,7 @@ void ArtistDetailPage::applyPageStyle()
         m_playBtn->setText(I18n::instance().tr(QStringLiteral("play")));
         m_playBtn->setStyleSheet(QStringLiteral(
             "QPushButton {"
-            "  background: #E63950;"
+            "  background: #D84B63;"
             "  color: #ffffff;"
             "  border: none;"
             "  border-radius: 20px;"

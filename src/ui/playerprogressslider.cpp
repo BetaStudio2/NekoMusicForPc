@@ -81,7 +81,7 @@ void PlayerProgressSlider::paintEvent(QPaintEvent *event)
 
     p.setOpacity(m_handleReveal);
     p.setBrush(dark ? QColor(255, 183, 197) : QColor(255, 183, 197));
-    p.setPen(QPen(dark ? QColor(230, 57, 80, 140) : QColor(111, 66, 193, 90), 1));
+    p.setPen(QPen(dark ? QColor(230, 57, 80, 140) : QColor(240, 94, 122, 90), 1));
     p.drawEllipse(handleRect);
 }
 

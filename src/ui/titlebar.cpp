@@ -301,7 +301,7 @@ void TitleBar::setupUi()
 
     // 窗口控制（圆形彩色按钮）
     const QColor kMinHover = QColor(230, 57, 80);
-    const QColor kMaxHover = QColor(126, 200, 200);
+    const QColor kMaxHover = QColor(240, 94, 122);
     const QColor kCloseHover = QColor(232, 93, 117); // 红色
 
     auto *minBtn = new QPushButton(this);

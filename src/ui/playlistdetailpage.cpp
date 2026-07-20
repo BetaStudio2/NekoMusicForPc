@@ -332,7 +332,7 @@ void PlaylistDetailPage::applyPageStyle()
         m_playBtn->setIconSize(QSize(18, 18));
         m_playBtn->setStyleSheet(QStringLiteral(
             "QPushButton {"
-            "  background: #E63950;"
+            "  background: #D84B63;"
             "  color: #ffffff;"
             "  border: none;"
             "  border-radius: 20px;"

@@ -25,7 +25,7 @@
 
 namespace {
 const QColor kArrowNormal = QColor(245, 240, 255, 160);
-const QColor kArrowActive = QColor(126, 200, 200, 230);
+const QColor kArrowActive = QColor(240, 94, 122, 230);
 }
 
 Carousel::Carousel(QWidget *parent) : QWidget(parent)

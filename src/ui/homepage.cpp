@@ -67,9 +67,9 @@ public:
         QPainter p(&m_pixmap);
         QPainterPath pp;
         pp.addRoundedRect(0, 0, m_size, m_size, 6, 6);
-        p.fillPath(pp, dark ? QColor(128, 128, 128, 40) : QColor(111, 66, 193, 38));
+        p.fillPath(pp, dark ? QColor(128, 128, 128, 40) : QColor(240, 94, 122, 38));
         p.setClipPath(pp);
-        const QColor iconColor = dark ? QColor(255, 255, 255, 100) : QColor(111, 66, 193, 140);
+        const QColor iconColor = dark ? QColor(255, 255, 255, 100) : QColor(240, 94, 122, 140);
         auto iconPx = Icons::renderNamed("Music", 28, iconColor);
         p.drawPixmap((m_size - 28) / 2, (m_size - 28) / 2, iconPx);
         update();

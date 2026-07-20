@@ -520,7 +520,7 @@ QPixmap makeUnknownCover(int size, bool dark)
     QPainterPath path;
     path.addRoundedRect(0, 0, size, size, kPbCoverRadius, kPbCoverRadius);
     p.fillPath(path, dark ? QColor(26, 26, 46) : QColor(255, 240, 244));
-    p.setPen(dark ? QColor(230, 57, 80, 200) : QColor(111, 66, 193, 180));
+    p.setPen(dark ? QColor(230, 57, 80, 200) : QColor(240, 94, 122, 180));
     QFont f = p.font();
     f.setPixelSize(13);
     f.setWeight(QFont::DemiBold);

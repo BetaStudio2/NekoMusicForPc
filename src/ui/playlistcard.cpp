@@ -58,12 +58,12 @@ void PlaylistCard::loadCover()
     pp.addRoundedRect(0, 0, Theme::kCoverSmall, Theme::kCoverSmall,
                       Theme::kCoverRadius, Theme::kCoverRadius);
     QLinearGradient g(0, 0, Theme::kCoverSmall, Theme::kCoverSmall);
-    g.setColorAt(0.0, QColor(255, 107, 139));
-    g.setColorAt(1.0, QColor(214, 40, 57));
+    g.setColorAt(0.0, QColor(28, 31, 38));
+    g.setColorAt(1.0, QColor(240, 94, 122));
     p.fillPath(pp, g);
-    p.setPen(Qt::white);
+    p.setPen(Qt::NoPen);
     p.drawPixmap(QRect((Theme::kCoverSmall-40)/2, (Theme::kCoverSmall-40)/2, 40, 40),
-                 Icons::renderNamed("Music", 40, QColor(255, 255, 255, 160)));
+                 Icons::renderNamed("Music", 40, QColor(255, 255, 255, 176)));
     p.end();
     m_coverPixmap = ph;
 
@@ -123,15 +123,15 @@ void PlaylistCard::paintEvent(QPaintEvent *)
 
     // 底部渐变遮罩
     QLinearGradient mask(coverRect.bottomLeft(), coverRect.topLeft());
-    mask.setColorAt(0.0, QColor(14, 14, 28, 190));
-    mask.setColorAt(0.35, QColor(14, 14, 28, 85));
+    mask.setColorAt(0.0, QColor(12, 14, 18, 188));
+    mask.setColorAt(0.35, QColor(12, 14, 18, 92));
     mask.setColorAt(1.0, QColor(14, 14, 28, 0));
     p.fillRect(coverRect, mask);
     p.setClipping(false);
 
     // 歌曲数量
     if (m_info.musicCount > 0) {
-        p.setPen(QColor(245, 240, 255, 200));
+        p.setPen(QColor(248, 249, 251, 210));
         p.setFont(QFont(QString(), 10, QFont::Bold));
         QRect countRect = coverRect.adjusted(0, 0, -8, -6);
         p.drawText(countRect, Qt::AlignRight | Qt::AlignBottom,
@@ -141,7 +141,7 @@ void PlaylistCard::paintEvent(QPaintEvent *)
     if (m_hovered) {
         QPainterPath border;
         border.addRoundedRect(rect().adjusted(1, 1, -1, -1), Theme::kRMd, Theme::kRMd);
-        p.setPen(QPen(QColor(255, 183, 197, 130), 2));
+        p.setPen(QPen(QColor(240, 94, 122, 120), 2));
         p.drawPath(border);
     }
 }

@@ -53,7 +53,7 @@ void QqImportDialog::setupUi()
     
     // 颜色定义
     const QString bgColor = dark ? QStringLiteral("rgba(36, 36, 36, 245)") : QStringLiteral("rgba(255, 255, 255, 248)");
-    const QString borderColor = dark ? QString::fromUtf8(Theme::kBorderGlass) : QStringLiteral("rgba(111, 66, 193, 0.22)");
+    const QString borderColor = dark ? QString::fromUtf8(Theme::kBorderGlass) : QStringLiteral("rgba(240, 94, 122, 0.22)");
     const QString textMainColor = dark ? QString::fromUtf8(Theme::kTextMain) : QStringLiteral("#212529");
     const QString textSubColor = dark ? QString::fromUtf8(Theme::kTextSub) : QStringLiteral("rgba(33, 37, 41, 0.65)");
     const QString inputBgColor = dark ? QStringLiteral("rgba(255, 255, 255, 0.08)") : QStringLiteral("rgba(33, 37, 41, 0.05)");

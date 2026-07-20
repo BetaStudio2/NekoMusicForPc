@@ -2722,7 +2722,7 @@ void PlayerPage::applyCoverUnknownLarge()
     QPainterPath path;
     path.addRoundedRect(0, 0, base, base, kPlayerCoverRadius, kPlayerCoverRadius);
     p.fillPath(path, dark ? QColor(52, 44, 72) : QColor(236, 232, 248));
-    p.setPen(dark ? QColor(230, 57, 80, 220) : QColor(111, 66, 193, 200));
+    p.setPen(dark ? QColor(230, 57, 80, 220) : QColor(240, 94, 122, 200));
     QFont f = p.font();
     f.setPixelSize(qBound(28, base / 6, 56));
     f.setWeight(QFont::DemiBold);

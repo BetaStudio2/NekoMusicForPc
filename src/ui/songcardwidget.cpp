@@ -27,25 +27,25 @@ namespace {
 
 constexpr int kRowH = 90;
 constexpr int kCover = 50;
-constexpr QColor kPrimary(230, 57, 80);
+constexpr QColor kPrimary(240, 94, 122);
 
 /** SPlayer SongCard .song-content — surface / play / hover 边框 */
 QColor songFill(bool dark, bool playing, bool hover)
 {
     if (playing)
-        return QColor(kPrimary.red(), kPrimary.green(), kPrimary.blue(), 71); // rgba(primary, 0.28)
+        return QColor(kPrimary.red(), kPrimary.green(), kPrimary.blue(), 56);
     if (hover)
-        return dark ? QColor(0x2c, 0x2c, 0x2c) : QColor(0xf5, 0xf5, 0xf5);
-    return dark ? QColor(0x24, 0x24, 0x24) : QColor(Qt::white); // surface-container
+        return dark ? QColor(0x22, 0x25, 0x2d) : QColor(0xf4, 0xf5, 0xf7);
+    return dark ? QColor(0x1b, 0x1f, 0x27) : QColor(Qt::white);
 }
 
 QColor songBorder(bool playing, bool hover)
 {
     if (playing)
-        return QColor(kPrimary.red(), kPrimary.green(), kPrimary.blue(), 148); // rgba(primary, 0.58)
+        return QColor(kPrimary.red(), kPrimary.green(), kPrimary.blue(), 120);
     if (hover)
-        return QColor(kPrimary.red(), kPrimary.green(), kPrimary.blue(), 148);
-    return QColor(kPrimary.red(), kPrimary.green(), kPrimary.blue(), 31); // rgba(primary, 0.12)
+        return QColor(kPrimary.red(), kPrimary.green(), kPrimary.blue(), 120);
+    return QColor(kPrimary.red(), kPrimary.green(), kPrimary.blue(), 28);
 }
 
 QString formatByteSize(qint64 bytes)
@@ -593,7 +593,7 @@ void SongCardWidget::applyTheme()
             "  border-radius: 4px;"
             "}"
             "QProgressBar::chunk {"
-            "  background: #E63950;"
+            "  background: #D84B63;"
             "  border-radius: 4px;"
             "}").arg(track));
     }
@@ -634,7 +634,7 @@ void SongCardWidget::updateLrcBadge()
     m_lrcBadge->setVisible(show);
     if (!show)
         return;
-    static const QColor kLrcColor(0x93, 0x70, 0xdb);
+    static const QColor kLrcColor(0xF0, 0x5E, 0x7A);
     m_lrcBadge->setPixmap(Icons::renderNamed("DesktopLyric2", 14, kLrcColor));
     m_lrcBadge->setToolTip(I18n::instance().tr(QStringLiteral("hasLyrics")));
 }

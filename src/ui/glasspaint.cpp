@@ -141,11 +141,11 @@ void paintMainWindowDeepBackdrop(QPainter &p, const QRect &r, bool darkMode)
 
     QLinearGradient bg(r.topLeft(), r.bottomLeft());
     if (darkMode) {
-        bg.setColorAt(0.0, QColor(24, 24, 24));
-        bg.setColorAt(1.0, QColor(20, 20, 20));
+        bg.setColorAt(0.0, QColor(16, 18, 23));
+        bg.setColorAt(1.0, QColor(12, 14, 18));
     } else {
-        bg.setColorAt(0.0, QColor(251, 251, 252));
-        bg.setColorAt(1.0, QColor(241, 243, 246));
+        bg.setColorAt(0.0, QColor(250, 251, 253));
+        bg.setColorAt(1.0, QColor(240, 243, 247));
     }
     p.fillRect(r, bg);
 }
@@ -175,9 +175,9 @@ void paintMainWindowSolidBackdrop(QPainter &p, const QRect &r, const QColor &col
 void paintBarGlass(QPainter &p, const QRect &r, BarKind kind, bool darkMode, bool photoShellBackdrop)
 {
     const QColor surface = photoShellBackdrop
-        ? (darkMode ? QColor(22, 22, 28, 168) : QColor(255, 255, 255, 188))
-        : (darkMode ? QColor(30, 30, 30) : QColor(255, 255, 255));
-    const QColor border = darkMode ? QColor(255, 255, 255, 18) : QColor(0, 0, 0, 22);
+        ? (darkMode ? QColor(18, 20, 26, 176) : QColor(255, 255, 255, 194))
+        : (darkMode ? QColor(28, 31, 38) : QColor(255, 255, 255));
+    const QColor border = darkMode ? QColor(255, 255, 255, 16) : QColor(0, 0, 0, 18);
     p.fillRect(r, surface);
 
     p.setPen(QPen(border, 1));
@@ -195,11 +195,11 @@ void applyFlatSurface(GlassWidget *glass, bool darkMode)
         return;
     glass->setBackdropCaptureEnabled(false);
     if (darkMode) {
-        glass->setBaseColor(QColor(36, 36, 36));
-        glass->setBorderColor(QColor(255, 255, 255, 18));
+        glass->setBaseColor(QColor(28, 31, 38));
+        glass->setBorderColor(QColor(255, 255, 255, 16));
     } else {
         glass->setBaseColor(QColor(255, 255, 255));
-        glass->setBorderColor(QColor(0, 0, 0, 22));
+        glass->setBorderColor(QColor(0, 0, 0, 18));
     }
     glass->setOpacity(1.0);
 }

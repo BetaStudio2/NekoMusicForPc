@@ -39,10 +39,10 @@ inline Palette palette(bool dark)
     }
     return {
         QStringLiteral("rgba(255, 255, 255, 0.98)"),
-        QStringLiteral("rgba(111, 66, 193, 0.28)"),
+        QStringLiteral("rgba(240, 94, 122, 0.28)"),
         QStringLiteral("#6F42C1"),
         QStringLiteral("rgba(33, 37, 41, 0.72)"),
-        QStringLiteral("#D62839"),
+        QStringLiteral("#D84B63"),
     };
 }
 

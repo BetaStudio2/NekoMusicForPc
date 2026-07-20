@@ -97,7 +97,7 @@ void PlaylistListItem::contextMenuEvent(QContextMenuEvent *event) {
             "QMenu::item:selected { background-color: rgba(255, 255, 255, 0.1); }");
     } else {
         menu.setStyleSheet(
-            "QMenu { background-color: rgba(255, 255, 255, 0.98); border: 1px solid rgba(111, 66, 193, 0.25); "
+            "QMenu { background-color: rgba(255, 255, 255, 0.98); border: 1px solid rgba(240, 94, 122, 0.25); "
             "border-radius: 8px; padding: 4px; }"
             "QMenu::item { color: #212529; padding: 8px 24px; border-radius: 4px; }"
             "QMenu::item:selected { background-color: rgba(230, 57, 80, 0.18); }");

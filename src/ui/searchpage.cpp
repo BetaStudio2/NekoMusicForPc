@@ -443,7 +443,7 @@ void SearchPage::applyPageStyle()
         m_songsPlayAllBtn->setIconSize(QSize(18, 18));
         m_songsPlayAllBtn->setStyleSheet(QStringLiteral(
             "QPushButton {"
-            "  background: #E63950;"
+            "  background: #D84B63;"
             "  color: #ffffff;"
             "  border: none;"
             "  border-radius: 20px;"
