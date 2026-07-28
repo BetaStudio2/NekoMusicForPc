@@ -3,6 +3,7 @@
 
 > [!TIP]
 > 🐾 **移动端入口**：[点击这里查看 Neko歌姬计划 安卓版仓库](https://github.com/MinecraftNekoServer/NekoMusicForAndroid)
+> 🐾 **后端**：[点击这里查看 Neko歌姬计划 后端仓库](https://github.com/FantasyNetworkCN/NekoMusic)
 
 # 官网 https://music.cnmsb.xin
 
