@@ -19,11 +19,10 @@
 #include "ui/scrollareafix.h"
 
 #include <QPainter>
+#include <QPainterPath>
 #include <QFontMetrics>
 #include <QStylePainter>
 #include <QStyleOptionButton>
-#include <QGraphicsScene>
-#include <QGraphicsPixmapItem>
 #include <QGraphicsBlurEffect>
 #include <QMouseEvent>
 #include <QPushButton>
@@ -366,15 +365,13 @@ static QPixmap grabBackdropSource(QWidget *source, const QSize &hintTarget)
     return shot;
 }
 
-/** 高斯模糊（QGraphicsBlurEffect），避免缩小-放大带来的马赛克 */
-static QPixmap makeBlurredBackdrop(const QPixmap &src, const QSize &target,
-                                  qreal blurRadius = kBackdropBlurRadius)
+static QImage coverImageForTarget(const QImage &src, const QSize &target)
 {
     if (src.isNull() || target.isEmpty())
         return {};
 
     const QSize work = backdropWorkSize(target);
-    QPixmap cover = src.scaled(work, Qt::KeepAspectRatioByExpanding, Qt::FastTransformation);
+    QImage cover = src.scaled(work, Qt::KeepAspectRatioByExpanding, Qt::FastTransformation);
     if (cover.width() > work.width() || cover.height() > work.height()) {
         const int x = (cover.width() - work.width()) / 2;
         const int y = (cover.height() - work.height()) / 2;
@@ -382,38 +379,38 @@ static QPixmap makeBlurredBackdrop(const QPixmap &src, const QSize &target,
     } else if (cover.size() != work) {
         cover = cover.scaled(work, Qt::IgnoreAspectRatio, Qt::FastTransformation);
     }
+    return cover.convertToFormat(QImage::Format_ARGB32);
+}
 
-    QGraphicsScene scene;
-    QGraphicsPixmapItem item(cover);
-    QGraphicsBlurEffect effect;
-    effect.setBlurRadius(blurRadius);
-    effect.setBlurHints(QGraphicsBlurEffect::PerformanceHint);
-    item.setGraphicsEffect(&effect);
-    scene.addItem(&item);
-    const QRectF bounds = item.boundingRect();
-    scene.setSceneRect(bounds);
+static QImage softenBackdropImage(const QImage &src, qreal blurRadius)
+{
+    if (src.isNull())
+        return {};
+    const int factor = qBound(4, int(blurRadius / 8.0), 12);
+    QSize small(qMax(1, src.width() / factor), qMax(1, src.height() / factor));
+    QImage soft = src.scaled(small, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+    small = QSize(qMax(1, small.width() / 2), qMax(1, small.height() / 2));
+    soft = soft.scaled(small, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+    return soft.scaled(src.size(), Qt::IgnoreAspectRatio, Qt::SmoothTransformation)
+        .convertToFormat(QImage::Format_ARGB32);
+}
 
-    const int pad = int(blurRadius * 2);
-    QPixmap blurred(work.width() + pad * 2, work.height() + pad * 2);
-    blurred.fill(Qt::transparent);
-    {
-        QPainter p(&blurred);
-        p.setRenderHint(QPainter::Antialiasing, true);
-        p.setRenderHint(QPainter::SmoothPixmapTransform, true);
-        scene.render(&p, QRectF(pad, pad, work.width(), work.height()), bounds);
-    }
+/** 线程安全的低分辨率背景柔化；后台线程只处理 QImage。 */
+static QImage makeBlurredBackdropImage(const QImage &src, const QSize &target,
+                                       qreal blurRadius = kBackdropBlurRadius)
+{
+    QImage img = softenBackdropImage(coverImageForTarget(src, target), blurRadius);
+    if (img.isNull())
+        return {};
 
-    QPixmap cropped = blurred.copy(pad, pad, work.width(), work.height());
-
-    const QSize out(target.width() > 0 ? target.width() : work.width(),
-                    target.height() > 0 ? target.height() : work.height());
-    if (cropped.size() != out)
-        cropped = cropped.scaled(out, Qt::IgnoreAspectRatio, Qt::FastTransformation);
+    const QSize out(target.width() > 0 ? target.width() : img.width(),
+                    target.height() > 0 ? target.height() : img.height());
+    if (img.size() != out)
+        img = img.scaled(out, Qt::IgnoreAspectRatio, Qt::FastTransformation)
+                  .convertToFormat(QImage::Format_ARGB32);
 
     // SPlayer .bg-img: blur(80px) contrast(1.2)
-    // 注意：这里不能用 Premultiplied 格式直接做 RGB 对比度拉伸，
-    // 半透明像素的 RGB 已经按 alpha 预乘，二次放大会导致“炸色”。
-    QImage img = cropped.toImage().convertToFormat(QImage::Format_ARGB32);
+    // 注意：这里不能用 Premultiplied 格式直接做 RGB 对比度拉伸。
     constexpr qreal kContrast = 1.18;
     for (int y = 0; y < img.height(); ++y) {
         auto *line = reinterpret_cast<QRgb *>(img.scanLine(y));
@@ -425,7 +422,7 @@ static QPixmap makeBlurredBackdrop(const QPixmap &src, const QSize &target,
             line[x] = qRgba(adj(qRed(px)), adj(qGreen(px)), adj(qBlue(px)), qAlpha(px));
         }
     }
-    return QPixmap::fromImage(img);
+    return img;
 }
 
 /** 顶/底常驻暗角（与 SPlayer 一致：整页统一 backdrop，边缘略压暗，非二次模糊块） */
@@ -629,7 +626,6 @@ protected:
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QGraphicsOpacityEffect>
-#include <QGraphicsScene>
 #include <QGraphicsBlurEffect>
 #include <QPropertyAnimation>
 #include <QVariantAnimation>
@@ -733,7 +729,7 @@ void PlayerPage::setUnderlaySnapshot(const QPixmap &snapshot, const QSize &targe
     if (snapshot.isNull())
         return;
 
-    m_underlaySnapshot = snapshot;
+    m_underlaySnapshot = snapshot.toImage().convertToFormat(QImage::Format_ARGB32);
     QSize target = targetSize;
     if (target.width() < 1)
         target = size();
@@ -769,15 +765,15 @@ void PlayerPage::scheduleUnderlayBlur(const QSize &target)
 
     ++m_underlayBlurGen;
     const int gen = m_underlayBlurGen;
-    const QPixmap shot = m_underlaySnapshot;
+    const QImage shot = m_underlaySnapshot;
     const QSize blurTarget = target;
 
     QtConcurrent::run([shot, blurTarget]() {
-        return makeBlurredBackdrop(shot, blurTarget);
-    }).then(this, [this, gen](QPixmap blurred) {
+        return makeBlurredBackdropImage(shot, blurTarget);
+    }).then(this, [this, gen](QImage blurred) {
         if (gen != m_underlayBlurGen || blurred.isNull())
             return;
-        m_underlayBlurPixmap = std::move(blurred);
+        m_underlayBlurPixmap = QPixmap::fromImage(std::move(blurred));
         update();
     });
 }
@@ -789,14 +785,14 @@ void PlayerPage::scheduleCoverBlur(const QPixmap &source, const QSize &target)
 
     ++m_coverBlurGen;
     const int gen = m_coverBlurGen;
-    const QPixmap srcCopy = source;
+    const QImage srcCopy = source.toImage().convertToFormat(QImage::Format_ARGB32);
 
     QtConcurrent::run([srcCopy, target]() {
-        return makeBlurredBackdrop(srcCopy, target);
-    }).then(this, [this, gen](QPixmap blurred) {
+        return makeBlurredBackdropImage(srcCopy, target);
+    }).then(this, [this, gen](QImage blurred) {
         if (gen != m_coverBlurGen || blurred.isNull())
             return;
-        m_bgBlurPixmap = std::move(blurred);
+        m_bgBlurPixmap = QPixmap::fromImage(std::move(blurred));
         update();
     });
 }

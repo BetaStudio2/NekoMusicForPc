@@ -37,6 +37,7 @@ public:
     bool addMusic(int playlistId, const MusicInfo& music);
     bool removeMusic(int playlistId, int musicId);
     QList<MusicInfo> getPlaylistMusic(int playlistId);
+    MusicInfo getPlaylistFirstMusic(int playlistId);
     int getPlaylistMusicCount(int playlistId);
 
     // Play Queue Operations

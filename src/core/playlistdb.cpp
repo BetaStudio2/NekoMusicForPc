@@ -342,6 +342,28 @@ QList<MusicInfo> PlaylistDatabase::getPlaylistMusic(int playlistId) {
     return musicList;
 }
 
+MusicInfo PlaylistDatabase::getPlaylistFirstMusic(int playlistId) {
+    QMutexLocker locker(&m_mutex);
+
+    MusicInfo info;
+    QSqlQuery query;
+    query.prepare("SELECT music_id, title, artist, album, duration, cover_url FROM playlist_music WHERE playlist_id = :pid ORDER BY added_at ASC LIMIT 1");
+    query.bindValue(":pid", playlistId);
+
+    if (query.exec() && query.next()) {
+        info.id = query.value(0).toInt();
+        info.title = query.value(1).toString();
+        info.artist = query.value(2).toString();
+        info.album = query.value(3).toString();
+        info.duration = query.value(4).toInt();
+        info.coverUrl = query.value(5).toString();
+    } else if (query.lastError().isValid()) {
+        qWarning() << "Failed to get first playlist music:" << query.lastError().text();
+    }
+
+    return info;
+}
+
 int PlaylistDatabase::getPlaylistMusicCount(int playlistId) {
     QMutexLocker locker(&m_mutex);
 

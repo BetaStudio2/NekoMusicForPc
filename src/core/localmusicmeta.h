@@ -23,7 +23,7 @@ bool isSupportedLocalAudioFile(const QString &filePath);
  */
 QString resolveToPlayableLocalPath(const QString &normalizedLocalPath);
 
-/** 阻塞式读取元数据（短时 QEventLoop），解析封面则写入临时 JPEG 并填入 coverUrl */
+/** 快速生成本地音频基础信息，不阻塞等待多媒体后端探测。 */
 MusicInfo probeAndBuildInfo(const QString &filePath);
 
 } // namespace LocalMusic

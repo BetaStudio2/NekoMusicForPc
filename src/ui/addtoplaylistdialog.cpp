@@ -36,6 +36,7 @@
 #include <QVariantAnimation>
 #include <QParallelAnimationGroup>
 #include <QEasingCurve>
+#include <QTimer>
 #include <functional>
 
 namespace {
@@ -150,6 +151,38 @@ QString coverUrlForMusicId(int musicId)
     return QString::fromUtf8("%1/api/music/cover/%2").arg(Theme::kApiBase).arg(musicId);
 }
 
+QString playlistCoverUrlFromMap(const QVariantMap &pl)
+{
+    static const QStringList kCoverKeys = {
+        QStringLiteral("coverUrl"),
+        QStringLiteral("cover_url"),
+        QStringLiteral("cover"),
+        QStringLiteral("imageUrl"),
+        QStringLiteral("image"),
+        QStringLiteral("picUrl"),
+        QStringLiteral("avatarUrl"),
+    };
+    for (const QString &key : kCoverKeys) {
+        const QString raw = pl.value(key).toString().trimmed();
+        if (!raw.isEmpty())
+            return CoverCache::resolveCoverUrl(raw);
+    }
+
+    static const QStringList kFirstIdKeys = {
+        QStringLiteral("firstMusicId"),
+        QStringLiteral("first_music_id"),
+        QStringLiteral("coverMusicId"),
+        QStringLiteral("cover_music_id"),
+        QStringLiteral("musicId"),
+    };
+    for (const QString &key : kFirstIdKeys) {
+        const int id = pl.value(key).toInt();
+        if (id > 0)
+            return coverUrlForMusicId(id);
+    }
+    return {};
+}
+
 QString cacheKeyFromCoverUrl(const QString &coverUrl)
 {
     QString key = CoverCache::musicIdFromCoverUrl(coverUrl);
@@ -206,6 +239,10 @@ AddToPlaylistDialog::AddToPlaylistDialog(const MusicInfo &music, ApiClient *apiC
     applyTheme();
     loadPlaylists();
     updateCardHeight();
+
+    m_backdropRefreshTimer = new QTimer(this);
+    m_backdropRefreshTimer->setSingleShot(true);
+    connect(m_backdropRefreshTimer, &QTimer::timeout, this, &AddToPlaylistDialog::refreshBackdrop);
 
     connect(&Theme::ThemeManager::instance(), &Theme::ThemeManager::themeChanged, this,
             [this]() { applyTheme(); });
@@ -271,6 +308,15 @@ void AddToPlaylistDialog::refreshBackdrop()
         bd->blurPixmap = blur;
         bd->update();
     }
+}
+
+void AddToPlaylistDialog::scheduleBackdropRefresh(int delayMs)
+{
+    if (!m_backdropRefreshTimer) {
+        refreshBackdrop();
+        return;
+    }
+    m_backdropRefreshTimer->start(qMax(0, delayMs));
 }
 
 void AddToPlaylistDialog::layoutOverlay()
@@ -431,6 +477,8 @@ void AddToPlaylistDialog::dismissAnimated()
 void AddToPlaylistDialog::dismiss()
 {
     stopAnimations();
+    if (m_backdropRefreshTimer)
+        m_backdropRefreshTimer->stop();
     if (m_host)
         m_host->removeEventFilter(this);
     emit closed();
@@ -445,7 +493,7 @@ bool AddToPlaylistDialog::eventFilter(QObject *watched, QEvent *event)
         if (m_card && !m_dismissing)
             m_card->setFixedSize(cardWidthForHost(), cardHeightForHost());
         layoutOverlay();
-        refreshBackdrop();
+        scheduleBackdropRefresh();
     }
     return QWidget::eventFilter(watched, event);
 }
@@ -738,9 +786,8 @@ void AddToPlaylistDialog::loadLocalPlaylists()
         row.id = pl.localId;
         row.name = pl.name;
         row.musicCount = PlaylistDatabase::instance().getPlaylistMusicCount(pl.localId);
-        const auto tracks = PlaylistDatabase::instance().getPlaylistMusic(pl.localId);
-        if (!tracks.isEmpty()) {
-            const MusicInfo &first = tracks.first();
+        const MusicInfo first = PlaylistDatabase::instance().getPlaylistFirstMusic(pl.localId);
+        if (first.id != 0) {
             if (!first.coverUrl.isEmpty())
                 row.coverUrl = CoverCache::resolveCoverUrl(first.coverUrl);
             else if (first.id > 0)
@@ -782,50 +829,20 @@ void AddToPlaylistDialog::loadOnlinePlaylists()
             return;
         }
 
-        QList<PlaylistRow> rows;
         for (const auto &pl : playlists) {
             PlaylistRow row;
             row.id = pl.value(QStringLiteral("id")).toInt();
             row.name = pl.value(QStringLiteral("name")).toString();
             row.musicCount = pl.value(QStringLiteral("musicCount")).toInt();
+            row.coverUrl = playlistCoverUrlFromMap(pl);
             if (row.id <= 0 || row.name.isEmpty())
                 continue;
-            rows.append(row);
             appendPlaylistRow(row);
         }
         applyTheme();
         updateCardHeight();
         layoutOverlay();
-        resolveOnlineCovers(rows);
     });
-}
-
-void AddToPlaylistDialog::resolveOnlineCovers(const QList<PlaylistRow> &rows)
-{
-    if (!m_apiClient)
-        return;
-
-    for (const PlaylistRow &row : rows) {
-        const int playlistId = row.id;
-        m_apiClient->fetchPlaylistMusic(playlistId, [this, playlistId](bool ok, int, const QList<QVariantMap> &musicList) {
-            int firstMusicId = 0;
-            QString coverFromTrack;
-            if (ok && !musicList.isEmpty()) {
-                const QVariantMap first = musicList.first();
-                firstMusicId = first.value(QStringLiteral("id")).toInt();
-                coverFromTrack = first.value(QStringLiteral("coverUrl")).toString();
-            }
-            QString coverUrl;
-            if (!coverFromTrack.isEmpty())
-                coverUrl = CoverCache::resolveCoverUrl(coverFromTrack);
-            else
-                coverUrl = coverUrlForMusicId(firstMusicId);
-
-            QWidget *rowWidget = m_rowsByPlaylistId.value(playlistId);
-            if (rowWidget && !coverUrl.isEmpty())
-                bindCover(rowWidget, coverUrl);
-        });
-    }
 }
 
 void AddToPlaylistDialog::openCreatePlaylist()

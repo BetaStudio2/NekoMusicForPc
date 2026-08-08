@@ -53,9 +53,13 @@ private:
     QPushButton *createNavItem(const QString &key, const QString &label, const QIcon &icon);
     void refreshPlaylistList();
     void schedulePlaylistListRefresh();
+    void enqueueMissingPlaylistCovers();
+    void pumpPlaylistCoverRequests();
     void loadFavPlaylists();
     void refreshFavPlaylistList();
     void scheduleFavPlaylistListRefresh();
+    void enqueueMissingFavPlaylistCovers();
+    void pumpFavPlaylistCoverRequests();
 
     ApiClient *m_apiClient = nullptr;
     QList<ApiPlaylistInfo> m_apiPlaylists;
@@ -73,6 +77,9 @@ private:
     QPushButton *m_importNeteaseBtn = nullptr;
     QPushButton *m_importQqBtn = nullptr;
     QTimer *m_playlistRefreshTimer = nullptr;
+    QList<int> m_pendingPlaylistCoverIds;
+    int m_activePlaylistCoverRequests = 0;
+    int m_playlistCoverGeneration = 0;
 
     // 收藏的歌单区域
     QWidget *m_favPlaylistContainer = nullptr;
@@ -80,4 +87,7 @@ private:
     QList<PlaylistListItem *> m_favPlaylistItems;
     QList<ApiPlaylistInfo> m_favPlaylists;
     QTimer *m_favPlaylistRefreshTimer = nullptr;
+    QList<int> m_pendingFavPlaylistCoverIds;
+    int m_activeFavPlaylistCoverRequests = 0;
+    int m_favPlaylistCoverGeneration = 0;
 };

@@ -54,7 +54,7 @@ float circleMap(float x)
     return 1.f - std::sqrt(std::max(0.f, 1.f - x * x));
 }
 
-static QSize backdropWorkSize(const QSize &target, int maxSide = 900)
+static QSize backdropWorkSize(const QSize &target, int maxSide = 640)
 {
     QSize w = target;
     if (w.width() < 1)
@@ -73,20 +73,20 @@ static QPixmap blurPixmap(const QPixmap &src, const QSize &target, qreal blurRad
         return {};
 
     const QSize work = backdropWorkSize(target);
-    QPixmap cover = src.scaled(work, Qt::KeepAspectRatioByExpanding, Qt::SmoothTransformation);
+    QPixmap cover = src.scaled(work, Qt::KeepAspectRatioByExpanding, Qt::FastTransformation);
     if (cover.width() > work.width() || cover.height() > work.height()) {
         const int x = (cover.width() - work.width()) / 2;
         const int y = (cover.height() - work.height()) / 2;
         cover = cover.copy(x, y, work.width(), work.height());
     } else if (cover.size() != work) {
-        cover = cover.scaled(work, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+        cover = cover.scaled(work, Qt::IgnoreAspectRatio, Qt::FastTransformation);
     }
 
     QGraphicsScene scene;
     QGraphicsPixmapItem item(cover);
     QGraphicsBlurEffect effect;
     effect.setBlurRadius(blurRadius);
-    effect.setBlurHints(QGraphicsBlurEffect::QualityHint);
+    effect.setBlurHints(QGraphicsBlurEffect::PerformanceHint);
     item.setGraphicsEffect(&effect);
     scene.addItem(&item);
     const QRectF bounds = item.boundingRect();
@@ -104,7 +104,7 @@ static QPixmap blurPixmap(const QPixmap &src, const QSize &target, qreal blurRad
 
     QPixmap cropped = blurred.copy(pad, pad, work.width(), work.height());
     if (cropped.size() != target)
-        cropped = cropped.scaled(target, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+        cropped = cropped.scaled(target, Qt::IgnoreAspectRatio, Qt::FastTransformation);
     return cropped;
 }
 
@@ -125,7 +125,16 @@ QPixmap grabBlurredBackdrop(QWidget *host, const QList<QWidget *> &excludeWidget
         w->hide();
     }
 
-    const QPixmap shot = host->grab(host->rect());
+    const QSize work = backdropWorkSize(host->size());
+    QPixmap shot(work);
+    shot.fill(Qt::transparent);
+    {
+        QPainter p(&shot);
+        p.setRenderHint(QPainter::SmoothPixmapTransform, true);
+        p.scale(qreal(work.width()) / qMax(1, host->width()),
+                qreal(work.height()) / qMax(1, host->height()));
+        host->render(&p);
+    }
 
     for (QWidget *w : saved)
         w->show();

@@ -1358,13 +1358,9 @@ void MainWindow::openAudioFileFromPath(const QString &path)
     activateWindow();
 
     const quint64 openSeq = ++m_localOpenSeq;
-    QtConcurrent::run([playbackPath]() {
-        return LocalMusic::probeAndBuildInfo(playbackPath);
-    }).then(this, [this, openSeq](const MusicInfo &info) {
-        if (openSeq != m_localOpenSeq || !info.isLocalFile())
-            return;
+    const MusicInfo info = LocalMusic::probeAndBuildInfo(playbackPath);
+    if (openSeq == m_localOpenSeq && info.isLocalFile())
         playLocalMusicInfo(info);
-    });
 }
 
 void MainWindow::playLocalMusicInfo(const MusicInfo &info)

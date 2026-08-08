@@ -260,58 +260,13 @@ MusicInfo probeAndBuildInfo(const QString &filePath)
     info.id = stableLocalTrackId(path);
 
     QFileInfo fi(path);
-    info.title = fi.completeBaseName();
-
-    QMediaPlayer player;
-    QAudioOutput audio;
-    player.setAudioOutput(&audio);
-    player.setSource(QUrl::fromLocalFile(path));
-
-    QEventLoop loop;
-    QTimer timer;
-    timer.setSingleShot(true);
-    QObject::connect(&timer, &QTimer::timeout, &loop, &QEventLoop::quit);
-    QObject::connect(&player, &QMediaPlayer::metaDataChanged, &loop, &QEventLoop::quit);
-    timer.start(5000);
-    loop.exec();
-
-    const QMediaMetaData md = player.metaData();
-
-    const QString t = md.stringValue(QMediaMetaData::Title);
-    if (!t.isEmpty())
-        info.title = t;
-
-    QString a = md.stringValue(QMediaMetaData::ContributingArtist);
-    if (a.isEmpty())
-        a = md.stringValue(QMediaMetaData::AlbumArtist);
-    if (a.isEmpty())
-        a = md.stringValue(QMediaMetaData::Author);
-    if (!a.isEmpty())
-        info.artist = a;
-
-    const QString alb = md.stringValue(QMediaMetaData::AlbumTitle);
-    if (!alb.isEmpty())
-        info.album = alb;
-
-    info.duration = durationSeconds(md, player);
-
-    QImage cover;
-    const QVariant cov = md.value(QMediaMetaData::CoverArtImage);
-    if (cov.isValid() && cov.canConvert<QImage>())
-        cover = cov.value<QImage>();
-    if (cover.isNull()) {
-        const QVariant th = md.value(QMediaMetaData::ThumbnailImage);
-        if (th.isValid() && th.canConvert<QImage>())
-            cover = th.value<QImage>();
-    }
-    if (!cover.isNull()) {
-        const QString dir = QStandardPaths::writableLocation(QStandardPaths::TempLocation)
-            + QStringLiteral("/nekomusic-local-art");
-        QDir().mkpath(dir);
-        const QString dest = dir + QLatin1Char('/') + QString::number(qHash(path))
-            + QStringLiteral(".jpg");
-        if (cover.save(dest, "JPEG", 90))
-            info.coverUrl = QUrl::fromLocalFile(dest).toString();
+    const QString base = fi.completeBaseName().trimmed();
+    const int sep = base.indexOf(QStringLiteral(" - "));
+    if (sep > 0 && sep + 3 < base.size()) {
+        info.artist = base.left(sep).trimmed();
+        info.title = base.mid(sep + 3).trimmed();
+    } else {
+        info.title = base;
     }
 
     return info;

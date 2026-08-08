@@ -14,6 +14,7 @@
 #include "ui/glasspaint.h"
 #include "ui/scrollareafix.h"
 #include "ui/playlistlistitem.h"
+#include "core/covercache.h"
 #include "core/i18n.h"
 #include "core/usermanager.h"
 #include "core/apiclient.h"
@@ -28,6 +29,8 @@
 #include <QTimer>
 
 namespace {
+
+constexpr int kPlaylistCoverRequestConcurrency = 2;
 
 QColor navIconNormalColor()
 {
@@ -63,6 +66,56 @@ QIcon navIcon(const QString &key, bool active)
     const char *name = navSvgName(key);
     return Icons::iconNamed(name, 20, active ? navIconActiveColor() : navIconNormalColor(),
                             navIconActiveColor());
+}
+
+QString coverUrlForMusicId(int musicId)
+{
+    if (musicId <= 0)
+        return {};
+    return QString::fromUtf8("%1/api/music/cover/%2").arg(Theme::kApiBase).arg(musicId);
+}
+
+QString playlistCoverUrlFromMap(const QVariantMap &pl)
+{
+    static const QStringList kCoverKeys = {
+        QStringLiteral("coverUrl"),
+        QStringLiteral("cover_url"),
+        QStringLiteral("cover"),
+        QStringLiteral("imageUrl"),
+        QStringLiteral("image"),
+        QStringLiteral("picUrl"),
+        QStringLiteral("avatarUrl"),
+    };
+    for (const QString &key : kCoverKeys) {
+        const QString raw = pl.value(key).toString().trimmed();
+        if (!raw.isEmpty())
+            return CoverCache::resolveCoverUrl(raw);
+    }
+
+    static const QStringList kFirstIdKeys = {
+        QStringLiteral("firstMusicId"),
+        QStringLiteral("first_music_id"),
+        QStringLiteral("coverMusicId"),
+        QStringLiteral("cover_music_id"),
+        QStringLiteral("musicId"),
+    };
+    for (const QString &key : kFirstIdKeys) {
+        const int id = pl.value(key).toInt();
+        if (id > 0)
+            return coverUrlForMusicId(id);
+    }
+    return {};
+}
+
+QString coverUrlFromMusicList(const QList<QVariantMap> &musicList)
+{
+    if (musicList.isEmpty())
+        return {};
+    const QVariantMap first = musicList.first();
+    const QString rawCover = first.value(QStringLiteral("coverUrl")).toString().trimmed();
+    if (!rawCover.isEmpty())
+        return CoverCache::resolveCoverUrl(rawCover);
+    return coverUrlForMusicId(first.value(QStringLiteral("id")).toInt());
 }
 
 } // namespace
@@ -230,6 +283,12 @@ void Sidebar::loadPlaylists()
 {
     if (!m_apiClient || !UserManager::instance().isLoggedIn()) {
         // Not logged in or no API client, clear the list
+        ++m_playlistCoverGeneration;
+        ++m_favPlaylistCoverGeneration;
+        m_pendingPlaylistCoverIds.clear();
+        m_pendingFavPlaylistCoverIds.clear();
+        m_activePlaylistCoverRequests = 0;
+        m_activeFavPlaylistCoverRequests = 0;
         m_apiPlaylists.clear();
         m_favPlaylists.clear();
         refreshPlaylistList();
@@ -246,37 +305,16 @@ void Sidebar::loadPlaylists()
                 info.name = pl.value("name").toString();
                 info.description = pl.value("description").toString();
                 info.musicCount = pl.value("musicCount").toInt();
+                info.coverUrl = playlistCoverUrlFromMap(pl);
                 m_apiPlaylists.append(info);
             }
             qDebug() << "[歌单] 共加载" << m_apiPlaylists.size() << "个歌单";
-
-            // 为每个歌单获取封面（通过获取歌单内第一首音乐的封面，空歌单用musicId=0）
-            for (int i = 0; i < m_apiPlaylists.size(); ++i) {
-                int playlistId = m_apiPlaylists[i].id;
-                qDebug() << "[歌单封面] 开始请求歌单封面, playlistId =" << playlistId;
-                m_apiClient->fetchPlaylistMusic(playlistId, [this, playlistId](bool ok, int total, const QList<QVariantMap> &musicList) {
-                    qDebug() << "[歌单封面] 歌单音乐回调, playlistId =" << playlistId << ", ok =" << ok << ", total =" << total << ", size =" << musicList.size();
-                    int firstMusicId = 0;
-                    if (ok && !musicList.isEmpty()) {
-                        firstMusicId = musicList.first().value("id").toInt();
-                    }
-                    QString coverUrl = QString::fromUtf8("%1/api/music/cover/%2").arg(Theme::kApiBase).arg(firstMusicId);
-                    // 在缓存中找到对应的歌单并更新封面
-                    for (auto &info : m_apiPlaylists) {
-                        if (info.id == playlistId) {
-                            info.coverUrl = coverUrl;
-                            qDebug() << "[歌单封面] id =" << playlistId << ", musicId =" << firstMusicId << ", coverUrl =" << coverUrl;
-                            break;
-                        }
-                    }
-                    schedulePlaylistListRefresh();
-                });
-            }
         } else {
             m_apiPlaylists.clear();
             qDebug() << "[歌单] 加载失败";
         }
         refreshPlaylistList();
+        enqueueMissingPlaylistCovers();
         loadFavPlaylists();
     });
 }
@@ -288,6 +326,48 @@ void Sidebar::schedulePlaylistListRefresh()
         return;
     }
     m_playlistRefreshTimer->start();
+}
+
+void Sidebar::enqueueMissingPlaylistCovers()
+{
+    ++m_playlistCoverGeneration;
+    m_pendingPlaylistCoverIds.clear();
+    m_activePlaylistCoverRequests = 0;
+    for (const auto &pl : m_apiPlaylists) {
+        if (pl.coverUrl.isEmpty() && pl.musicCount > 0)
+            m_pendingPlaylistCoverIds.append(pl.id);
+    }
+    pumpPlaylistCoverRequests();
+}
+
+void Sidebar::pumpPlaylistCoverRequests()
+{
+    if (!m_apiClient)
+        return;
+    const int gen = m_playlistCoverGeneration;
+    while (m_activePlaylistCoverRequests < kPlaylistCoverRequestConcurrency
+           && !m_pendingPlaylistCoverIds.isEmpty()) {
+        const int playlistId = m_pendingPlaylistCoverIds.takeFirst();
+        ++m_activePlaylistCoverRequests;
+        m_apiClient->fetchPlaylistMusic(
+            playlistId,
+            [this, gen, playlistId](bool ok, int, const QList<QVariantMap> &musicList) {
+                if (gen != m_playlistCoverGeneration)
+                    return;
+                m_activePlaylistCoverRequests = qMax(0, m_activePlaylistCoverRequests - 1);
+                const QString coverUrl = ok ? coverUrlFromMusicList(musicList) : QString();
+                if (!coverUrl.isEmpty()) {
+                    for (auto &info : m_apiPlaylists) {
+                        if (info.id == playlistId) {
+                            info.coverUrl = coverUrl;
+                            break;
+                        }
+                    }
+                    schedulePlaylistListRefresh();
+                }
+                pumpPlaylistCoverRequests();
+            });
+    }
 }
 
 void Sidebar::refreshPlaylistList()
@@ -405,6 +485,9 @@ void Sidebar::refreshPlaylistList()
 void Sidebar::loadFavPlaylists()
 {
     if (!m_apiClient || !UserManager::instance().isLoggedIn()) {
+        ++m_favPlaylistCoverGeneration;
+        m_pendingFavPlaylistCoverIds.clear();
+        m_activeFavPlaylistCoverRequests = 0;
         m_favPlaylists.clear();
         refreshFavPlaylistList();
         return;
@@ -419,24 +502,14 @@ void Sidebar::loadFavPlaylists()
                 info.name = pl.value("name").toString();
                 info.description = pl.value("description").toString();
                 info.musicCount = pl.value("musicCount").toInt();
+                info.coverUrl = playlistCoverUrlFromMap(pl);
                 m_favPlaylists.append(info);
-            }
-            for (int i = 0; i < m_favPlaylists.size(); ++i) {
-                int playlistId = m_favPlaylists[i].id;
-                m_apiClient->fetchPlaylistMusic(playlistId, [this, playlistId](bool ok, int total, const QList<QVariantMap> &musicList) {
-                    int firstMusicId = 0;
-                    if (ok && !musicList.isEmpty()) firstMusicId = musicList.first().value("id").toInt();
-                    QString coverUrl = QString::fromUtf8("%1/api/music/cover/%2").arg(Theme::kApiBase).arg(firstMusicId);
-                    for (auto &info : m_favPlaylists) {
-                        if (info.id == playlistId) { info.coverUrl = coverUrl; break; }
-                    }
-                    scheduleFavPlaylistListRefresh();
-                });
             }
         } else {
             m_favPlaylists.clear();
         }
         refreshFavPlaylistList();
+        enqueueMissingFavPlaylistCovers();
     });
 }
 
@@ -447,6 +520,48 @@ void Sidebar::scheduleFavPlaylistListRefresh()
         return;
     }
     m_favPlaylistRefreshTimer->start();
+}
+
+void Sidebar::enqueueMissingFavPlaylistCovers()
+{
+    ++m_favPlaylistCoverGeneration;
+    m_pendingFavPlaylistCoverIds.clear();
+    m_activeFavPlaylistCoverRequests = 0;
+    for (const auto &pl : m_favPlaylists) {
+        if (pl.coverUrl.isEmpty() && pl.musicCount > 0)
+            m_pendingFavPlaylistCoverIds.append(pl.id);
+    }
+    pumpFavPlaylistCoverRequests();
+}
+
+void Sidebar::pumpFavPlaylistCoverRequests()
+{
+    if (!m_apiClient)
+        return;
+    const int gen = m_favPlaylistCoverGeneration;
+    while (m_activeFavPlaylistCoverRequests < kPlaylistCoverRequestConcurrency
+           && !m_pendingFavPlaylistCoverIds.isEmpty()) {
+        const int playlistId = m_pendingFavPlaylistCoverIds.takeFirst();
+        ++m_activeFavPlaylistCoverRequests;
+        m_apiClient->fetchPlaylistMusic(
+            playlistId,
+            [this, gen, playlistId](bool ok, int, const QList<QVariantMap> &musicList) {
+                if (gen != m_favPlaylistCoverGeneration)
+                    return;
+                m_activeFavPlaylistCoverRequests = qMax(0, m_activeFavPlaylistCoverRequests - 1);
+                const QString coverUrl = ok ? coverUrlFromMusicList(musicList) : QString();
+                if (!coverUrl.isEmpty()) {
+                    for (auto &info : m_favPlaylists) {
+                        if (info.id == playlistId) {
+                            info.coverUrl = coverUrl;
+                            break;
+                        }
+                    }
+                    scheduleFavPlaylistListRefresh();
+                }
+                pumpFavPlaylistCoverRequests();
+            });
+    }
 }
 
 void Sidebar::refreshFavPlaylistList()

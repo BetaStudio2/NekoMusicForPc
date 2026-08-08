@@ -16,6 +16,7 @@ class QVBoxLayout;
 class QLabel;
 class QPushButton;
 class QParallelAnimationGroup;
+class QTimer;
 
 class AddToPlaylistDialog : public QWidget
 {
@@ -46,6 +47,7 @@ private:
     void dismiss();
     void dismissAnimated();
     void refreshBackdrop();
+    void scheduleBackdropRefresh(int delayMs = 160);
     void layoutOverlay();
     void animateOpen();
     void animateClose(const std::function<void()> &onFinished);
@@ -60,7 +62,6 @@ private:
     void loadPlaylists();
     void loadLocalPlaylists();
     void loadOnlinePlaylists();
-    void resolveOnlineCovers(const QList<PlaylistRow> &rows);
     QWidget *appendCreateRow();
     QWidget *appendPlaylistRow(const PlaylistRow &row);
     void bindCover(QWidget *rowWidget, const QString &coverUrl);
@@ -86,4 +87,5 @@ private:
     QHash<int, QWidget *> m_rowsByPlaylistId;
 
     QParallelAnimationGroup *m_animGroup = nullptr;
+    QTimer *m_backdropRefreshTimer = nullptr;
 };

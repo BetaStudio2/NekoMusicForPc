@@ -13,6 +13,7 @@
 #include <QHash>
 #include <QMetaObject>
 #include <QColor>
+#include <QImage>
 #include <QPixmap>
 #include "../core/audioquality.h"
 #include "../core/musicinfo.h"
@@ -165,7 +166,7 @@ private:
     QColor m_coverSecondColor;
     QPixmap m_bgBlurPixmap;
     QPixmap m_coverBackdropSource;
-    QPixmap m_underlaySnapshot;
+    QImage m_underlaySnapshot;
     QPixmap m_underlayBlurPixmap;
     bool m_controlSidesVisible = false;
     qreal m_coverVisualScale = 0.9;

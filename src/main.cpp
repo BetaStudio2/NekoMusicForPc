@@ -54,7 +54,7 @@ int main(int argc, char *argv[])
     // 检查是否已有实例在运行
     QLocalSocket socket;
     socket.connectToServer(kServerName);
-    if (socket.waitForConnected(3000)) {
+    if (socket.waitForConnected(350)) {
         const QString audio = firstLaunchAudioPath(argc, argv);
         if (!audio.isEmpty()) {
             QByteArray msg = QByteArrayLiteral("PLAY\t") + audio.toUtf8() + '\n';
@@ -63,7 +63,7 @@ int main(int argc, char *argv[])
             socket.write("SHOW\n");
         }
         socket.flush();
-        socket.waitForBytesWritten(3000);
+        socket.waitForBytesWritten(500);
         return 0;
     }
 
