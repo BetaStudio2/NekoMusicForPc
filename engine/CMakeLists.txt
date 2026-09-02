@@ -14,7 +14,9 @@ endif()
 set(CMAKE_C_VISIBILITY_PRESET hidden)
 set(CMAKE_VISIBILITY_INLINES_HIDDEN ON)
 
-find_package(PkgConfig REQUIRED)
+if(NOT WIN32)
+    find_package(PkgConfig REQUIRED)
+endif()
 
 if(WIN32)
     # Windows：从 MPV_DIR 或系统路径查找 libmpv（mingw/msvc 均可用）

@@ -83,7 +83,9 @@ if [[ $OS == Linux ]]; then
   BUNDLE="$FLUTTER_DIR/build/linux/x64/$MODE/bundle"
   echo ""
   echo "== 构建完成: $BUNDLE/neko_music"
-  [[ $MODE == debug ]] && echo "   （运行需在 bundle 目录内执行：./neko_music）"
+  if [[ $MODE == debug ]]; then
+    echo "   （运行需在 bundle 目录内执行：./neko_music）"
+  fi
 else
   # macOS：引擎 dylib 拷入 .app/Contents/Frameworks（dyld 裸名搜索路径）
   APP_DIR=$(ls -d "$FLUTTER_DIR"/build/macos/Build/Products/$MODE/*.app 2>/dev/null | head -1)

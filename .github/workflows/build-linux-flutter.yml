@@ -62,7 +62,7 @@ jobs:
     steps:
       - name: Install system dependencies
         run: |
-          dnf install -y git curl which xz tar file cmake ninja-build gcc-c++ gtk3-devel \
+          dnf install -y git curl jq which xz tar file cmake ninja-build gcc-c++ gtk3-devel \
             mpv-libs-devel qt6-qtbase-devel rpm-build
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
@@ -98,13 +98,12 @@ jobs:
       - name: Package .app (zip)
         run: |
           APP_DIR=$(ls -d flutter/build/macos/Build/Products/Release/*.app | head -1)
-          cd "$(dirname "$APP_DIR")"
-          zip -qry "$(basename "$APP_DIR").zip" "$(basename "$APP_DIR")"
-          mkdir -p ../../dist && mv "$(basename "$APP_DIR").zip" ../../dist/
+          APP_NAME=$(basename "$APP_DIR")
+          (cd "$(dirname "$APP_DIR")" && zip -qry "$GITHUB_WORKSPACE/$APP_NAME.zip" "$APP_NAME")
       - uses: actions/upload-artifact@v4
         with:
           name: nekomusic-macos
-          path: flutter/build/dist/*.zip
+          path: "*.zip"
           if-no-files-found: error
 
   # ── Windows：手动触发（实验性）──────────────────────────────
