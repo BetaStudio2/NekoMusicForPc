@@ -68,9 +68,10 @@ CI 见 `.github/workflows/build-linux-flutter.yml`（push/PR 自动构建并上�
 
 | 平台 | 说明 |
 | --- | --- |
-| Linux | `scripts/build.sh release && scripts/package.sh` 生成 `flutter/build/dist/*.tar.gz` |
+| Linux | `scripts/build.sh release` 后按发行版打包：`.deb`（`scripts/package-deb.sh`，Debian/Ubuntu）、`.rpm`（`scripts/package-rpm.sh`，Fedora）、Arch 包（`scripts/package-arch.sh`）；或聚合入口 `scripts/package.sh` |
+| macOS | `scripts/build.sh release`（ Darwin 自动走 `flutter build macos`），产物为 `.app` |
 | Windows | `scripts\build.bat release`（需 MPV_DIR 与 Qt6） |
-| CI | push/PR 自动构建 Linux 产物（`.github/workflows/build-linux-flutter.yml`，仅调用 scripts/） |
+| CI | push/PR 自动构建：deb（ubuntu）+ rpm（fedora 容器）+ macOS；Windows 为手动触发（全部仅调用 scripts/） |
 
 ---
 

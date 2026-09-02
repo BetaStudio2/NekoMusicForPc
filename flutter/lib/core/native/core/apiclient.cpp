@@ -4,7 +4,6 @@
  */
 
 #include "apiclient.h"
-#include "httpprotocollabel.h"
 #include "theme/theme.h"
 #include "core/usermanager.h"
 
@@ -298,7 +297,7 @@ void ApiClient::searchMusic(const QString &query, int page, int pageSize, MusicS
         int statusCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         if (reply->error() != QNetworkReply::NoError) {
             qDebug() << "[搜索API]搜索:" << query << "，HTTP状态码:" << statusCode
-                     << "，协议:" << httpProtocolLabel(reply) << "，错误:" << reply->errorString();
+                     << "，错误:" << reply->errorString();
             if (cb) cb(false, 0, 0, 0, {});
             return;
         }
@@ -327,11 +326,11 @@ void ApiClient::searchMusic(const QString &query, int page, int pageSize, MusicS
                 }
             }
             qDebug() << "[搜索API]搜索:" << query << "，HTTP状态码:" << statusCode
-                     << "，协议:" << httpProtocolLabel(reply) << "，成功，找到" << total << "个结果";
+                     << "，成功，找到" << total << "个结果";
         } else {
             QString message = doc.object().value("message").toString();
             qDebug() << "[搜索API]搜索:" << query << "，HTTP状态码:" << statusCode
-                     << "，协议:" << httpProtocolLabel(reply) << "，失败，消息:" << message;
+                     << "，失败，消息:" << message;
         }
         if (cb) cb(ok, total, currentPage, currentPageSize, results);
     });
@@ -596,8 +595,7 @@ void ApiClient::fetchPlaylistMusic(int playlistId, PlaylistMusicCb cb) {
     connect(reply, &QNetworkReply::finished, this, [reply, cb, playlistId]() {
         reply->deleteLater();
         if (reply->error() != QNetworkReply::NoError) {
-            qDebug() << "[歌单音乐] playlistId =" << playlistId << ", 协议:" << httpProtocolLabel(reply)
-                     << ", 网络错误:" << reply->errorString();
+            qDebug() << "[歌单音乐] playlistId =" << playlistId << ", 网络错误:" << reply->errorString();
             if (cb) cb(false, 0, {});
             return;
         }
@@ -610,11 +608,9 @@ void ApiClient::fetchPlaylistMusic(int playlistId, PlaylistMusicCb cb) {
             total = doc.object().value("total").toInt();
             for (const auto &v : doc.object().value("musicList").toArray())
                 res.append(v.toObject().toVariantMap());
-            qDebug() << "[歌单音乐] playlistId =" << playlistId << ", 协议:" << httpProtocolLabel(reply)
-                     << ", total =" << total << ", 实际获取 =" << res.size();
+            qDebug() << "[歌单音乐] playlistId =" << playlistId << ", total =" << total << ", 实际获取 =" << res.size();
         } else {
-            qDebug() << "[歌单音乐] playlistId =" << playlistId << ", 协议:" << httpProtocolLabel(reply)
-                     << ", API返回success=false, body:" << body;
+            qDebug() << "[歌单音乐] playlistId =" << playlistId << ", API返回success=false, body:" << body;
         }
         if (cb) cb(ok, total, res);
     });
@@ -1157,8 +1153,7 @@ void ApiClient::batchSearchMusic(const QList<BatchSearchItem> &items, BatchSearc
 
             if (reply->error() != QNetworkReply::NoError) {
                 qDebug() << "[批量搜索] 第" << (chunkIdx + 1) << "/" << chunkTotal << "批失败"
-                         << "，协议:" << httpProtocolLabel(reply)
-                         << "，HTTP:" << httpStatus
+                         << ", HTTP:" << httpStatus
                          << "，错误:" << reply->errorString();
                 BatchSearchResult result;
                 result.success = false;
@@ -1170,8 +1165,7 @@ void ApiClient::batchSearchMusic(const QList<BatchSearchItem> &items, BatchSearc
             const auto doc = QJsonDocument::fromJson(reply->readAll());
             if (!doc.isObject()) {
                 qDebug() << "[批量搜索] 第" << (chunkIdx + 1) << "/" << chunkTotal << "批响应无效"
-                         << "，协议:" << httpProtocolLabel(reply)
-                         << "，HTTP:" << httpStatus;
+                         << ", HTTP:" << httpStatus;
                 BatchSearchResult result;
                 result.success = false;
                 result.message = QStringLiteral("搜索服务响应无效");
@@ -1192,8 +1186,7 @@ void ApiClient::batchSearchMusic(const QList<BatchSearchItem> &items, BatchSearc
             int chunkFailed = 0;
             if (results.isEmpty() && !ok) {
                 qDebug() << "[批量搜索] 第" << (chunkIdx + 1) << "/" << chunkTotal << "批API返回失败"
-                         << "，协议:" << httpProtocolLabel(reply)
-                         << "，HTTP:" << httpStatus
+                         << ", HTTP:" << httpStatus
                          << "，消息:" << message;
                 ctx->failCount += chunk.size();
                 chunkFailed = chunk.size();
@@ -1221,8 +1214,7 @@ void ApiClient::batchSearchMusic(const QList<BatchSearchItem> &items, BatchSearc
                     chunkFailed += missing;
                 }
                 qDebug() << "[批量搜索] 第" << (chunkIdx + 1) << "/" << chunkTotal << "批完成"
-                         << "，协议:" << httpProtocolLabel(reply)
-                         << "，HTTP:" << httpStatus
+                         << ", HTTP:" << httpStatus
                          << "，本批匹配" << chunkMatched << "首，未匹配" << chunkFailed << "首"
                          << "，累计匹配" << ctx->successCount << "首";
             }

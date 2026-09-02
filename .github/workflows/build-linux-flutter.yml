@@ -1,13 +1,7 @@
-name: Build Flutter Linux
+name: Build Flutter (Linux / macOS / Windows)
 
 'on':
   workflow_dispatch:
-    inputs:
-      reason:
-        description: "手动触发原因（可选）"
-        required: false
-        default: "manual"
-        type: string
   push:
     branches:
       - main
@@ -17,7 +11,7 @@ name: Build Flutter Linux
       - "engine/**"
       - "packaging/**"
       - "scripts/**"
-      - ".github/workflows/build-linux-flutter.yml"
+      - ".github/workflows/**"
   pull_request:
     paths:
       - "flutter/**"
@@ -35,60 +29,91 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build-linux:
+  # ── Linux（Debian/Ubuntu）：.deb ─────────────────────────────
+  linux-deb:
     runs-on: ubuntu-24.04
     timeout-minutes: 45
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      # 引擎依赖: libmpv；Qt 核心桥依赖: Qt6 Core/Network/Sql/Gui（qt6-base-dev）
+      - uses: actions/checkout@v4
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y \
-            ninja-build \
-            libgtk-3-dev \
-            libmpv-dev \
-            qt6-base-dev
-
-      - name: Setup Flutter (stable 3.44+)
-        uses: subosito/flutter-action@v2
+          sudo apt-get install -y ninja-build libgtk-3-dev libmpv-dev qt6-base-dev
+      - uses: subosito/flutter-action@v2
         with:
-          flutter-version: 3.44.8
+          flutter-version: 3.47.2
           channel: stable
           cache: true
-
       - name: Build (release)
         run: ./scripts/build.sh release
-
-      - name: Package tarball
-        run: ./scripts/package.sh
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
+      - name: Package .deb
+        run: ./scripts/package-deb.sh
+      - uses: actions/upload-artifact@v4
         with:
-          name: nekomusic-linux-x64
-          path: flutter/build/dist/*.tar.gz
+          name: nekomusic-linux-deb
+          path: flutter/build/dist/*.deb
           if-no-files-found: error
 
-      - name: Attach to release
-        if: github.event_name == 'release'
-        uses: softprops/action-gh-release@v2
+  # ── Linux（Fedora/RPM 系）：.rpm ─────────────────────────────
+  linux-rpm:
+    runs-on: ubuntu-24.04
+    container: fedora:latest
+    timeout-minutes: 45
+    steps:
+      - name: Install system dependencies
+        run: |
+          dnf install -y git cmake ninja-build gcc-c++ gtk3-devel \
+            mpv-libs-devel qt6-qtbase-devel rpm-build
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
         with:
-          files: flutter/build/dist/*.tar.gz
+          flutter-version: 3.47.2
+          channel: stable
+          cache: true
+      - name: Build (release)
+        run: ./scripts/build.sh release
+      - name: Package .rpm
+        run: ./scripts/package-rpm.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nekomusic-linux-rpm
+          path: flutter/build/dist/*.rpm
+          if-no-files-found: error
 
+  # ── macOS：.app（zip）────────────────────────────────────────
+  macos:
+    runs-on: macos-14
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install system dependencies
+        run: brew install cmake ninja mpv qt
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.47.2
+          channel: stable
+          cache: true
+      - name: Build (release)
+        run: ./scripts/build.sh release
+      - name: Package .app (zip)
+        run: |
+          APP_DIR=$(ls -d flutter/build/macos/Build/Products/Release/*.app | head -1)
+          cd "$(dirname "$APP_DIR")"
+          zip -qry "$(basename "$APP_DIR").zip" "$(basename "$APP_DIR")"
+          mkdir -p ../../dist && mv "$(basename "$APP_DIR").zip" ../../dist/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nekomusic-macos
+          path: flutter/build/dist/*.zip
+          if-no-files-found: error
+
+  # ── Windows：手动触发（实验性）──────────────────────────────
   build-windows:
     runs-on: windows-latest
     timeout-minutes: 45
     if: github.event_name == 'workflow_dispatch'
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      # Qt6（核心桥）与 Ninja
+      - uses: actions/checkout@v4
       - name: Setup Qt 6
         uses: jurplel/install-qt-action@v4
         with:
@@ -97,11 +122,8 @@ jobs:
           target: 'desktop'
           arch: 'win64_msvc2022_64'
           cache: true
-
       - name: Setup Ninja
         run: choco install ninja -y
-
-      # libmpv 开发包（头文件 + 导入库 + DLL），固定版本避免上游变动
       - name: Setup libmpv
         shell: pwsh
         run: |
@@ -109,21 +131,29 @@ jobs:
           Invoke-WebRequest -Uri $url -OutFile mpv-dev.7z
           7z x mpv-dev.7z -o"$env:RUNNER_TEMP\mpv"
           echo "MPV_DIR=$env:RUNNER_TEMP\mpv" | Out-File -FilePath $env:GITHUB_ENV -Append
-
-      - name: Setup Flutter (stable 3.47+)
-        uses: subosito/flutter-action@v2
+      - uses: subosito/flutter-action@v2
         with:
           flutter-version: 3.47.2
           channel: stable
           cache: true
-
       - name: Build (release)
         shell: cmd
         run: scripts\build.bat release
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: nekomusic-windows-x64
           path: flutter/build/windows/x64/runner/Release/
           if-no-files-found: error
+
+  # ── Release：附加全部产物 ────────────────────────────────────
+  attach-release:
+    if: github.event_name == 'release'
+    needs: [linux-deb, linux-rpm, macos]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/**/*

@@ -48,9 +48,8 @@ set_target_properties(neko_engine PROPERTIES
 
 # ---- Qt 核心桥（neko_core）----
 # 复刻原 Qt 程序的核心子集：ApiClient / UserManager / PlaylistDatabase / PlaylistManager
-# 仅依赖 Qt Core/Network/Sql/Gui（不链 Multimedia，绕开 FFmpeg 符号冲突）
-# Gui 仅因 theme.h 引用 QColor
-find_package(Qt6 REQUIRED COMPONENTS Core Network Sql Gui)
+# 仅依赖 Qt Core/Network/Sql（不链 Multimedia/Gui，绕开 FFmpeg 符号冲突）
+find_package(Qt6 REQUIRED COMPONENTS Core Network Sql)
 
 add_library(neko_core SHARED
         core/neko_core.cpp
@@ -63,7 +62,7 @@ target_include_directories(neko_core PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_include_directories(neko_core PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/../flutter/lib/core/native)
-target_link_libraries(neko_core PRIVATE Qt6::Core Qt6::Network Qt6::Sql Qt6::Gui)
+target_link_libraries(neko_core PRIVATE Qt6::Core Qt6::Network Qt6::Sql)
 target_compile_definitions(neko_core PRIVATE NEKO_CORE_BUILD)
 set_target_properties(neko_core PROPERTIES
         OUTPUT_NAME neko_core
