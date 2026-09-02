@@ -134,7 +134,7 @@ jobs:
           # 归档自带一层目录且内含 mingw 导入库；MSVC 可消费 COFF .lib——
           # 改名为 mpv.lib 供 find_library。搜索基准用 RUNNER_TEMP 兼容嵌套结构
           $root = Get-ChildItem "$env:RUNNER_TEMP\mpv" -Recurse -Filter client.h |
-            Where-Object FullName -Match '\\mpv\\client\\.h$' | Select-Object -First 1
+            Select-Object -First 1
           if (-not $root) { throw 'mpv headers not found in archive' }
           $inc = Split-Path (Split-Path $root.FullName -Parent) -Parent
           $import = Get-ChildItem "$env:RUNNER_TEMP\mpv" -Recurse -Filter *.a |
