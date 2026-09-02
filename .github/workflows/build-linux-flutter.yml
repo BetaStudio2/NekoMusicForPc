@@ -369,7 +369,7 @@ jobs:
   # ── Release：附加全部产物 ────────────────────────────────────
   attach-release:
     if: github.event_name == 'release'
-    needs: [linux-deb, linux-rpm, macos, linux-arch, linux-nix, linux-appimage, linux-flatpak]
+    needs: [linux-deb, linux-rpm, macos, linux-arch, linux-nix, linux-appimage, linux-flatpak, linux-snap]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
