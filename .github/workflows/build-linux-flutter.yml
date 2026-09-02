@@ -182,14 +182,26 @@ jobs:
       - name: Install system dependencies
         run: |
           pacman -Syu --noconfirm --needed base-devel git curl jq cmake ninja \
-            flutter qt6-base mpv gtk3 zstd
+            qt6-base mpv gtk3 zstd
       - uses: actions/checkout@v4
+      # Arch 仓库无 flutter 包：用官方 action 下 SDK（容器内亦可用）
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.47.2
+          channel: stable
+          cache: true
       - name: Add non-root builder (flutter 拒绝 root)
         run: |
           useradd -m builder
           chown -R builder "$GITHUB_WORKSPACE"
+          echo "FLUTTER_BIN=/opt/hostedtoolcache/flutter/stable-3.47.2-x64/flutter/bin/flutter" >> /etc/environment
       - name: Build (release)
-        run: runuser -u builder -- bash scripts/build.sh release
+        run: |
+          chown -R builder /opt/hostedtoolcache/flutter/stable-3.47.2-x64
+          runuser -u builder -- env \
+            PATH="/opt/hostedtoolcache/flutter/stable-3.47.2-x64/flutter/bin:$PATH" \
+            FLUTTER_BIN=/opt/hostedtoolcache/flutter/stable-3.47.2-x64/flutter/bin/flutter \
+            bash scripts/build.sh release
       - name: Package Arch pkg
         run: bash scripts/package-arch.sh
       - uses: actions/upload-artifact@v4

@@ -74,7 +74,7 @@
 
             meta = with pkgs.lib; {
               description = "Neko歌姬计划：高品质无损云音乐播放器（Flutter 版）";
-              license = licenses.unfreeRedistributable;
+              license = licenses.agpl3;
               platforms = platforms.linux;
             };
           };
