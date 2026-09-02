@@ -342,6 +342,7 @@ static QMap<QString, QString> zhCN()
     m["operationFailed"] = QStringLiteral("操作失败");
     m["networkError"] = QStringLiteral("网络错误，请检查服务器连接");
     m["networkErrorRetry"] = QStringLiteral("网络错误，请重试");
+    m["lanDeviceConnected"] = QStringLiteral("已连接到%1");
     m["loginSuccess"] = QStringLiteral("登录成功，欢迎回来！");
     m["loginFailed"] = QStringLiteral("登录失败");
     m["logoutSuccess"] = QStringLiteral("已退出登录");
@@ -1228,6 +1229,7 @@ static QMap<QString, QString> enUS()
     m["operationFailed"] = "Operation Failed";
     m["networkError"] = "Network Error, please check server connection";
     m["networkErrorRetry"] = "Network error, please try again";
+    m["lanDeviceConnected"] = "Connected to %1";
     m["loginSuccess"] = "Login Successful, welcome back!";
     m["loginFailed"] = "Login Failed";
     m["logoutSuccess"] = "Logged out successfully";
