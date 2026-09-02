@@ -52,8 +52,8 @@
               export HOME="$TMPDIR/flutter-home"
               mkdir -p "$HOME"
               flutter config --no-analytics
-              flutter pub get
-              flutter build linux --release
+              # Dart 工程根为 flutter/；子 shell 内执行以免 cwd 影响后续 installPhase
+              (cd flutter && flutter pub get && flutter build linux --release)
               runHook postBuild
             '';
 
