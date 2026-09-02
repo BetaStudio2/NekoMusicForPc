@@ -1,0 +1,7 @@
+# Flutter gen_l10n 配置：从 ARB 模板生成 AppLocalizations 代码
+arb-dir: lib/l10n
+template-arb-file: app_zh.arb
+output-localization-file: app_localizations.dart
+output-class: AppLocalizations
+output-dir: lib/l10n/generated
+nullable-getter: false

@@ -1,0 +1,25 @@
+[Desktop Entry]
+# --- 基础身份 ---
+# 文件名必须与 runner 的 APPLICATION_ID（com.nekomusic.neko_music）一致，
+# Wayland 下 KWin/任务栏通过 app_id ↔ desktop 文件名匹配来显示图标。
+Type=Application
+Version=1.5
+Name=Neko歌姬计划
+Name[en]=Neko Music
+GenericName=梦幻网络出品的免费无损云音乐平台
+GenericName[en]=Free Lossless Cloud Music Platform by Fantasy Network
+Comment=高品质无损音乐播放器 (Flutter + libmpv)
+Comment[en]=High-quality Lossless Music Player
+
+# --- 执行与路径 ---
+# 默认假设已通过 packaging/install-linux.sh 安装；如有自定义路径请修改
+Exec=neko_music %F
+Icon=nekomusic
+Terminal=false
+StartupNotify=true
+StartupWMClass=com.nekomusic.neko_music
+
+# --- 分类与检索 ---
+Categories=AudioVideo;Audio;Player;Music;
+Keywords=Music;Player;Neko;Flac;Lossless;
+MimeType=audio/flac;audio/mpeg;audio/ogg;audio/x-wav;audio/aac;audio/mp4;audio/mpegurl;

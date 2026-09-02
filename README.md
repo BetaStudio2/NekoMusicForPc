@@ -26,73 +26,51 @@ QQ云音乐歌单导入相同 [QQ云API仓库](https://github.com/Rain120/qq-mus
 | 依赖 | 最低版本 |
 | --- | --- |
 | CMake | ≥ 3.20 |
-| Qt 6 | ≥ 6.2（需 Multimedia、Widgets 等，与 `CMakeLists.txt` 一致） |
+| Qt 6 | ≥ 6.2（Core/Network/Sql/Gui，核心桥使用） |
 | C++17 编译器 | GCC ≥ 9 / MSVC 2019 / Clang ≥ 10 |
 
 **Debian / Ubuntu 示例：**
 
 ```bash
-sudo apt install cmake qt6-base-dev qt6-multimedia-dev
+sudo apt install cmake ninja-build qt6-base-dev libmpv-dev
 ```
 
 ---
 
 ## 配置与编译
 
-项目可使用 CMake Presets，也可直接用脚本构建：
+### Flutter 版构建
+
+依赖：Flutter SDK 3.44+（**任意官方版本即可，无需补丁 SDK**）、CMake、Ninja、
+libmpv 开发文件、Qt6（Core/Network/Sql/Gui）。
 
 ```bash
-# Linux（推荐）
-bash build_linux.sh
+# Debug 构建（默认）
+./scripts/build.sh
 
-# Windows：在 Linux 上交叉编译（需自备 MinGW 版 Qt，见脚本内说明）
-QT_WIN_ROOT=./qt-win/6.10.2/mingw_64 ./build_windows.sh
+# Release 构建
+./scripts/build.sh release
+
+# 打包可分发的 tar.gz（含 bundle + 桌面入口 + 图标 + 安装器）
+./scripts/package.sh
+
+# 桌面集成安装（图标 + 应用入口；可选 --bundle 指定程序目录）
+./scripts/install.sh
+
+# 清理构建产物
+./scripts/clean.sh
 ```
 
-使用 Presets 时：
-
-```bash
-# Linux
-cmake --preset linux-debug
-cmake --preset linux-release
-cmake --build build/linux-release -j"$(nproc)"
-
-# Windows / macOS（需在对应系统或 CI 上）
-cmake --preset windows-release
-cmake --preset macos-release
-
-# macOS 一键打通用 pkg（arm64 + x86_64）
-./build_macos.sh
-```
-
-手动配置示例：
-
-```bash
-cmake -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build --parallel
-```
-
-### 测试（若启用）
-
-```bash
-ctest --test-dir build/linux-debug --output-on-failure
-```
-
-### 安装（Linux）
-
-```bash
-cmake --install build/linux-release --prefix /usr/local
-```
-
----
+SDK 解析顺序：`$NEKO_FLUTTER` → `../flutter-stable` → PATH → `/opt/flutter`。
+CI 见 `.github/workflows/build-linux-flutter.yml`（push/PR 自动构建并上传产物）。
 
 ## 构建产物
 
 | 平台 | 说明 |
 | --- | --- |
-| Linux | 可执行文件在构建目录；`build_linux.sh` 可用 CPack 打 deb（若已配置） |
-| Windows | `build_windows.sh` 完成后一般在 `dist/` 下生成安装包（见脚本输出） |
-| macOS | `build_macos.sh` 完成后在 `dist/` 下生成通用架构 `.pkg`（arm64 + x86_64）；CI 见 `.github/workflows/build-macos.yml` |
+| Linux | `scripts/build.sh release && scripts/package.sh` 生成 `flutter/build/dist/*.tar.gz` |
+| Windows | `scripts\build.bat release`（需 MPV_DIR 与 Qt6） |
+| CI | push/PR 自动构建 Linux 产物（`.github/workflows/build-linux-flutter.yml`，仅调用 scripts/） |
 
 ---
 

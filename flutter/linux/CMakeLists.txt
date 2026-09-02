@@ -1,0 +1,208 @@
+# Project-level configuration.
+cmake_minimum_required(VERSION 3.13)
+project(runner LANGUAGES CXX)
+
+# The name of the executable created for the application. Change this to change
+# the on-disk name of your application.
+set(BINARY_NAME "neko_music")
+# The unique GTK application identifier for this application. See:
+# https://wiki.gnome.org/HowDoI/ChooseApplicationID
+set(APPLICATION_ID "com.nekomusic.neko_music")
+
+# Explicitly opt in to modern CMake behaviors to avoid warnings with recent
+# versions of CMake.
+cmake_policy(SET CMP0063 NEW)
+
+# Load bundled libraries from the lib/ directory relative to the binary.
+set(CMAKE_INSTALL_RPATH "$ORIGIN/lib")
+
+# Root filesystem for cross-building.
+if(FLUTTER_TARGET_PLATFORM_SYSROOT)
+  set(CMAKE_SYSROOT ${FLUTTER_TARGET_PLATFORM_SYSROOT})
+  set(CMAKE_FIND_ROOT_PATH ${CMAKE_SYSROOT})
+  set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+  set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
+  set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+  set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
+endif()
+
+# Define build configuration options.
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+  set(CMAKE_BUILD_TYPE "Debug" CACHE
+    STRING "Flutter build mode" FORCE)
+  set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS
+    "Debug" "Profile" "Release")
+endif()
+
+# Compilation settings that should be applied to most targets.
+#
+# Be cautious about adding new options here, as plugins use this function by
+# default. In most cases, you should add new options to specific targets instead
+# of modifying this function.
+function(APPLY_STANDARD_SETTINGS TARGET)
+  target_compile_features(${TARGET} PUBLIC cxx_std_14)
+  target_compile_options(${TARGET} PRIVATE -Wall -Werror)
+  target_compile_options(${TARGET} PRIVATE "$<$<NOT:$<CONFIG:Debug>>:-O3>")
+  target_compile_definitions(${TARGET} PRIVATE "$<$<NOT:$<CONFIG:Debug>>:NDEBUG>")
+endfunction()
+
+# Flutter library and tool build rules.
+set(FLUTTER_MANAGED_DIR "${CMAKE_CURRENT_SOURCE_DIR}/flutter")
+add_subdirectory(${FLUTTER_MANAGED_DIR})
+
+# System-level dependencies.
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(GTK REQUIRED IMPORTED_TARGET gtk+-3.0)
+
+# Application build; see runner/CMakeLists.txt.
+add_subdirectory("runner")
+
+# === Neko engine (libmpv wrapper) ===
+# 构建并随 bundle 分发 libneko_engine，Flutter 侧通过 dart:ffi 加载。
+set(NEKO_ENGINE_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../engine")
+set(NEKO_ENGINE_BINARY_DIR "${NEKO_ENGINE_SOURCE_DIR}/build")
+if(WIN32)
+  set(NEKO_ENGINE_LIB "${NEKO_ENGINE_BINARY_DIR}/neko_engine.dll")
+elseif(APPLE)
+  set(NEKO_ENGINE_LIB "${NEKO_ENGINE_BINARY_DIR}/libneko_engine.dylib")
+else()
+  set(NEKO_ENGINE_LIB "${NEKO_ENGINE_BINARY_DIR}/libneko_engine.so")
+endif()
+
+add_custom_command(
+  OUTPUT "${NEKO_ENGINE_LIB}"
+  COMMAND ${CMAKE_COMMAND} -S "${NEKO_ENGINE_SOURCE_DIR}" -B "${NEKO_ENGINE_BINARY_DIR}" -DCMAKE_BUILD_TYPE=Release
+  COMMAND ${CMAKE_COMMAND} --build "${NEKO_ENGINE_BINARY_DIR}" --target neko_engine --parallel
+  DEPENDS
+    "${NEKO_ENGINE_SOURCE_DIR}/src/neko_engine.c"
+    "${NEKO_ENGINE_SOURCE_DIR}/include/neko_engine.h"
+    "${NEKO_ENGINE_SOURCE_DIR}/CMakeLists.txt"
+  COMMENT "Building neko_engine (libmpv wrapper)"
+)
+add_custom_target(neko_engine ALL DEPENDS "${NEKO_ENGINE_LIB}")
+
+# 运行时目录（intermediates_do_not_run）旁也放一份，便于直接运行未打包的二进制
+add_custom_command(TARGET neko_engine POST_BUILD
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    "${NEKO_ENGINE_LIB}" "$<TARGET_FILE_DIR:${BINARY_NAME}>/libneko_engine.so"
+  COMMENT "Staging neko_engine next to binary"
+)
+
+# === Neko core (Qt 核心桥) ===
+# 复刻 Qt 程序核心（ApiClient/UserManager/PlaylistDB/PlaylistManager），
+# 由 engine 工程的 neko_core 目标构建，随 bundle 分发，Flutter 经 dart:ffi 加载。
+if(WIN32)
+  set(NEKO_CORE_LIB "${NEKO_ENGINE_BINARY_DIR}/neko_core.dll")
+elseif(APPLE)
+  set(NEKO_CORE_LIB "${NEKO_ENGINE_BINARY_DIR}/libneko_core.dylib")
+else()
+  set(NEKO_CORE_LIB "${NEKO_ENGINE_BINARY_DIR}/libneko_core.so")
+endif()
+
+add_custom_command(
+  OUTPUT "${NEKO_CORE_LIB}"
+  COMMAND ${CMAKE_COMMAND} -S "${NEKO_ENGINE_SOURCE_DIR}" -B "${NEKO_ENGINE_BINARY_DIR}" -DCMAKE_BUILD_TYPE=Release
+  COMMAND ${CMAKE_COMMAND} --build "${NEKO_ENGINE_BINARY_DIR}" --target neko_core --parallel
+  DEPENDS
+    "${NEKO_ENGINE_SOURCE_DIR}/core/neko_core.cpp"
+    "${NEKO_ENGINE_SOURCE_DIR}/core/neko_core.h"
+    "${NEKO_ENGINE_SOURCE_DIR}/../flutter/lib/core/native/core/apiclient.cpp"
+    "${NEKO_ENGINE_SOURCE_DIR}/../flutter/lib/core/native/core/usermanager.cpp"
+    "${NEKO_ENGINE_SOURCE_DIR}/../flutter/lib/core/native/core/playlistdb.cpp"
+    "${NEKO_ENGINE_SOURCE_DIR}/../flutter/lib/core/native/core/playlistmanager.cpp"
+    "${NEKO_ENGINE_SOURCE_DIR}/CMakeLists.txt"
+  COMMENT "Building neko_core (Qt core bridge)"
+)
+add_custom_target(neko_core ALL DEPENDS "${NEKO_CORE_LIB}")
+
+add_custom_command(TARGET neko_core POST_BUILD
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    "${NEKO_CORE_LIB}" "$<TARGET_FILE_DIR:${BINARY_NAME}>/libneko_core.so"
+  COMMENT "Staging neko_core next to binary"
+)
+
+# Run the Flutter tool portions of the build. This must not be removed.
+add_dependencies(${BINARY_NAME} flutter_assemble)
+
+# Only the install-generated bundle's copy of the executable will launch
+# correctly, since the resources must in the right relative locations. To avoid
+# people trying to run the unbundled copy, put it in a subdirectory instead of
+# the default top-level location.
+set_target_properties(${BINARY_NAME}
+  PROPERTIES
+  RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/intermediates_do_not_run"
+)
+
+
+# Generated plugin build rules, which manage building the plugins and adding
+# them to the application.
+include(flutter/generated_plugins.cmake)
+
+
+# === Installation ===
+# By default, "installing" just makes a relocatable bundle in the build
+# directory.
+set(BUILD_BUNDLE_DIR "${PROJECT_BINARY_DIR}/bundle")
+if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
+  set(CMAKE_INSTALL_PREFIX "${BUILD_BUNDLE_DIR}" CACHE PATH "..." FORCE)
+endif()
+
+# Start with a clean build bundle directory every time.
+install(CODE "
+  file(REMOVE_RECURSE \"${BUILD_BUNDLE_DIR}/\")
+  " COMPONENT Runtime)
+
+set(INSTALL_BUNDLE_DATA_DIR "${CMAKE_INSTALL_PREFIX}/data")
+set(INSTALL_BUNDLE_LIB_DIR "${CMAKE_INSTALL_PREFIX}/lib")
+
+install(TARGETS ${BINARY_NAME} RUNTIME DESTINATION "${CMAKE_INSTALL_PREFIX}"
+  COMPONENT Runtime)
+
+install(FILES "${FLUTTER_ICU_DATA_FILE}" DESTINATION "${INSTALL_BUNDLE_DATA_DIR}"
+  COMPONENT Runtime)
+
+# 应用图标：随 bundle 分发（runner 读取 data/nekomusic.png 作为窗口图标；
+# 任务栏图标另见 packaging/install-linux.sh 安装的 desktop + hicolor 图标）
+install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/../../packaging/icons/hicolor/512x512/apps/nekomusic.png"
+  DESTINATION "${INSTALL_BUNDLE_DATA_DIR}"
+  COMPONENT Runtime)
+
+install(FILES "${FLUTTER_LIBRARY}" DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
+  COMPONENT Runtime)
+
+foreach(bundled_library ${PLUGIN_BUNDLED_LIBRARIES})
+  install(FILES "${bundled_library}"
+    DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
+    COMPONENT Runtime)
+endforeach(bundled_library)
+
+# Neko engine：安装进 bundle/lib，配合 $ORIGIN/lib rpath 供 dart:ffi 加载
+install(FILES "${NEKO_ENGINE_LIB}"
+  DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
+  COMPONENT Runtime)
+
+# Neko core：同 engine，随 bundle 分发
+install(FILES "${NEKO_CORE_LIB}"
+  DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
+  COMPONENT Runtime)
+
+# Copy the native assets provided by the build.dart from all packages.
+set(NATIVE_ASSETS_DIR "${PROJECT_BUILD_DIR}native_assets/linux/")
+install(DIRECTORY "${NATIVE_ASSETS_DIR}"
+   DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
+   COMPONENT Runtime)
+
+# Fully re-copy the assets directory on each build to avoid having stale files
+# from a previous install.
+set(FLUTTER_ASSET_DIR_NAME "flutter_assets")
+install(CODE "
+  file(REMOVE_RECURSE \"${INSTALL_BUNDLE_DATA_DIR}/${FLUTTER_ASSET_DIR_NAME}\")
+  " COMPONENT Runtime)
+install(DIRECTORY "${PROJECT_BUILD_DIR}/${FLUTTER_ASSET_DIR_NAME}"
+  DESTINATION "${INSTALL_BUNDLE_DATA_DIR}" COMPONENT Runtime)
+
+# Install the AOT library on non-Debug builds only.
+if(NOT CMAKE_BUILD_TYPE MATCHES "Debug")
+  install(FILES "${AOT_LIBRARY}" DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
+    COMPONENT Runtime)
+endif()
