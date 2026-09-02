@@ -153,16 +153,77 @@ jobs:
       - name: Build (release)
         shell: cmd
         run: scripts\build.bat release
+      - name: Install NSIS
+        run: choco install nsis -y --no-progress
+      - name: Build installer (NSIS)
+        shell: cmd
+        run: |
+          makensis /DVERSION=1.0.1 ^
+            /DOUT=%GITHUB_WORKSPACE%\nekomusic-setup-1.0.1.exe ^
+            /DSTAGING=%GITHUB_WORKSPACE%\flutter\build\windows\x64\runner\Release ^
+            packaging\nekomusic.nsi
       - uses: actions/upload-artifact@v4
         with:
           name: nekomusic-windows-x64
           path: flutter/build/windows/x64/runner/Release/
           if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nekomusic-windows-setup
+          path: nekomusic-setup-1.0.1.exe
+          if-no-files-found: error
+
+  # ── Linux（Arch Linux）：.pkg.tar.zst ────────────────────────
+  linux-arch:
+    runs-on: ubuntu-24.04
+    container: archlinux:latest
+    timeout-minutes: 45
+    steps:
+      - name: Install system dependencies
+        run: |
+          pacman -Syu --noconfirm --needed base-devel git curl jq cmake ninja \
+            flutter qt6-base mpv gtk3 zstd
+      - uses: actions/checkout@v4
+      - name: Add non-root builder (flutter 拒绝 root)
+        run: |
+          useradd -m builder
+          chown -R builder "$GITHUB_WORKSPACE"
+      - name: Build (release)
+        run: runuser -u builder -- bash scripts/build.sh release
+      - name: Package Arch pkg
+        run: bash scripts/package-arch.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nekomusic-linux-arch
+          path: flutter/build/dist/*.pkg.tar.zst
+          if-no-files-found: error
+
+  # ── NixOS：真源码 flake 构建（关沙箱以允许 flutter 联网下产物）──
+  linux-nix:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DeterminateSystems/nix-installer-action@v16
+        with:
+          extra-conf: |
+            sandbox = false
+            substituters = https://cache.nixos.org
+      - name: Build (flake, release)
+        run: nix build .#default --option sandbox false --print-build-logs
+      - name: Package result
+        run: |
+          tar -czf flutter/build/dist/nekomusic-nixos-1.0.1-x86_64.tar.gz -C result .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nekomusic-nixos
+          path: flutter/build/dist/*.tar.gz
+          if-no-files-found: error
 
   # ── Release：附加全部产物 ────────────────────────────────────
   attach-release:
     if: github.event_name == 'release'
-    needs: [linux-deb, linux-rpm, macos]
+    needs: [linux-deb, linux-rpm, macos, linux-arch, linux-nix]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4

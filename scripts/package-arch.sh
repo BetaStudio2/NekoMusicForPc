@@ -9,7 +9,6 @@ BUNDLE="$ROOT_DIR/flutter/build/linux/x64/release/bundle"
   echo "错误: 未找到 release bundle，请先执行 ./scripts/build.sh release" >&2
   exit 1
 }
-command -v makepkg >/dev/null || { echo "错误: 缺少 makepkg" >&2; exit 1; }
 
 VERSION="$(grep -E '^version:' "$ROOT_DIR/flutter/pubspec.yaml" | awk '{print $2}' | cut -d+ -f1)"
 PKGDIR="$ROOT_DIR/flutter/build/dist/archpkg"
