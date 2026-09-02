@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 import 'core/core_controller.dart';
+import 'core/background_service.dart';
 import 'core/engine_controller.dart';
 import 'l10n/generated/app_localizations.dart';
 import 'ui/main_shell.dart';
@@ -209,6 +210,8 @@ Future<void> main() async {
   final (core, engine) = appControllers;
   engine.init();
   runApp(NekoApp(core: core, engine: engine));
+  // 后台常驻：系统托盘 + 关窗隐藏（引擎继续播放）；失败自动降级
+  await BackgroundService.instance.init();
 }
 
 class NekoApp extends StatelessWidget {

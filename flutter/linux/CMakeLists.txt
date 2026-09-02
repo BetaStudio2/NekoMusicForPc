@@ -41,9 +41,14 @@ endif()
 # of modifying this function.
 function(APPLY_STANDARD_SETTINGS TARGET)
   target_compile_features(${TARGET} PUBLIC cxx_std_14)
-  target_compile_options(${TARGET} PRIVATE -Wall -Werror)
+  target_compile_options(${TARGET} PRIVATE -Wall)
   target_compile_options(${TARGET} PRIVATE "$<$<NOT:$<CONFIG:Debug>>:-O3>")
   target_compile_definitions(${TARGET} PRIVATE "$<$<NOT:$<CONFIG:Debug>>:NDEBUG>")
+endfunction()
+
+# 严格模式仅作用于本工程代码（runner / engine 不误伤第三方插件）
+function(APPLY_STRICT_SETTINGS TARGET)
+  target_compile_options(${TARGET} PRIVATE -Werror)
 endfunction()
 
 # Flutter library and tool build rules.
@@ -161,11 +166,6 @@ install(TARGETS ${BINARY_NAME} RUNTIME DESTINATION "${CMAKE_INSTALL_PREFIX}"
 install(FILES "${FLUTTER_ICU_DATA_FILE}" DESTINATION "${INSTALL_BUNDLE_DATA_DIR}"
   COMPONENT Runtime)
 
-# 应用图标：随 bundle 分发（runner 读取 data/nekomusic.png 作为窗口图标；
-# 任务栏图标另见 packaging/install-linux.sh 安装的 desktop + hicolor 图标）
-install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/../../packaging/icons/hicolor/512x512/apps/nekomusic.png"
-  DESTINATION "${INSTALL_BUNDLE_DATA_DIR}"
-  COMPONENT Runtime)
 
 install(FILES "${FLUTTER_LIBRARY}" DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
   COMPONENT Runtime)

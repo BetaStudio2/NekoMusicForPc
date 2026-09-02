@@ -21,7 +21,7 @@ class SearchPage extends StatefulWidget {
 enum _SearchTab { songs, playlists, artists }
 
 class _SearchPageState extends State<SearchPage> {
-  late final TextEditingController _query;
+  String? _lastQuery; // 已执行搜索的关键字（随标题栏全局搜索更新）
 
   // 单曲
   List<NekoCoreMusic> _results = [];
@@ -42,17 +42,26 @@ class _SearchPageState extends State<SearchPage> {
   @override
   void initState() {
     super.initState();
-    _query = TextEditingController(text: widget.initialQuery ?? '');
     final q = widget.initialQuery?.trim();
     if (q != null && q.isNotEmpty) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _search(q));
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _lastQuery != q) {
+          _lastQuery = q;
+          _search(q);
+        }
+      });
     }
   }
 
   @override
-  void dispose() {
-    _query.dispose();
-    super.dispose();
+  void didUpdateWidget(covariant SearchPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // 标题栏全局搜索再次提交 → 直接跟随新关键字重新搜索
+    final q = widget.initialQuery?.trim();
+    if (q != null && q.isNotEmpty && q != _lastQuery) {
+      _lastQuery = q;
+      _search(q);
+    }
   }
 
   void _search(String raw) {
@@ -114,33 +123,7 @@ class _SearchPageState extends State<SearchPage> {
           ],
         ),
         const SizedBox(height: 16),
-        Row(
-          children: [
-            Expanded(
-              child: TextField(
-                controller: _query,
-                autofocus: widget.initialQuery == null,
-                decoration: const InputDecoration(
-                  hintText: '搜索歌曲 / 歌单 / 歌手…',
-                  filled: true,
-                  isDense: true,
-                  prefixIcon: Icon(Icons.search, size: 20),
-                  border: OutlineInputBorder(
-                      borderRadius: BorderRadius.all(Radius.circular(10))),
-                ),
-                onSubmitted: _search,
-              ),
-            ),
-            const SizedBox(width: 12),
-            FilledButton(
-              style: FilledButton.styleFrom(backgroundColor: kPrimary),
-              onPressed: () => _search(_query.text),
-              child: const Text('搜索'),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        // 类型 Tab
+        // 类型 Tab（关键字由顶部全局搜索框输入）
         if (_searched)
           Row(
             children: [

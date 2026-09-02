@@ -3,7 +3,10 @@
 #include <flutter_linux/flutter_linux.h>
 #include <string.h>
 
+#include <gdk-pixbuf/gdk-pixbuf.h>
+
 #include "flutter/generated_plugin_registrant.h"
+#include "neko_icon.h"  // 图标二进制（64px PNG，随可执行文件内嵌）
 
 struct _MyApplication {
   GtkApplication parent_instance;
@@ -12,15 +15,28 @@ struct _MyApplication {
 
 G_DEFINE_TYPE(MyApplication, my_application, GTK_TYPE_APPLICATION)
 
-// 窗口图标：读取 bundle 内 data/nekomusic.png（X11 任务栏用；
-// Wayland 下由 app_id 匹配 .desktop 提供图标，此处设置无副作用）
-static void neko_window_set_icon(GtkWindow* window) {
-  g_autofree gchar* exe = g_file_read_link("/proc/self/exe", nullptr);
-  if (!exe) return;
-  g_autofree gchar* dir = g_path_get_dirname(exe);
-  g_autofree gchar* path =
-      g_build_filename(dir, "data", "nekomusic.png", nullptr);
-  gtk_window_set_icon_from_file(window, path, nullptr);
+// 窗口/任务栏图标：从内嵌二进制加载（不依赖 bundle 文件或 .desktop）。
+// X11/XWayland 下直接写入窗口 _NET_WM_ICON；Windows 由 exe 资源承载；
+// KDE/Wayland 任务栏仍按 app_id 匹配 .desktop（协议不支持客户端发图标）。
+static GdkPixbuf* neko_load_embedded_icon() {
+  GdkPixbufLoader* loader = gdk_pixbuf_loader_new();
+  if (!gdk_pixbuf_loader_write(loader, neko_icon_png, neko_icon_png_len,
+                               nullptr)) {
+    g_object_unref(loader);
+    return nullptr;
+  }
+  gdk_pixbuf_loader_close(loader, nullptr);
+  GdkPixbuf* pixbuf = gdk_pixbuf_loader_get_pixbuf(loader);
+  if (pixbuf) g_object_ref(pixbuf);
+  g_object_unref(loader);
+  return pixbuf;
+}
+
+static void neko_set_window_icon(GtkWindow* window) {
+  GdkPixbuf* pixbuf = neko_load_embedded_icon();
+  if (!pixbuf) return;
+  gtk_window_set_icon(window, pixbuf);
+  g_object_unref(pixbuf);
 }
 
 // Called when first Flutter frame received.
@@ -37,7 +53,7 @@ static void my_application_activate(GApplication* application) {
   // 使用系统默认窗口装饰（Flutter 自绘装饰尚不完善）；
   // 桌面歌词窗的无装饰能力由 LyricsWindowNative 以 GTK FFI 单独处理
   gtk_window_set_title(window, "Neko歌姬计划");
-  neko_window_set_icon(window);
+  neko_set_window_icon(window);
 
   gtk_window_set_default_size(window, 1280, 720);
 
