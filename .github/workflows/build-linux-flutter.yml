@@ -49,10 +49,17 @@ jobs:
         run: ./scripts/build.sh release
       - name: Package .deb
         run: ./scripts/package-deb.sh
+      - name: Package portable zip
+        run: ./scripts/package-portable.sh
       - uses: actions/upload-artifact@v4
         with:
           name: nekomusic-linux-deb
           path: flutter/build/dist/*.deb
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nekomusic-linux-portable
+          path: flutter/build/dist/*linux-x64.zip
           if-no-files-found: error
 
   # ── Linux（Fedora/RPM 系）：.rpm ─────────────────────────────
@@ -98,6 +105,11 @@ jobs:
           cache: true
       - name: Build (release)
         run: ./scripts/build.sh release
+      - name: Bundle Qt frameworks (macdeployqt)
+        run: |
+          APP_DIR=$(ls -d flutter/build/macos/Build/Products/Release/*.app | head -1)
+          QT_BIN="$(brew --prefix qt)/bin"
+          "$QT_BIN/macdeployqt" "$APP_DIR" -no-plugins -no-strip
       - name: Package .app (zip)
         run: |
           APP_DIR=$(ls -d flutter/build/macos/Build/Products/Release/*.app | head -1)
@@ -168,6 +180,24 @@ jobs:
         with:
           name: nekomusic-windows-x64
           path: flutter/build/windows/x64/runner/Release/
+          if-no-files-found: error
+      - name: Bundle Qt runtime + zip (portable)
+        shell: pwsh
+        run: |
+          $rel = "flutter\build\windows\x64\runner\Release"
+          $deploy = Get-ChildItem "C:\Qt" -Recurse -Filter windeployqt.exe |
+            Select-Object -First 1
+          if (-not $deploy) { throw 'windeployqt not found' }
+          & $deploy.FullName --release --no-translations $rel
+          # mpv/引擎 dll 一并入包（engine dlls 已由 CMake 拷入 Release）
+          $mpv = Get-ChildItem "$env:MPV_DIR" -Recurse -Filter mpv-2.dll |
+            Select-Object -First 1
+          if ($mpv) { Copy-Item $mpv.FullName "$rel\mpv-2.dll" }
+          Compress-Archive -Path "$rel\*" -DestinationPath "$GITHUB_WORKSPACE\nekomusic-1.0.1-windows-x64.zip" -Force
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nekomusic-windows-portable
+          path: nekomusic-1.0.1-windows-x64.zip
           if-no-files-found: error
       - uses: actions/upload-artifact@v4
         with:
