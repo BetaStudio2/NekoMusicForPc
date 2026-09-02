@@ -19,19 +19,39 @@ if(NOT WIN32)
 endif()
 
 if(WIN32)
-    # Windows：从 MPV_DIR 或系统路径查找 libmpv（mingw/msvc 均可用）
+    # Windows：从 MPV_DIR 或系统路径查找 libmpv
     find_path(MPV_INCLUDE_DIR mpv/client.h
               HINTS "$ENV{MPV_DIR}/include" "$ENV{MPV_DIR}")
-    find_library(MPV_LIBRARY mpv
+    # 优先 .lib 导入库；mpv 官方 Windows 包常仅含 dll（libmpv-2.dll /
+    # mpv-2.dll）——MSVC 可直接链接 dll（自动生成导入库），故一并兜底
+    find_library(MPV_LIBRARY NAMES mpv mpv-2 libmpv-2
                  HINTS "$ENV{MPV_DIR}/lib" "$ENV{MPV_DIR}")
-    if(NOT MPV_INCLUDE_DIR OR NOT MPV_LIBRARY)
-        message(FATAL_ERROR "libmpv not found. Set MPV_DIR to the mpv dev package root.")
+    if(NOT MPV_INCLUDE_DIR)
+        message(FATAL_ERROR "libmpv headers not found. Set MPV_DIR to the mpv dev package root.")
+    endif()
+    if(NOT MPV_LIBRARY)
+        find_file(MPV_DLL NAMES mpv-2.dll libmpv-2.dll mpv.dll
+                  HINTS "$ENV{MPV_DIR}/bin" "$ENV{MPV_DIR}")
+        if(MPV_DLL)
+            add_library(mpv_shared SHARED IMPORTED GLOBAL)
+            set_target_properties(mpv_shared PROPERTIES
+                IMPORTED_LOCATION "${MPV_DLL}")
+            set(MPV_TARGET mpv_shared)
+        else()
+            message(FATAL_ERROR "libmpv library not found. Set MPV_DIR to the mpv dev package root.")
+        endif()
+    else()
+        set(MPV_TARGET "${MPV_LIBRARY}")
     endif()
     add_library(neko_engine SHARED src/neko_engine.c)
     target_include_directories(neko_engine PUBLIC
             ${CMAKE_CURRENT_SOURCE_DIR}/include
             ${MPV_INCLUDE_DIR})
-    target_link_libraries(neko_engine PRIVATE ${MPV_LIBRARY})
+    if(TARGET mpv_shared)
+        target_link_libraries(neko_engine PRIVATE mpv_shared)
+    else()
+        target_link_libraries(neko_engine PRIVATE ${MPV_LIBRARY})
+    endif()
 else()
     pkg_check_modules(MPV REQUIRED IMPORTED_TARGET mpv)
     add_library(neko_engine SHARED src/neko_engine.c)
