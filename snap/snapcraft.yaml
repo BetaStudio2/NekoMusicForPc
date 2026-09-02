@@ -12,7 +12,6 @@ confinement: strict
 apps:
   nekomusic:
     command: nekomusic
-    extensions: [gnome]
     plugs:
       - network
       - network-status
@@ -47,3 +46,7 @@ parts:
       - libmpv2
       - qt6-qpa-plugins
       - libqt6svg6
+      - libgtk-3-0t64
+      - libglib2.0-0
+      - libasound2
+      - fonts-noto-cjk
