@@ -264,10 +264,102 @@ jobs:
           path: flutter/build/dist/*.tar.gz
           if-no-files-found: error
 
+
+  # ── AppImage ───────────────────────────────────────────────────
+  linux-appimage:
+    runs-on: ubuntu-24.04
+    needs: linux-deb
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: { name: nekomusic-linux-portable, path: portable }
+      - name: Assemble bundle for AppImage
+        run: |
+          mkdir -p AppImageBundle
+          (cd portable && unzip -oq *.zip -d ../AppImageBundle)
+          mkdir -p dist
+          cp -r AppImageBundle/nekomusic dist/bundle
+      - name: Download linuxdeploy + appimagetool
+        run: |
+          mkdir -p dist/tools
+          curl -sL -o dist/tools/linuxdeploy-x86_64.AppImage             https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
+          curl -sL -o dist/tools/appimagetool-x86_64.AppImage             https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x dist/tools/linuxdeploy-x86_64.AppImage dist/tools/appimagetool-x86_64.AppImage
+      - name: Package AppImage
+        env:
+          LINUXDEPLOY: dist/tools/linuxdeploy-x86_64.AppImage
+          APPIMAGETOOL: dist/tools/appimagetool-x86_64.AppImage
+        run: |
+          # 脚本期望 bundle 在 flutter/build/linux/x64/release/bundle
+          mkdir -p flutter/build/linux/x64/release
+          rm -rf flutter/build/linux/x64/release/bundle
+          mv dist/bundle flutter/build/linux/x64/release/bundle
+          bash scripts/package-appimage.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nekomusic-linux-appimage
+          path: flutter/build/dist/*.AppImage
+          if-no-files-found: error
+
+  # ── Flatpak ───────────────────────────────────────────────────
+  linux-flatpak:
+    runs-on: ubuntu-24.04
+    needs: linux-deb
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install flatpak tooling + KDE runtime
+        run: |
+          sudo apt-get update && sudo apt-get install -y flatpak flatpak-builder
+          flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+          flatpak install --user --noninteractive flathub org.kde.Platform//6.7 org.kde.Sdk//6.7
+      - uses: actions/download-artifact@v4
+        with: { name: nekomusic-linux-portable, path: portable }
+      - name: Prepare bundle source
+        run: |
+          mkdir -p flatpak/bundle
+          (cd portable && unzip -oq *.zip)
+          cp -r portable/nekomusic/. flatpak/bundle/
+          rm -f flatpak/bundle/README.txt
+      - name: Build flatpak
+        run: |
+          flatpak-builder --user --force-clean --repo=repo build flatpak/com.nekomusic.neko_music.yml
+          flatpak build-bundle repo nekomusic-flatpak.flatpak com.nekomusic.neko_music
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nekomusic-linux-flatpak
+          path: nekomusic-flatpak.flatpak
+          if-no-files-found: error
+
+  # ── Snap（尽力而为；snapcraft 容器构建）──────────────────────
+  linux-snap:
+    runs-on: ubuntu-24.04
+    container: snapcore/snapcraft:stable
+    needs: linux-deb
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: { name: nekomusic-linux-portable, path: portable }
+      - name: Prepare bundle source
+        run: |
+          mkdir -p snap/bundle
+          (cd portable && unzip -oq *.zip)
+          cp -r portable/nekomusic/. snap/bundle/
+          rm -f snap/bundle/README.txt
+      - name: Build snap
+        run: snapcraft snap --output nekomusic-1.0.1.snap
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nekomusic-linux-snap
+          path: nekomusic-1.0.1.snap
+          if-no-files-found: error
+
   # ── Release：附加全部产物 ────────────────────────────────────
   attach-release:
     if: github.event_name == 'release'
-    needs: [linux-deb, linux-rpm, macos, linux-arch, linux-nix]
+    needs: [linux-deb, linux-rpm, macos, linux-arch, linux-nix, linux-appimage, linux-flatpak]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
