@@ -45,3 +45,5 @@ parts:
       - libqt6gui6
       - libayatana-appindicator3-1
       - libmpv2
+      - qt6-qpa-plugins
+      - libqt6svg6

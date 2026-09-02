@@ -272,6 +272,10 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+      - name: Install deps (linuxdeploy 插件收集依赖用)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y file libgtk-3-dev qt6-base-dev libmpv-dev
       - uses: actions/download-artifact@v4
         with: { name: nekomusic-linux-portable, path: portable }
       - name: Assemble bundle for AppImage
@@ -286,10 +290,16 @@ jobs:
           curl -sL -o dist/tools/linuxdeploy-x86_64.AppImage             https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
           curl -sL -o dist/tools/appimagetool-x86_64.AppImage             https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
           chmod +x dist/tools/linuxdeploy-x86_64.AppImage dist/tools/appimagetool-x86_64.AppImage
+          curl -sL -o dist/tools/linuxdeploy-plugin-qt-x86_64.AppImage \
+            https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-x86_64.AppImage
+          curl -sL -o dist/tools/linuxdeploy-plugin-gtk-x86_64.AppImage \
+            https://github.com/linuxdeploy/linuxdeploy-plugin-gtk/releases/download/continuous/linuxdeploy-plugin-gtk-x86_64.AppImage
+          chmod +x dist/tools/linuxdeploy-plugin-qt-x86_64.AppImage dist/tools/linuxdeploy-plugin-gtk-x86_64.AppImage
       - name: Package AppImage
         env:
           LINUXDEPLOY: dist/tools/linuxdeploy-x86_64.AppImage
           APPIMAGETOOL: dist/tools/appimagetool-x86_64.AppImage
+          LINUXDEPLOY_PLUGIN_PATH: dist/tools
         run: |
           # 脚本期望 bundle 在 flutter/build/linux/x64/release/bundle
           mkdir -p flutter/build/linux/x64/release

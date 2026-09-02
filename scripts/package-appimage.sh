@@ -30,12 +30,21 @@ sed "s|^Exec=.*|Exec=nekomusic %F|" \
 cp "$ROOT_DIR/packaging/icons/hicolor/512x512/apps/nekomusic.png" \
    "$APPDIR/usr/share/icons/hicolor/512x512/apps/nekomusic.png"
 
-# linuxdeploy 装配（生成 AppRun 并尝试收集依赖；Qt 系统库不强打包）
+# linuxdeploy 装配：若提供 qt/gtk 插件则随镜像打包 Qt6/GTK 依赖
+#（含 Qt 平台插件，保证目标机无 Qt/GTK 也能运行）
+PLUGIN_ARGS=""
+if ls "${LINUXDEPLOY_PLUGIN_PATH:-}"/*plugin-qt* >/dev/null 2>&1; then
+  PLUGIN_ARGS="$PLUGIN_ARGS --plugin qt"
+fi
+if ls "${LINUXDEPLOY_PLUGIN_PATH:-}"/*plugin-gtk* >/dev/null 2>&1; then
+  PLUGIN_ARGS="$PLUGIN_ARGS --plugin gtk"
+fi
 "$LINUXDEPLOY" \
   --appdir "$APPDIR" \
   --executable "$APPDIR/usr/nekomusic/neko_music" \
   --desktop-file "$APPDIR/usr/share/applications/nekomusic.desktop" \
-  --icon-file "$APPDIR/usr/share/icons/hicolor/512x512/apps/nekomusic.png"
+  --icon-file "$APPDIR/usr/share/icons/hicolor/512x512/apps/nekomusic.png" \
+  $PLUGIN_ARGS
 
 if command -v appimagetool >/dev/null 2>&1; then
   APPIMAGETOOL="$(command -v appimagetool)"
