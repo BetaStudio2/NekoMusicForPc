@@ -33,7 +33,7 @@
               qt6.qtbase
               mpv
               gtk3
-              ayatana-appindicator  # tray_manager 插件构建/运行依赖
+              libayatana-appindicator  # tray_manager 插件构建/运行依赖
             ];
 
             # 引擎与 Flutter 均需联网（pub 拉依赖、Flutter 下引擎产物），
