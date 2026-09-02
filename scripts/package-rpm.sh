@@ -52,7 +52,9 @@ sed "s|^Exec=.*|Exec=/opt/nekomusic/neko_music %F|" \
 install -m 644 "$ROOT_DIR/packaging/icons/hicolor/512x512/apps/nekomusic.png" \
   "$TOPDIR/SOURCES/nekomusic.png"
 
-rpmbuild -bb --define "_topdir $TOPDIR" \
+# Flutter 插件 .so 带构建期 ephemeral runpath，rpmbuild check-rpaths 会报错；
+# 该路径仅影响开发期，运行期插件按全路径加载，跳过此校验
+QA_RPATHS=$(( 0x0001 | 0x0002 )) rpmbuild -bb --define "_topdir $TOPDIR" \
   --define "_datadir /usr/share" \
   "$TOPDIR/SPECS/nekomusic.spec" >/dev/null
 

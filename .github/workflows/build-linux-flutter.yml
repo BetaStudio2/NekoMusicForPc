@@ -225,6 +225,7 @@ jobs:
         run: nix build .#default --option sandbox false --print-build-logs
       - name: Package result
         run: |
+          mkdir -p flutter/build/dist
           tar -czf flutter/build/dist/nekomusic-nixos-1.0.1-x86_64.tar.gz -C result .
       - uses: actions/upload-artifact@v4
         with:
