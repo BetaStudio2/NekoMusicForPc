@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:flutter/services.dart';
 
 import '../main.dart';
@@ -159,7 +160,13 @@ class SettingsPage extends StatelessWidget {
               ListTile(
                 leading: const Icon(Icons.abc),
                 title: Text(l10n.settingsVersion),
-                trailing: const Text('1.0.0'),
+                // 版本读取自 pubspec.yaml（version 字段，随构建注入）
+                trailing: FutureBuilder<PackageInfo>(
+                  future: PackageInfo.fromPlatform(),
+                  builder: (context, snap) => Text(
+                      snap.data?.version ?? '…',
+                      style: TextStyle(color: kTextSecondary, fontSize: 13)),
+                ),
               ),
               ListTile(
                 leading: const Icon(Icons.link),
