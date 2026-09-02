@@ -24,6 +24,8 @@ Release:        1%{?dist}
 Summary:        Neko歌姬计划 高品质无损云音乐播放器（Flutter 版）
 License:        GPL-3.0-or-later
 Source0:        nekomusic-%{version}-bundle.tar.gz
+Source1:        nekomusic.desktop
+Source2:        nekomusic.png
 BuildArch:      x86_64
 Requires:       qt6-qtbase, mpv-libs
 AutoReqProv:    no
@@ -31,13 +33,12 @@ AutoReqProv:    no
 %description
 Neko歌姬计划 高品质无损云音乐播放器（Flutter 版）。
 
-%prep
-%setup -c
-
 %install
-mkdir -p %{buildroot}/opt/nekomusic %{buildroot}%{_datadir}/applications %{buildroot}%{_datadir}/icons/hicolor/512x512/apps
-cp -r %{_builddir}/nekomusic-$VERSION-bundle/. %{buildroot}/opt/nekomusic/
-install -m 644 %{_sourcedir}/../../%{_topdir}/SOURCES/nekomusic.desktop %{buildroot}%{_datadir}/applications/com.nekomusic.neko_music.desktop 2>/dev/null || true
+mkdir -p %{buildroot}/opt/nekomusic
+tar -xzf %{SOURCE0} -C %{buildroot}/opt/nekomusic
+mkdir -p %{buildroot}%{_datadir}/applications %{buildroot}%{_datadir}/icons/hicolor/512x512/apps
+install -m 644 %{SOURCE1} %{buildroot}%{_datadir}/applications/com.nekomusic.neko_music.desktop
+install -m 644 %{SOURCE2} %{buildroot}%{_datadir}/icons/hicolor/512x512/apps/nekomusic.png
 
 %files
 /opt/nekomusic
@@ -45,8 +46,9 @@ install -m 644 %{_sourcedir}/../../%{_topdir}/SOURCES/nekomusic.desktop %{buildr
 %{_datadir}/icons/hicolor/512x512/apps/nekomusic.png
 SPEC
 
-# 桌面入口与图标直接塞进 SOURCES 供 %files 使用
-cp "$ROOT_DIR/packaging/com.nekomusic.neko_music.desktop" "$TOPDIR/SOURCES/nekomusic.desktop"
+# 桌面入口与图标直接塞进 SOURCES；Exec 修正为 /opt 安装路径
+sed "s|^Exec=.*|Exec=/opt/nekomusic/neko_music %F|" \
+  "$ROOT_DIR/packaging/com.nekomusic.neko_music.desktop" > "$TOPDIR/SOURCES/nekomusic.desktop"
 install -m 644 "$ROOT_DIR/packaging/icons/hicolor/512x512/apps/nekomusic.png" \
   "$TOPDIR/SOURCES/nekomusic.png"
 

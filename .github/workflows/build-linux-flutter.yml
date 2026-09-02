@@ -131,7 +131,17 @@ jobs:
           $url = 'https://github.com/shinchiro/mpv-winbuild-cmake/releases/download/20260902/mpv-dev-x86_64-20260902-git-174b638f29.7z'
           Invoke-WebRequest -Uri $url -OutFile mpv-dev.7z
           7z x mpv-dev.7z -o"$env:RUNNER_TEMP\mpv"
-          echo "MPV_DIR=$env:RUNNER_TEMP\mpv" | Out-File -FilePath $env:GITHUB_ENV -Append
+          # 归档内含 mingw 导入库；MSVC 可消费 COFF .lib——改名为 mpv.lib 供 find_library
+          $root = Get-ChildItem "$env:RUNNER_TEMP\mpv" -Recurse -Filter mpv/client.h |
+            Select-Object -First 1
+          if (-not $root) { throw 'mpv headers not found in archive' }
+          $inc = Split-Path (Split-Path $root.FullName -Parent) -Parent
+          $import = Get-ChildItem "$env:RUNNER_TEMP\mpv" -Recurse -Filter *.a |
+            Where-Object Name -match 'libmpv|mpv' | Select-Object -First 1
+          if (-not $import) { throw 'mpv import lib (.a) not found' }
+          New-Item -ItemType Directory -Force -Path "$inc\lib" | Out-Null
+          Copy-Item $import.FullName "$inc\lib\mpv.lib"
+          echo "MPV_DIR=$inc" | Out-File -FilePath $env:GITHUB_ENV -Append
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: 3.47.2
