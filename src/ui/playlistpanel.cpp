@@ -498,10 +498,6 @@ void PlaylistPanel::setupUi()
     m_scrollCurrentBtn->setCursor(Qt::PointingHandCursor);
     m_scrollCurrentBtn->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
     connect(m_scrollCurrentBtn, &QPushButton::clicked, this, [this]() {
-        if (m_remoteView) {
-            emit remoteReplaceRequested(true);
-            return;
-        }
         scrollToCurrent();
     });
     footerLay->addWidget(m_scrollCurrentBtn, 1);
@@ -530,9 +526,9 @@ void PlaylistPanel::updateFooterButtonIcons()
     }
     if (m_scrollCurrentBtn) {
         const QString label = m_remoteView
-            ? QStringLiteral("播放全部")
+            ? QStringLiteral("当前播放")
             : I18n::instance().tr(QStringLiteral("scrollToCurrentPlay"));
-        const char *icon = m_remoteView ? "Play" : "Location";
+        const char *icon = "Location";
         m_scrollCurrentBtn->setText(label);
         m_scrollCurrentBtn->setIcon(Icons::renderNamed(icon, 18, ic));
         m_scrollCurrentBtn->setIconSize(QSize(18, 18));
