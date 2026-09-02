@@ -345,7 +345,6 @@ jobs:
   # ── Snap（尽力而为；snapcraft 容器构建）──────────────────────
   linux-snap:
     runs-on: ubuntu-24.04
-    container: snapcore/snapcraft:stable
     needs: linux-deb
     timeout-minutes: 40
     steps:
@@ -358,8 +357,13 @@ jobs:
           (cd portable && unzip -oq *.zip)
           cp -r portable/nekomusic/. snap/bundle/
           rm -f snap/bundle/README.txt
-      - name: Build snap
-        run: snapcraft snap --output nekomusic-1.0.1.snap
+      # 旧 snapcore 容器缺新 glibc 跑不动 runner node → 在宿主编排，
+      # 仅 snapcraft 在容器内执行（宿主自带 docker）
+      - name: Build snap (docker)
+        run: |
+          docker run --rm -v "$PWD":/build -w /build \
+            snapcore/snapcraft:stable snapcraft snap \
+            --output nekomusic-1.0.1.snap
       - uses: actions/upload-artifact@v4
         with:
           name: nekomusic-linux-snap
