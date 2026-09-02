@@ -7,6 +7,7 @@
 #include <QCryptographicHash>
 #include <QDateTime>
 #include <QHostAddress>
+#include <QHostInfo>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -550,9 +551,8 @@ QString LanDeviceManager::deviceId() const
 
 QString LanDeviceManager::deviceName() const
 {
-    QSettings settings;
-    const QString custom = settings.value(QStringLiteral("lan/deviceName")).toString().trimmed();
-    return custom.isEmpty() ? QStringLiteral("NekoMusic PC") : custom;
+    const QString hostName = QHostInfo::localHostName().trimmed();
+    return hostName.isEmpty() ? QStringLiteral("unknow") : hostName;
 }
 
 void LanDeviceManager::publishDevices()
