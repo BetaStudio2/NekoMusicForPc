@@ -53,6 +53,7 @@ public:
 signals:
     void devicesChanged();
     void deviceDiscovered(const QString &deviceName);
+    void deviceDisconnected(const QString &deviceName);
     void remoteQueueChanged();
     void remoteConnectionChanged(bool connected);
 

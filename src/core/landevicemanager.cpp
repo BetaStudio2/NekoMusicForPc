@@ -293,6 +293,7 @@ void LanDeviceManager::expireDevices()
     bool changed = false;
     for (int i = m_devices.size() - 1; i >= 0; --i) {
         if (m_devices.at(i).lastSeen < cutoff) {
+            emit deviceDisconnected(m_devices.at(i).deviceName);
             if (m_devices.at(i).deviceId == m_selectedDeviceId) {
                 m_selectedDeviceId.clear();
                 closeRemote();
@@ -394,7 +395,11 @@ void LanDeviceManager::sendSubscribe()
     QJsonObject object{
         {QStringLiteral("protocol"), kProtocol},
         {QStringLiteral("type"), QStringLiteral("subscribe")},
-        {QStringLiteral("accountTag"), accountTag()}
+        {QStringLiteral("accountTag"), accountTag()},
+        {QStringLiteral("deviceId"), deviceId()},
+        {QStringLiteral("deviceName"), deviceName()},
+        {QStringLiteral("platform"), QStringLiteral("pc")},
+        {QStringLiteral("port"), static_cast<int>(m_server->serverPort())}
     };
     m_remoteSocket->write(QJsonDocument(object).toJson(QJsonDocument::Compact) + '\n');
     m_remoteSocket->flush();

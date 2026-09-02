@@ -566,6 +566,15 @@ void MainWindow::setupUi()
                     QStringLiteral("已连接到%1").arg(name),
                     Toast::Success);
     });
+    connect(&LanDeviceManager::instance(), &LanDeviceManager::deviceDisconnected, this,
+            [this](const QString &deviceName) {
+        const QString name = deviceName.trimmed().isEmpty()
+            ? I18n::instance().tr(QStringLiteral("unknown"))
+            : deviceName.trimmed();
+        Toast::show(this,
+                    QStringLiteral("已断开与%1的连接").arg(name),
+                    Toast::Info);
+    });
     LanDeviceManager::instance().start();
 
 #ifdef Q_OS_LINUX
