@@ -34,8 +34,11 @@ if(WIN32)
                   HINTS "$ENV{MPV_DIR}/bin" "$ENV{MPV_DIR}")
         if(MPV_DLL)
             add_library(mpv_shared SHARED IMPORTED GLOBAL)
+            # MSVC 直接链 dll：IMPORTED_LOCATION 与 IMPORTED_IMPLIB 同指 dll，
+            # 链接时自动生成导入库
             set_target_properties(mpv_shared PROPERTIES
-                IMPORTED_LOCATION "${MPV_DLL}")
+                IMPORTED_LOCATION "${MPV_DLL}"
+                IMPORTED_IMPLIB "${MPV_DLL}")
             set(MPV_TARGET mpv_shared)
         else()
             message(FATAL_ERROR "libmpv library not found. Set MPV_DIR to the mpv dev package root.")

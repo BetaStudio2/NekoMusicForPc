@@ -62,7 +62,7 @@ jobs:
     steps:
       - name: Install system dependencies
         run: |
-          dnf install -y git curl jq which xz tar file cmake ninja-build gcc-c++ gtk3-devel \
+          dnf install -y git curl jq which xz tar file cmake ninja-build gcc-c++ clang gtk3-devel \
             mpv-libs-devel qt6-qtbase-devel rpm-build
       - uses: actions/checkout@v4
       - name: Git safe directory (容器属主)
