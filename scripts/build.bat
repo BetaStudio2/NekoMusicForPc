@@ -37,7 +37,11 @@ where ninja >nul 2>nul || (echo 错误: 缺少 ninja & exit /b 1)
 if "%MPV_DIR%"=="" echo 警告: 未设置 MPV_DIR（libmpv 开发包根目录），引擎配置可能失败
 
 rem ── 1. 预构建引擎（neko_engine + neko_core）──
+rem 先清空旧配置：避免跨工具链（如 mingw/MSVC）残留导致链接错误
+if exist "%ROOT_DIR%\engine\build" rmdir /s /q "%ROOT_DIR%\engine\build"
 echo == 构建 C 引擎...
+rem 需在 MSVC 开发环境（vcvars64 / ilammy/msvc-dev-cmd）下运行；
+rem libmpv 需提供 MSVC 导入库：MPV_DIR 下 lib\mpv.lib
 cmake -S "%ROOT_DIR%\engine" -B "%ROOT_DIR%\engine\build" -DCMAKE_BUILD_TYPE=%MODE% -G Ninja
 if errorlevel 1 exit /b 1
 cmake --build "%ROOT_DIR%\engine\build" --config %MODE% --target neko_engine neko_core --parallel
