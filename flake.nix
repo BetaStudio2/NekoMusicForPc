@@ -33,6 +33,7 @@
               qt6.qtbase
               mpv
               gtk3
+              ayatana-appindicator  # tray_manager 插件构建/运行依赖
             ];
 
             # 引擎与 Flutter 均需联网（pub 拉依赖、Flutter 下引擎产物），
@@ -74,7 +75,7 @@
 
             meta = with pkgs.lib; {
               description = "Neko歌姬计划：高品质无损云音乐播放器（Flutter 版）";
-              license = licenses.agpl3;
+              license = licenses.agpl3Plus;
               platforms = platforms.linux;
             };
           };

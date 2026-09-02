@@ -27,7 +27,7 @@ Source0:        nekomusic-%{version}-bundle.tar.gz
 Source1:        nekomusic.desktop
 Source2:        nekomusic.png
 BuildArch:      x86_64
-Requires:       qt6-qtbase, mpv-libs
+Requires:       qt6-qtbase, mpv-libs, libayatana-appindicator
 AutoReqProv:    no
 
 %description

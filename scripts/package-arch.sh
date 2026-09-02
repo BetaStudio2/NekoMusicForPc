@@ -34,6 +34,7 @@ url = https://github.com/BetaStudio2/NekoMusicForPc
 arch = x86_64
 depend = qt6-base
 depend = mpv
+depend = libayatana-appindicator
 CTL
 
 mkdir -p "$ROOT_DIR/flutter/build/dist"

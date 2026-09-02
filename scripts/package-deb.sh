@@ -29,7 +29,7 @@ Section: sound
 Priority: optional
 Architecture: amd64
 Maintainer: BetaStudio2 <BetaStudio2@users.noreply.github.com>
-Depends: libqt6core6t64 | libqt6core6, libqt6network6 | libqt6network, libqt6sql6 | libqt6sql, libqt6gui6 | libqt6gui, libmpv2 | libmpv1
+Depends: libqt6core6t64 | libqt6core6, libqt6network6 | libqt6network, libqt6sql6 | libqt6sql, libqt6gui6 | libqt6gui, libmpv2 | libmpv1, libayatana-appindicator3-1
 Description: Neko歌姬计划 高品质无损云音乐播放器（Flutter 版）
 CTL
 
