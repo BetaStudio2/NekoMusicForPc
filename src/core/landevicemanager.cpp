@@ -11,6 +11,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QNetworkDatagram>
+#include <QNetworkInterface>
 #include <QRandomGenerator>
 #include <QSettings>
 #include <QTcpServer>
@@ -25,6 +26,51 @@ constexpr quint16 kDiscoveryPort = 39393;
 const QHostAddress kDiscoveryGroup(QStringLiteral("239.255.77.77"));
 constexpr int kProtocol = 1;
 constexpr int kDeviceTimeoutMs = 15'000;
+
+QNetworkInterface multicastInterface()
+{
+    QNetworkInterface fallback;
+    int fallbackScore = -1;
+    for (const QNetworkInterface &interfaceInfo : QNetworkInterface::allInterfaces()) {
+        const auto flags = interfaceInfo.flags();
+        if (!flags.testFlag(QNetworkInterface::IsUp) ||
+            !flags.testFlag(QNetworkInterface::IsRunning) ||
+            flags.testFlag(QNetworkInterface::IsLoopBack)) {
+            continue;
+        }
+
+        bool hasIpv4 = false;
+        for (const QNetworkAddressEntry &entry : interfaceInfo.addressEntries()) {
+            if (entry.ip().protocol() == QAbstractSocket::IPv4Protocol &&
+                !entry.ip().isLoopback()) {
+                hasIpv4 = true;
+                break;
+            }
+        }
+        if (!hasIpv4)
+            continue;
+
+        const QString name = interfaceInfo.humanReadableName().toLower();
+        int score = 1;
+        if (name.contains(QStringLiteral("wlan")) ||
+            name.contains(QStringLiteral("wifi")) ||
+            name.startsWith(QStringLiteral("en")) ||
+            name.startsWith(QStringLiteral("eth"))) {
+            score += 4;
+        }
+        if (name.contains(QStringLiteral("docker")) ||
+            name.contains(QStringLiteral("virbr")) ||
+            name.contains(QStringLiteral("veth")) ||
+            name.contains(QStringLiteral("tailscale"))) {
+            score -= 4;
+        }
+        if (score > fallbackScore) {
+            fallback = interfaceInfo;
+            fallbackScore = score;
+        }
+    }
+    return fallback;
+}
 }
 
 LanDeviceManager &LanDeviceManager::instance()
@@ -124,7 +170,13 @@ void LanDeviceManager::start()
         m_server->close();
         return;
     }
-    m_udp->joinMulticastGroup(kDiscoveryGroup);
+    const QNetworkInterface interfaceInfo = multicastInterface();
+    if (interfaceInfo.isValid()) {
+        m_udp->setMulticastInterface(interfaceInfo);
+        m_udp->joinMulticastGroup(kDiscoveryGroup, interfaceInfo);
+    } else {
+        m_udp->joinMulticastGroup(kDiscoveryGroup);
+    }
     m_running = true;
     m_runningAccountTag = currentAccountTag;
     m_revision++;
@@ -184,6 +236,9 @@ void LanDeviceManager::sendAnnouncement()
     };
     const QByteArray data = QJsonDocument(object).toJson(QJsonDocument::Compact);
     m_udp->writeDatagram(data, kDiscoveryGroup, kDiscoveryPort);
+    // Some access points isolate multicast in one direction. Broadcast is a
+    // fallback for peers on the same IPv4 LAN.
+    m_udp->writeDatagram(data, QHostAddress::Broadcast, kDiscoveryPort);
 }
 
 void LanDeviceManager::receiveAnnouncement(const QByteArray &payload, const QString &host)
@@ -228,6 +283,7 @@ void LanDeviceManager::receiveAnnouncement(const QByteArray &payload, const QStr
         }
     }
     m_devices.append(device);
+    emit deviceDiscovered(device.deviceName);
     publishDevices();
 }
 

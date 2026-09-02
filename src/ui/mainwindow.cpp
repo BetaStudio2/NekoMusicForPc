@@ -557,6 +557,15 @@ void MainWindow::setupUi()
     // 加载播放队列
     PlaylistManager::instance().load();
     LanDeviceManager::instance().setPlayerEngine(m_engine);
+    connect(&LanDeviceManager::instance(), &LanDeviceManager::deviceDiscovered, this,
+            [this](const QString &deviceName) {
+        const QString name = deviceName.trimmed().isEmpty()
+            ? I18n::instance().tr(QStringLiteral("unknown"))
+            : deviceName.trimmed();
+        Toast::show(this,
+                    QStringLiteral("已连接到%1").arg(name),
+                    Toast::Success);
+    });
     LanDeviceManager::instance().start();
 
 #ifdef Q_OS_LINUX
