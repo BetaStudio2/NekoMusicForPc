@@ -1,5 +1,6 @@
 #include "ui/playlistpanel.h"
 #include "core/playlistmanager.h"
+#include "core/landevicemanager.h"
 #include "core/i18n.h"
 #include "theme/theme.h"
 #include "theme/thememanager.h"
@@ -24,6 +25,8 @@
 #include <QFrame>
 #include <QFontMetrics>
 #include <QResizeEvent>
+#include <QComboBox>
+#include <QSignalBlocker>
 #include <functional>
 
 namespace {
@@ -131,6 +134,12 @@ public:
         applyRemoveBtnStyle(dark);
         updateLocalBadge(dark);
         update();
+    }
+
+    void setReadOnly(bool readOnly)
+    {
+        m_removeBtn->setVisible(!readOnly);
+        setCursor(readOnly ? Qt::ArrowCursor : Qt::PointingHandCursor);
     }
 
 protected:
@@ -276,18 +285,19 @@ PlaylistItemCard *acquirePlaylistCard(QWidget *container, QList<QWidget *> &pool
 
 void bindPlaylistCard(PlaylistItemCard *card, int row, QWidget *container,
                       QHash<int, QWidget *> &rowCards, QList<QWidget *> &pool,
+                      const QList<MusicInfo> &playlist, int currentIndex, bool readOnly,
                       const std::function<void(int)> &playCb)
 {
-    const auto &playlist = PlaylistManager::instance().playlist();
     const MusicInfo &info = playlist[row];
-    const bool isCurrent = row == PlaylistManager::instance().currentIndex();
+    const bool isCurrent = row == currentIndex;
     card->bind(info, row, isCurrent);
+    card->setReadOnly(readOnly);
 
     const int musicId = info.id;
-    card->onClicked = [playCb, musicId](int) { playCb(musicId); };
-    card->removeRequested = [](int localId) {
-        PlaylistManager::instance().removeFromPlaylist(localId);
-    };
+    card->onClicked = readOnly ? std::function<void(int)>() :
+        [playCb, musicId](int) { playCb(musicId); };
+    card->removeRequested = readOnly ? std::function<void(int)>() :
+        [](int localId) { PlaylistManager::instance().removeFromPlaylist(localId); };
 
     const int w = qMax(40, container->width() - 2 * kListPad);
     card->setParent(container);
@@ -322,8 +332,15 @@ PlaylistPanel::PlaylistPanel(QWidget *parent)
             });
 
     connect(&PlaylistManager::instance(), &PlaylistManager::playlistChanged, this, &PlaylistPanel::refresh);
+    connect(&LanDeviceManager::instance(), &LanDeviceManager::devicesChanged,
+            this, &PlaylistPanel::refreshDevices);
+    connect(&LanDeviceManager::instance(), &LanDeviceManager::remoteQueueChanged,
+            this, &PlaylistPanel::refreshRemoteQueue);
 
     m_lastPlaylistSize = PlaylistManager::instance().count();
+    m_displayPlaylist = PlaylistManager::instance().playlist();
+    m_displayCurrentIndex = PlaylistManager::instance().currentIndex();
+    refreshDevices();
     refresh();
 }
 
@@ -408,6 +425,19 @@ void PlaylistPanel::setupUi()
     titleCol->addWidget(m_countLabel);
     headerLay->addLayout(titleCol, 1);
 
+    m_deviceCombo = new QComboBox(header);
+    m_deviceCombo->setMinimumWidth(130);
+    m_deviceCombo->setCursor(Qt::PointingHandCursor);
+    connect(m_deviceCombo, &QComboBox::currentIndexChanged, this, [this](int index) {
+        if (!m_deviceCombo || index < 0)
+            return;
+        const QString id = m_deviceCombo->itemData(index).toString();
+        LanDeviceManager::instance().selectDevice(id);
+        m_remoteView = !id.isEmpty();
+        refresh();
+    });
+    headerLay->addWidget(m_deviceCombo, 0, Qt::AlignVCenter);
+
     m_closeBtn = new QPushButton(header);
     m_closeBtn->setFixedSize(32, 32);
     m_closeBtn->setCursor(Qt::PointingHandCursor);
@@ -443,6 +473,8 @@ void PlaylistPanel::setupUi()
     m_clearBtn->setCursor(Qt::PointingHandCursor);
     m_clearBtn->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
     connect(m_clearBtn, &QPushButton::clicked, this, [this]() {
+        if (m_remoteView)
+            return;
         auto &manager = PlaylistManager::instance();
         const int currentIndex = manager.currentIndex();
         MusicInfo currentMusic;
@@ -497,13 +529,13 @@ void PlaylistPanel::updateCountLabel()
     if (m_countLabel) {
         m_countLabel->setText(
             I18n::instance().tr(QStringLiteral("playlistSongCount"))
-                .arg(PlaylistManager::instance().count()));
+                .arg(m_displayPlaylist.size()));
     }
 }
 
 void PlaylistPanel::syncContainerHeight()
 {
-    const int count = PlaylistManager::instance().count();
+    const int count = m_displayPlaylist.size();
     const int contentH = count > 0
         ? kListPad * 2 + count * kPlaylistRowStride - kPlaylistRowSpacing
         : 0;
@@ -522,7 +554,7 @@ void PlaylistPanel::clearAllCards()
 
 void PlaylistPanel::updateVisibleRows()
 {
-    const int count = PlaylistManager::instance().count();
+    const int count = m_displayPlaylist.size();
     if (count <= 0 || !m_scroll)
         return;
 
@@ -549,7 +581,8 @@ void PlaylistPanel::updateVisibleRows()
             continue;
         }
         bindPlaylistCard(acquirePlaylistCard(m_listContainer, m_cardPool), row, m_listContainer,
-                         m_rowCards, m_cardPool, playCb);
+                         m_rowCards, m_cardPool, m_displayPlaylist, m_displayCurrentIndex,
+                         m_remoteView, playCb);
     }
 }
 
@@ -559,8 +592,19 @@ void PlaylistPanel::refresh()
     if (m_scroll)
         scrollPos = m_scroll->verticalScrollBar()->value();
 
-    const int count = PlaylistManager::instance().count();
+    m_remoteView = !LanDeviceManager::instance().selectedDeviceId().isEmpty();
+    if (m_remoteView) {
+        m_displayPlaylist = LanDeviceManager::instance().remoteQueue().items;
+        m_displayCurrentIndex = LanDeviceManager::instance().remoteQueue().currentIndex;
+    } else {
+        m_displayPlaylist = PlaylistManager::instance().playlist();
+        m_displayCurrentIndex = PlaylistManager::instance().currentIndex();
+    }
+
+    const int count = m_displayPlaylist.size();
     updateCountLabel();
+    if (m_clearBtn)
+        m_clearBtn->setEnabled(!m_remoteView);
 
     if (count == 0) {
         clearAllCards();
@@ -587,7 +631,7 @@ void PlaylistPanel::refresh()
     syncContainerHeight();
     updateVisibleRows();
 
-    const int cur = PlaylistManager::instance().currentIndex();
+    const int cur = m_displayCurrentIndex;
     for (auto it = m_rowCards.constBegin(); it != m_rowCards.constEnd(); ++it)
         static_cast<PlaylistItemCard *>(it.value())->updateCurrentState(it.key() == cur);
 
@@ -597,7 +641,7 @@ void PlaylistPanel::refresh()
 
 void PlaylistPanel::scrollToCurrent()
 {
-    const int cur = PlaylistManager::instance().currentIndex();
+    const int cur = m_displayCurrentIndex;
     if (cur < 0 || !m_scroll)
         return;
     const int y = kListPad + cur * kPlaylistRowStride;
@@ -610,6 +654,32 @@ void PlaylistPanel::scrollToCurrent()
         scrollVal = itemBottom - viewH;
     m_scroll->verticalScrollBar()->setValue(scrollVal);
     updateVisibleRows();
+}
+
+void PlaylistPanel::refreshDevices()
+{
+    if (!m_deviceCombo)
+        return;
+
+    const QString selected = LanDeviceManager::instance().selectedDeviceId();
+    QSignalBlocker blocker(m_deviceCombo);
+    m_deviceCombo->clear();
+    m_deviceCombo->addItem(QStringLiteral("本机"), QString());
+    for (const LanDeviceInfo &device : LanDeviceManager::instance().devices())
+        m_deviceCombo->addItem(device.deviceName, device.deviceId);
+
+    int index = m_deviceCombo->findData(selected);
+    if (index < 0)
+        index = 0;
+    m_deviceCombo->setCurrentIndex(index);
+    m_remoteView = index > 0;
+    refresh();
+}
+
+void PlaylistPanel::refreshRemoteQueue()
+{
+    if (m_remoteView)
+        refresh();
 }
 
 void PlaylistPanel::retranslate()

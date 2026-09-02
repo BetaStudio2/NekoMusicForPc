@@ -180,6 +180,7 @@ set(SOURCES
         src/core/audioquality.cpp
         src/core/embeddedlyrics.cpp
         src/core/playlistmanager.cpp
+        src/core/landevicemanager.cpp
         src/core/updatechecker.cpp
         src/core/linuxinstallbackend.cpp
         src/ui/playlistlistitem.cpp
@@ -251,6 +252,7 @@ set(HEADERS
         src/core/playlistdb.h
         src/core/musicdownloadmanager.h
         src/core/playlistmanager.h
+        src/core/landevicemanager.h
         src/core/updatechecker.h
         src/ui/playlistlistitem.h
         src/ui/playlistdetailpage.h

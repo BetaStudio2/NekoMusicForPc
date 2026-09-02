@@ -11,11 +11,14 @@
 #include <QWidget>
 #include <QList>
 #include <QHash>
+#include "core/musicinfo.h"
 
 class QScrollArea;
 class QVBoxLayout;
 class QLabel;
 class QPushButton;
+class QComboBox;
+struct LanDeviceInfo;
 
 class PlaylistPanel : public QWidget {
     Q_OBJECT
@@ -38,6 +41,8 @@ signals:
 
 public slots:
     void refresh();
+    void refreshDevices();
+    void refreshRemoteQueue();
     void retranslate();
     void openDrawer();
     void closeDrawer();
@@ -67,6 +72,7 @@ private:
 
     QLabel *m_titleLabel = nullptr;
     QLabel *m_countLabel = nullptr;
+    QComboBox *m_deviceCombo = nullptr;
     QPushButton *m_clearBtn = nullptr;
     QPushButton *m_scrollCurrentBtn = nullptr;
     QPushButton *m_closeBtn = nullptr;
@@ -76,6 +82,9 @@ private:
     QWidget *m_footer = nullptr;
     QHash<int, QWidget *> m_rowCards;
     QList<QWidget *> m_cardPool;
+    QList<MusicInfo> m_displayPlaylist;
+    int m_displayCurrentIndex = -1;
+    bool m_remoteView = false;
     int m_lastPlaylistSize = 0;
     bool m_drawerOpen = false;
     bool m_animating = false;

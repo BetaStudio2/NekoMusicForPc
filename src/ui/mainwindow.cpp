@@ -41,6 +41,7 @@
 #include "core/linuxtmpfscache.h"
 #include "core/usermanager.h"
 #include "core/playlistdb.h"
+#include "core/landevicemanager.h"
 #include "core/playlistmanager.h"
 #include "core/updatechecker.h"
 #include "theme/theme.h"
@@ -555,6 +556,8 @@ void MainWindow::setupUi()
 
     // 加载播放队列
     PlaylistManager::instance().load();
+    LanDeviceManager::instance().setPlayerEngine(m_engine);
+    LanDeviceManager::instance().start();
 
 #ifdef Q_OS_LINUX
     LinuxTmpfsCache::runStartupMaintenance();
@@ -634,6 +637,10 @@ void MainWindow::setupUi()
         }
     });
     connect(&UserManager::instance(), &UserManager::loginStateChanged, this, [this]() {
+        if (UserManager::instance().isLoggedIn())
+            LanDeviceManager::instance().start();
+        else
+            LanDeviceManager::instance().stop();
         if (m_favoritesPage) m_favoritesPage->refresh();
         loadFavoritesCache();
         m_sidebar->loadPlaylists();

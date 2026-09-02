@@ -18,6 +18,7 @@
 #include "ui/scrollareafix.h"
 #include "core/i18n.h"
 #include "core/playlistdb.h"
+#include "core/landevicemanager.h"
 #include "core/localmusicmeta.h"
 #include "version.h"
 
@@ -179,6 +180,7 @@ int main(int argc, char *argv[])
 
     int result = app.exec();
 
+    LanDeviceManager::instance().stop();
     // 清理数据库
     PlaylistDatabase::instance().close();
 
