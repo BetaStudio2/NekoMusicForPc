@@ -1114,7 +1114,35 @@ void MainWindow::setupUi()
     });
 
     connect(m_playlistPanel, &PlaylistPanel::playRequested, this, [this](int musicId) {
+        const QString selected = LanDeviceManager::instance().selectedDeviceId();
+        if (!selected.isEmpty()) {
+            const auto &remote = LanDeviceManager::instance().remoteQueue();
+            for (int i = 0; i < remote.items.size(); ++i) {
+                if (remote.items.at(i).id != musicId)
+                    continue;
+                PlaylistManager::instance().replacePlaylist(remote.items, i);
+                playMusicFromInfo(remote.items.at(i));
+                LanDeviceManager::instance().selectDevice(QString());
+                if (m_playlistPanel)
+                    m_playlistPanel->refresh();
+                return;
+            }
+        }
         playMusicFromPlaylist(musicId);
+    });
+    connect(m_playlistPanel, &PlaylistPanel::remoteReplaceRequested, this, [this](bool play) {
+        const auto &remote = LanDeviceManager::instance().remoteQueue();
+        if (remote.items.isEmpty())
+            return;
+
+        const int startIndex = qBound(0, remote.currentIndex, remote.items.size() - 1);
+        PlaylistManager::instance().replacePlaylist(remote.items, startIndex);
+        if (play)
+            playMusicFromInfo(remote.items.at(startIndex));
+
+        LanDeviceManager::instance().selectDevice(QString());
+        if (m_playlistPanel)
+            m_playlistPanel->refresh();
     });
 
     connect(m_vipPage, &VipPage::loginRequested, this, [this]() {

@@ -36,6 +36,7 @@ public:
 
 signals:
     void playRequested(int musicId);
+    void remoteReplaceRequested(bool play);
     void hideRequested();
     void drawerClosed();
 

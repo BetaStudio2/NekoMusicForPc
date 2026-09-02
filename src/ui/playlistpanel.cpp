@@ -294,8 +294,7 @@ void bindPlaylistCard(PlaylistItemCard *card, int row, QWidget *container,
     card->setReadOnly(readOnly);
 
     const int musicId = info.id;
-    card->onClicked = readOnly ? std::function<void(int)>() :
-        [playCb, musicId](int) { playCb(musicId); };
+    card->onClicked = [playCb, musicId](int) { playCb(musicId); };
     card->removeRequested = readOnly ? std::function<void(int)>() :
         [](int localId) { PlaylistManager::instance().removeFromPlaylist(localId); };
 
@@ -473,8 +472,10 @@ void PlaylistPanel::setupUi()
     m_clearBtn->setCursor(Qt::PointingHandCursor);
     m_clearBtn->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
     connect(m_clearBtn, &QPushButton::clicked, this, [this]() {
-        if (m_remoteView)
+        if (m_remoteView) {
+            emit remoteReplaceRequested(false);
             return;
+        }
         auto &manager = PlaylistManager::instance();
         const int currentIndex = manager.currentIndex();
         MusicInfo currentMusic;
@@ -496,7 +497,13 @@ void PlaylistPanel::setupUi()
     m_scrollCurrentBtn = new QPushButton(m_footer);
     m_scrollCurrentBtn->setCursor(Qt::PointingHandCursor);
     m_scrollCurrentBtn->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
-    connect(m_scrollCurrentBtn, &QPushButton::clicked, this, &PlaylistPanel::scrollToCurrent);
+    connect(m_scrollCurrentBtn, &QPushButton::clicked, this, [this]() {
+        if (m_remoteView) {
+            emit remoteReplaceRequested(true);
+            return;
+        }
+        scrollToCurrent();
+    });
     footerLay->addWidget(m_scrollCurrentBtn, 1);
 
     lay->addWidget(m_footer);
@@ -513,13 +520,21 @@ void PlaylistPanel::updateFooterButtonIcons()
     const bool dark = Theme::ThemeManager::instance().isDarkMode();
     const QColor ic = dark ? QColor(244, 246, 255, 200) : QColor(33, 37, 41, 200);
     if (m_clearBtn) {
-        m_clearBtn->setText(I18n::instance().tr(QStringLiteral("clear")));
-        m_clearBtn->setIcon(Icons::renderNamed("DeleteSweep", 18, ic));
+        const QString label = m_remoteView
+            ? QStringLiteral("替换本机列表")
+            : I18n::instance().tr(QStringLiteral("clear"));
+        const char *icon = m_remoteView ? "AddList" : "DeleteSweep";
+        m_clearBtn->setText(label);
+        m_clearBtn->setIcon(Icons::renderNamed(icon, 18, ic));
         m_clearBtn->setIconSize(QSize(18, 18));
     }
     if (m_scrollCurrentBtn) {
-        m_scrollCurrentBtn->setText(I18n::instance().tr(QStringLiteral("scrollToCurrentPlay")));
-        m_scrollCurrentBtn->setIcon(Icons::renderNamed("Location", 18, ic));
+        const QString label = m_remoteView
+            ? QStringLiteral("播放全部")
+            : I18n::instance().tr(QStringLiteral("scrollToCurrentPlay"));
+        const char *icon = m_remoteView ? "Play" : "Location";
+        m_scrollCurrentBtn->setText(label);
+        m_scrollCurrentBtn->setIcon(Icons::renderNamed(icon, 18, ic));
         m_scrollCurrentBtn->setIconSize(QSize(18, 18));
     }
 }
@@ -603,8 +618,11 @@ void PlaylistPanel::refresh()
 
     const int count = m_displayPlaylist.size();
     updateCountLabel();
+    updateFooterButtonIcons();
     if (m_clearBtn)
-        m_clearBtn->setEnabled(!m_remoteView);
+        m_clearBtn->setEnabled(!m_remoteView || !m_displayPlaylist.isEmpty());
+    if (m_scrollCurrentBtn)
+        m_scrollCurrentBtn->setEnabled(!m_remoteView || !m_displayPlaylist.isEmpty());
 
     if (count == 0) {
         clearAllCards();

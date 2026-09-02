@@ -17,6 +17,7 @@ public:
 
     void addToPlaylist(const MusicInfo& music);
     void addAllToPlaylist(const QList<MusicInfo>& musicList);
+    void replacePlaylist(const QList<MusicInfo>& musicList, int currentIndex = 0);
     void removeFromPlaylist(int localId);
     void clearPlaylist();
 

@@ -3,6 +3,7 @@
 
 #include <QFileInfo>
 #include <QRandomGenerator>
+#include <QSet>
 
 PlaylistManager& PlaylistManager::instance() {
     static PlaylistManager manager;
@@ -70,6 +71,25 @@ void PlaylistManager::addAllToPlaylist(const QList<MusicInfo>& musicList) {
         m_currentIndex = 0;
     }
     emit playlistChanged();
+}
+
+void PlaylistManager::replacePlaylist(const QList<MusicInfo>& musicList, int currentIndex) {
+    QList<MusicInfo> uniqueMusic;
+    QSet<int> seenIds;
+    for (const MusicInfo &music : musicList) {
+        if (music.id <= 0 || seenIds.contains(music.id))
+            continue;
+        seenIds.insert(music.id);
+        uniqueMusic.append(music);
+    }
+
+    m_playlist = uniqueMusic;
+    m_currentIndex = m_playlist.isEmpty()
+        ? -1
+        : qBound(0, currentIndex, m_playlist.size() - 1);
+    PlaylistDatabase::instance().setQueueMusic(m_playlist, m_currentIndex);
+    emit playlistChanged();
+    emit currentIndexChanged(m_currentIndex);
 }
 
 void PlaylistManager::removeFromPlaylist(int localId) {
