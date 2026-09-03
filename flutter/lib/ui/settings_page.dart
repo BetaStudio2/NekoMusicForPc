@@ -65,7 +65,7 @@ class SettingsPage extends StatelessWidget {
                 onChanged: ThemeController.instance.setDark,
               ),
               SwitchListTile(
-                secondary: const Icon(NekoIcons.Brand, color: Color(0xFF6C8CF6)),
+                secondary: Icon(NekoIcons.Brand),
                 title: Text(l10n.settingsBrandGlyph),
                 subtitle: Text(l10n.settingsBrandGlyphHint),
                 value: ThemeController.instance.brandGlyph,

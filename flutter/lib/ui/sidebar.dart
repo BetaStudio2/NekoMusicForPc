@@ -50,8 +50,7 @@ class Sidebar extends StatelessWidget {
                     width: 30,
                     height: 30,
                     child: ThemeController.instance.brandGlyph
-                        ? const Icon(NekoIcons.Brand,
-                            size: 30, color: Color(0xFF6C8CF6))
+                        ? Icon(NekoIcons.Brand, size: 30)
                         : Image.asset('assets/logo/nekomusic.png',
                             fit: BoxFit.cover),
                   ),

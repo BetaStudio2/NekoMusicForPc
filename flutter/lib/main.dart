@@ -69,8 +69,8 @@ class ThemeController extends ChangeNotifier {
   String _backdropImagePath = '';
   String get backdropImagePath => _backdropImagePath;
 
-  // 侧栏 Logo 渲染方式：字形(固定品牌色) vs 原始位图；默认字形
-  bool _brandGlyph = true;
+  // 侧栏 Logo 渲染方式：字形 vs 原始位图；默认位图
+  bool _brandGlyph = false;
   bool get brandGlyph => _brandGlyph;
 
   File get _file =>
@@ -92,7 +92,7 @@ class ThemeController extends ChangeNotifier {
           } catch (_) {}
         }
         _backdropImagePath = (j['backdropImagePath'] as String?) ?? '';
-        _brandGlyph = (j['brandGlyph'] as bool?) ?? true;
+        _brandGlyph = (j['brandGlyph'] as bool?) ?? false;
       }
     } catch (_) {
       // 配置损坏时保持默认深色
