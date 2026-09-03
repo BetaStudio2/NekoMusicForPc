@@ -185,9 +185,11 @@ jobs:
         shell: pwsh
         run: |
           $rel = "flutter\build\windows\x64\runner\Release"
-          $deploy = Get-ChildItem "C:\Qt" -Recurse -Filter windeployqt.exe |
+          # install-qt-action 会设 Qt6_DIR；避免递归 C:\Qt（无权限）
+          $qtBin = if ($env:Qt6_DIR) { Join-Path $env:Qt6_DIR "bin" } else { "C:\Qt" }
+          $deploy = Get-ChildItem $qtBin -Filter windeployqt.exe |
             Select-Object -First 1
-          if (-not $deploy) { throw 'windeployqt not found' }
+          if (-not $deploy) { throw "windeployqt not found under $qtBin" }
           & $deploy.FullName --release --no-translations $rel
           # mpv/引擎 dll 一并入包（engine dlls 已由 CMake 拷入 Release）
           $mpv = Get-ChildItem "$env:MPV_DIR" -Recurse -Filter mpv-2.dll |
