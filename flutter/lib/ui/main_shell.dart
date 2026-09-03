@@ -376,6 +376,7 @@ class _MainShellState extends State<MainShell>
         return const SettingsPage();
       case 5:
         return DailyMusicPage(
+          embedded: true,
           onBack: () {
             setState(() {
               _page = 0;
