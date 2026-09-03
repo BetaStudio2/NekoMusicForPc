@@ -186,6 +186,20 @@ NEKO_CORE_API int64_t neko_core_cmd_download_cancel(int music_id);
 /** 下载队列状态 → rows[]（含 progress_received/progress_total；message 放本地文件路径，空=未完成） */
 NEKO_CORE_API int64_t neko_core_cmd_downloads_status(void);
 
+/* ---- LAN 设备同步 ---- */
+
+/** 启动/停止局域网设备发现与队列同步（需先 set_account；登录后自动启） */
+NEKO_CORE_API int64_t neko_core_cmd_lan_start(void);
+NEKO_CORE_API int64_t neko_core_cmd_lan_stop(void);
+/** 选择订阅的设备（空串=取消）；结果 str=JSON{connected, remoteQueue} */
+NEKO_CORE_API int64_t neko_core_cmd_lan_select_device(const char *device_id);
+/** 设置账号 userId（<=0=未登录：不广播） */
+NEKO_CORE_API int64_t neko_core_cmd_lan_set_account(int user_id);
+/** 上报播放状态镜像（曲目 id + 是否播放） */
+NEKO_CORE_API int64_t neko_core_cmd_lan_set_player_state(int music_id, int playing);
+/** 轮询状态；r.str = JSON{devices:[...],remoteQueue:{...},connected:bool,selectedDeviceId} */
+NEKO_CORE_API int64_t neko_core_cmd_lan_poll(void);
+
 /* ---- 同步查询（阻塞至 worker 线程返回；仅主线程调用） ---- */
 /** 1 = 已登录 */
 NEKO_CORE_API int neko_core_get_login_state(void);

@@ -16,6 +16,7 @@
 #include "core/usermanager.h"
 #include "core/playlistdb.h"
 #include "core/playlistmanager.h"
+#include "core/landevicemanager.h"
 #include "core/musicinfo.h"
 #include "theme/theme.h"
 
@@ -72,6 +73,7 @@ enum class CmdType {
     FetchNeteasePlaylist, FetchQqPlaylist, BatchSearchMusic, BatchAddMusicToPlaylist,
     VipPricing, VipPayCreate, VipSyncStatus,
     DownloadMusic, DownloadCancel, DownloadsStatus,
+    LanStart, LanStop, LanSelectDevice, LanSetAccount, LanSetPlayerState, LanPoll,
 };
 
 struct Cmd {
@@ -114,6 +116,13 @@ void pushResult(const neko_core_result &r)
     neko_core_event_cb cb = g_evCb.load(std::memory_order_acquire);
     if (cb)
         cb(g_evUser);
+}
+
+static void syncLanAccount(const QVariantMap &user)
+{
+    const int userId = user.value(QStringLiteral("id"),
+                                  user.value(QStringLiteral("userId"), -1)).toInt();
+    LanDeviceManager::instance().setAccountUserId(userId);
 }
 
 void copyStr(char *dst, size_t cap, const QString &src)
@@ -277,6 +286,20 @@ public:
 
         m_api = new ApiClient(this);
         m_nam = new QNetworkAccessManager(this);
+
+        // LAN：连接状态镜像（轮询模型里供 lan_poll 读取）
+        QObject::connect(&LanDeviceManager::instance(),
+                         &LanDeviceManager::remoteConnectionChanged,
+                         this,
+                         [this](bool connected) { m_lanConnected = connected; },
+                         Qt::DirectConnection);
+        QObject::connect(&LanDeviceManager::instance(),
+                         &LanDeviceManager::remoteQueueChanged,
+                         this,
+                         [this]() {
+                             // 远端队列变更：立即可在下次 lan_poll 读到（无需处理）
+                         },
+                         Qt::DirectConnection);
     }
 
     void processCommand(Cmd *cmd)
@@ -841,6 +864,29 @@ public:
         case CmdType::DownloadsStatus:
             doDownloadsStatus(cmd);
             break;
+        case CmdType::LanStart:
+            LanDeviceManager::instance().start();
+            pushOk(cmd->seq);
+            break;
+        case CmdType::LanStop:
+            LanDeviceManager::instance().stop();
+            pushOk(cmd->seq);
+            break;
+        case CmdType::LanSelectDevice:
+            LanDeviceManager::instance().selectDevice(cmd->s1);
+            doLanPoll(cmd->seq);
+            break;
+        case CmdType::LanSetAccount:
+            LanDeviceManager::instance().setAccountUserId(cmd->i1);
+            pushOk(cmd->seq);
+            break;
+        case CmdType::LanSetPlayerState:
+            LanDeviceManager::instance().setPlayerState(cmd->i1, cmd->i2 != 0);
+            pushOk(cmd->seq);
+            break;
+        case CmdType::LanPoll:
+            doLanPoll(cmd->seq);
+            break;
         }
         delete cmd;
     }
@@ -886,6 +932,7 @@ private:
                                 r.ok = ok ? 1 : 0;
                                 if (ok) {
                                     UserManager::instance().setLoginInfo(token, user);
+                                    syncLanAccount(user);
                                     copyStr(r.token, sizeof(r.token), token);
                                     const QJsonDocument doc(QJsonObject::fromVariantMap(user));
                                     copyStr(r.str, sizeof(r.str),
@@ -901,6 +948,7 @@ private:
     {
         UserManager::instance().logout();
         m_favIds.clear();
+        LanDeviceManager::instance().setAccountUserId(-1);
         pushOk(cmd->seq);
     }
 
@@ -1146,6 +1194,56 @@ private:
         pushResult(r);
     }
 
+    void doLanPoll(int64_t seq)
+    {
+        neko_core_result r{};
+        r.seq = seq;
+        r.ok = 1;
+        const auto &devices = LanDeviceManager::instance().devices();
+        const auto &queue = LanDeviceManager::instance().remoteQueue();
+        QJsonArray arr;
+        for (const LanDeviceInfo &d : devices) {
+            arr.append(QJsonObject{
+                {QStringLiteral("deviceId"), d.deviceId},
+                {QStringLiteral("deviceName"), d.deviceName},
+                {QStringLiteral("platform"), d.platform},
+                {QStringLiteral("host"), d.host},
+                {QStringLiteral("port"), static_cast<int>(d.port)},
+                {QStringLiteral("queueRevision"), static_cast<qint64>(d.queueRevision)},
+                {QStringLiteral("queueCount"), d.queueCount},
+                {QStringLiteral("currentMusicId"), d.currentMusicId},
+                {QStringLiteral("lastSeen"), static_cast<qint64>(d.lastSeen)}
+            });
+        }
+        QJsonObject queueObj;
+        queueObj.insert(QStringLiteral("revision"), static_cast<qint64>(queue.revision));
+        queueObj.insert(QStringLiteral("currentIndex"), queue.currentIndex);
+        queueObj.insert(QStringLiteral("currentMusicId"), queue.currentMusicId);
+        queueObj.insert(QStringLiteral("isPlaying"), queue.isPlaying);
+        queueObj.insert(QStringLiteral("playMode"), queue.playMode);
+        QJsonArray items;
+        for (const MusicInfo &m : queue.items) {
+            items.append(QJsonObject{
+                {QStringLiteral("id"), m.id},
+                {QStringLiteral("title"), m.title},
+                {QStringLiteral("artist"), m.artist},
+                {QStringLiteral("album"), m.album},
+                {QStringLiteral("duration"), m.duration},
+                {QStringLiteral("coverPath"), m.coverUrl}
+            });
+        }
+        queueObj.insert(QStringLiteral("items"), items);
+        const QJsonObject root{
+            {QStringLiteral("devices"), arr},
+            {QStringLiteral("remoteQueue"), queueObj},
+            {QStringLiteral("selectedDeviceId"), LanDeviceManager::instance().selectedDeviceId()},
+            {QStringLiteral("connected"), m_lanConnected}
+        };
+        copyStr(r.str, sizeof(r.str),
+                QString::fromUtf8(QJsonDocument(root).toJson(QJsonDocument::Compact)));
+        pushResult(r);
+    }
+
     void startNextDownload()
     {
         if (m_downloadQueue.isEmpty()) {
@@ -1345,6 +1443,7 @@ private:
     qint64 m_downloadReceived = 0;
     qint64 m_downloadTotal = 0;
     bool m_downloadBusy = false;
+    bool m_lanConnected = false;
 };
 
 // 投递一个无参/单整型参数命令（worker 未启动返回 0）
@@ -1599,6 +1698,57 @@ int64_t neko_core_cmd_queue_set_mode(const char *mode)
                               [w, cmd]() { static_cast<CoreWorker *>(w)->processCommand(cmd); },
                               Qt::QueuedConnection);
     return cmd->seq;
+}
+
+int64_t neko_core_cmd_lan_start(void)
+{
+    return postSimple(CmdType::LanStart);
+}
+
+int64_t neko_core_cmd_lan_stop(void)
+{
+    return postSimple(CmdType::LanStop);
+}
+
+int64_t neko_core_cmd_lan_select_device(const char *device_id)
+{
+    QObject *w = g_worker.load(std::memory_order_acquire);
+    if (!w)
+        return 0;
+    auto *cmd = new Cmd;
+    cmd->type = CmdType::LanSelectDevice;
+    cmd->seq = nextSeq();
+    cmd->s1 = QString::fromUtf8(device_id ? device_id : "");
+    QMetaObject::invokeMethod(w,
+                              [w, cmd]() { static_cast<CoreWorker *>(w)->processCommand(cmd); },
+                              Qt::QueuedConnection);
+    return cmd->seq;
+}
+
+int64_t neko_core_cmd_lan_set_account(int user_id)
+{
+    return postInt(CmdType::LanSetAccount, user_id);
+}
+
+int64_t neko_core_cmd_lan_set_player_state(int music_id, int playing)
+{
+    QObject *w = g_worker.load(std::memory_order_acquire);
+    if (!w)
+        return 0;
+    auto *cmd = new Cmd;
+    cmd->type = CmdType::LanSetPlayerState;
+    cmd->seq = nextSeq();
+    cmd->i1 = music_id;
+    cmd->i2 = playing ? 1 : 0;
+    QMetaObject::invokeMethod(w,
+                              [w, cmd]() { static_cast<CoreWorker *>(w)->processCommand(cmd); },
+                              Qt::QueuedConnection);
+    return cmd->seq;
+}
+
+int64_t neko_core_cmd_lan_poll(void)
+{
+    return postSimple(CmdType::LanPoll);
 }
 
 int64_t neko_core_cmd_recent_load(void)
