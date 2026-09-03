@@ -792,4 +792,10 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get settingsLanguageNya => '喵语中文';
+
+  @override
+  String get settingsBrandGlyph => 'Logo 用字形渲染';
+
+  @override
+  String get settingsBrandGlyphHint => '固定品牌色，随主题不变（默认开）';
 }

@@ -800,4 +800,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsLanguageNya => 'Meow Chinese';
+
+  @override
+  String get settingsBrandGlyph => 'Logo as glyph';
+
+  @override
+  String get settingsBrandGlyphHint =>
+      'Fixed brand color, independent of theme (on by default)';
 }

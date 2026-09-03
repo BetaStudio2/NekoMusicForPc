@@ -244,5 +244,7 @@
   "localToCloudUnsupported": "Local music can't be added to cloud playlists",
   "needLoginAdd": "Sign in to add to playlists",
   "artistNotFound": "Artist not found",
-  "settingsLanguageNya": "Meow Chinese"
+  "settingsLanguageNya": "Meow Chinese",
+  "settingsBrandGlyph": "Logo as glyph",
+  "settingsBrandGlyphHint": "Fixed brand color, independent of theme (on by default)"
 }

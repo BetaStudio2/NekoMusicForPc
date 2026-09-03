@@ -244,5 +244,7 @@
   "localToCloudUnsupported": "本地音乐暂不支持添加到云端歌单",
   "needLoginAdd": "添加到歌单需要先登录",
   "artistNotFound": "未找到该歌手",
-  "settingsLanguageNya": "喵语中文"
+  "settingsLanguageNya": "喵语中文",
+  "settingsBrandGlyph": "Logo 用字形渲染",
+  "settingsBrandGlyphHint": "固定品牌色，随主题不变（默认开）"
 }

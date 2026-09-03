@@ -1569,6 +1569,18 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'喵语中文'**
   String get settingsLanguageNya;
+
+  /// No description provided for @settingsBrandGlyph.
+  ///
+  /// In zh, this message translates to:
+  /// **'Logo 用字形渲染'**
+  String get settingsBrandGlyph;
+
+  /// No description provided for @settingsBrandGlyphHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'固定品牌色，随主题不变（默认开）'**
+  String get settingsBrandGlyphHint;
 }
 
 class _AppLocalizationsDelegate

@@ -245,5 +245,7 @@
   "artistNotFound": "未找到该歌手",
   "settingsLanguageNya": "喵语中文喵",
   "logout": "要离开了喵？人家会想你的喵...",
-  "@@locale": "ja"
+  "@@locale": "ja",
+  "settingsBrandGlyph": "Logo 用字形渲染",
+  "settingsBrandGlyphHint": "固定品牌色，随主题不变（默认开）"
 }
