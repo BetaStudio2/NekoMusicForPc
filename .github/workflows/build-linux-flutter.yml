@@ -191,7 +191,13 @@ jobs:
           $deploy = Get-ChildItem (Join-Path $qtRoot 'bin') -Filter windeployqt.exe |
             Select-Object -First 1
           if (-not $deploy) { throw "windeployqt not found under $qtRoot\bin" }
-          & $deploy.FullName --release --no-translations $rel
+          # 主 exe 是 Flutter runner（非 Qt），windeployqt 对 exe 会报 not a Qt executable；
+          # Qt 依赖实际来自 dart:ffi 加载的 neko_core.dll（Qt Core/Network/Sql 核心桥），
+          # 因此以该 DLL 为部署目标收集 Qt 运行库/插件。
+          $qtDll = Get-ChildItem $rel -Filter neko_core.dll |
+            Select-Object -First 1
+          if (-not $qtDll) { throw 'neko_core.dll not found in Release (Qt 核心桥缺失)' }
+          & $deploy.FullName --release --no-translations $qtDll.FullName
           # mpv/引擎 dll 一并入包（engine dlls 已由 CMake 拷入 Release）
           $mpv = Get-ChildItem "$env:MPV_DIR" -Recurse -Filter mpv-2.dll |
             Select-Object -First 1
@@ -278,7 +284,8 @@ jobs:
       - name: Install deps (linuxdeploy 插件收集依赖用)
         run: |
           sudo apt-get update
-          sudo apt-get install -y file libgtk-3-dev qt6-base-dev libmpv-dev
+          sudo apt-get install -y file libgtk-3-dev qt6-base-dev libmpv-dev \
+            libayatana-appindicator3-dev
       - uses: actions/download-artifact@v4
         with: { name: nekomusic-linux-portable, path: portable }
       - name: Assemble bundle for AppImage
