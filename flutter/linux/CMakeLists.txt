@@ -115,6 +115,7 @@ add_custom_command(
     "${NEKO_ENGINE_SOURCE_DIR}/../flutter/lib/core/native/core/usermanager.cpp"
     "${NEKO_ENGINE_SOURCE_DIR}/../flutter/lib/core/native/core/playlistdb.cpp"
     "${NEKO_ENGINE_SOURCE_DIR}/../flutter/lib/core/native/core/playlistmanager.cpp"
+    "${NEKO_ENGINE_SOURCE_DIR}/../flutter/lib/core/native/core/landevicemanager.cpp"
     "${NEKO_ENGINE_SOURCE_DIR}/CMakeLists.txt"
   COMMENT "Building neko_core (Qt core bridge)"
 )

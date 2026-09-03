@@ -81,7 +81,8 @@ add_library(neko_core SHARED
         ../flutter/lib/core/native/core/apiclient.cpp
         ../flutter/lib/core/native/core/usermanager.cpp
         ../flutter/lib/core/native/core/playlistdb.cpp
-        ../flutter/lib/core/native/core/playlistmanager.cpp)
+        ../flutter/lib/core/native/core/playlistmanager.cpp
+        ../flutter/lib/core/native/core/landevicemanager.cpp)
 target_include_directories(neko_core PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/core
         ${CMAKE_CURRENT_SOURCE_DIR}/include)
