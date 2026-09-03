@@ -39,9 +39,13 @@ fi
 if ls "${LINUXDEPLOY_PLUGIN_PATH:-}"/*plugin-gtk* >/dev/null 2>&1; then
   PLUGIN_ARGS="$PLUGIN_ARGS --plugin gtk"
 fi
+# Qt/引擎库在 libneko_core.so 等（flutter exe 仅动态依赖），
+# 显式以 --library 引入以便收集 Qt 模块与 mpv/appindicator 依赖
 "$LINUXDEPLOY" \
   --appdir "$APPDIR" \
   --executable "$APPDIR/usr/nekomusic/neko_music" \
+  --library "$APPDIR/usr/nekomusic/lib/libneko_core.so" \
+  --library "$APPDIR/usr/nekomusic/lib/libneko_engine.so" \
   --desktop-file "$APPDIR/usr/share/applications/nekomusic.desktop" \
   --icon-file "$APPDIR/usr/share/icons/hicolor/512x512/apps/nekomusic.png" \
   $PLUGIN_ARGS
