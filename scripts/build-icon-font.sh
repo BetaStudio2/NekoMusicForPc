@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 由原作者自制 SVG（src/resources/icons）重建 NekoIcons 图标字体。
+# 由原作者自制 SVG（resources/icons）重建 NekoIcons 图标字体。
 #
 # 用法: ./scripts/build-icon-font.sh
 # 前置: Node + npm（fantasticon 走 npx 临时安装）
@@ -9,8 +9,8 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SRC="$ROOT_DIR/src/resources/icons"
-WEB="$ROOT_DIR/src/resources/icons-web"
+SRC="$ROOT_DIR/resources/icons"
+WEB="$ROOT_DIR/resources/icons-web"
 FLUTTER="$ROOT_DIR/flutter"
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
@@ -63,7 +63,7 @@ m = json.load(open(sys.argv[1]))
 def const(n):
     return ''.join(p[:1].upper() + p[1:] for p in n.split('-'))
 lines = [
-    "// 由 src/resources/icons 经 scripts/build-icon-font.sh 生成，勿手改。",
+    "// 由 resources/icons 经 scripts/build-icon-font.sh 生成，勿手改。",
     "import 'package:flutter/widgets.dart';",
     "",
     "/// 原作者自制图标字体（neko_icons.ttf）——单色字形，颜色由 IconTheme 决定，深浅主题自适应。",

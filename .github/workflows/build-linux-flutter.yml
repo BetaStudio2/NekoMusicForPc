@@ -427,7 +427,6 @@ jobs:
           path: nekomusic-flatpak.flatpak
           if-no-files-found: error
 
-  # ── Snap（尽力而为；snapcraft 容器构建）──────────────────────
   # ── Release：附加全部产物 ────────────────────────────────────
   attach-release:
     if: github.event_name == 'release'

@@ -27,7 +27,7 @@
 
 ; General
 Name "${APP_DISPLAY_NAME}"
-; OutFile 须用 ${VERSION}（编译期）；$VERSION 在 NSIS 中为运行时变量，展开为空会导致文件名与 build_windows.sh 不一致
+; OutFile 须用 ${VERSION}（编译期）；$VERSION 在 NSIS 中为运行时变量，展开为空会导致文件名与 scripts\build.bat 产物不一致
 OutFile "..\Neko歌姬计划-${VERSION}-win.exe"
 InstallDir "$PROGRAMFILES64\Neko歌姬计划"
 SetCompressor lzma
@@ -91,7 +91,7 @@ Section "Neko歌姬计划" SecMain
     File /nonfatal "../build/swresample-*.dll"
     File /nonfatal "../build/swscale-*.dll"
 
-    ; MinGW / 图形依赖（与 build_windows.sh 部署目录一致）
+    ; MinGW / 图形依赖（与 CI Windows Release 部署目录一致）
     File "../build/libstdc++-6.dll"
     File "../build/libgcc_s_seh-1.dll"
     File "../build/libwinpthread-1.dll"

@@ -69,7 +69,7 @@ CI 见 `.github/workflows/build-linux-flutter.yml`（push/PR 自动构建并上�
 | 平台 | 说明 |
 | --- | --- |
 | Linux | `scripts/build.sh release` 后按发行版打包：`.deb`（`scripts/package-deb.sh`）、`.rpm`（`scripts/package-rpm.sh`）、Arch（`scripts/package-arch.sh`）、便携 zip（`scripts/package-portable.sh`）；聚合入口 `scripts/package.sh` |
-| Linux(通用) | AppImage（linuxdeploy+qt/gtk 插件，内置 Qt6/GTK/mpv）、Flatpak（KDE runtime 内置 Qt/GTK）；Snap 配置见 `snap/snapcraft.yaml`（需 snapd 环境，脚本 `scripts/build-snap.sh`） |
+| Linux(通用) | AppImage（linuxdeploy+qt/gtk 插件，内置 Qt6/GTK/mpv）、Flatpak（KDE runtime 内置 Qt/GTK） |
 | macOS | `scripts/build.sh release` → `.app`（macdeployqt 内置 Qt）+ zip |
 | Windows | `scripts\build.bat release`（需 MPV_DIR 与 Qt6）→ NSIS 安装器 + portable zip（windeployqt 内置 Qt） |
 | CI | 全自动矩阵：deb/rpm/arch/nix/appimage/flatpak/macos/windows 全部 `success`（仅调用 scripts/） |
