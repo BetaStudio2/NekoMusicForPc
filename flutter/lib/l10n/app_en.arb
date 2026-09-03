@@ -46,5 +46,17 @@
   "playModeSingle": "Repeat one",
   "playModeRandom": "Shuffle",
   "prevTrack": "Previous",
-  "nextTrack": "Next"
+  "nextTrack": "Next",
+  "navHome": "Home",
+  "navFavorites": "Favorites",
+  "navRecents": "Recents",
+  "navDownloads": "Downloads",
+  "actionRefresh": "Refresh",
+  "homeRecPlaylists": "Recommended playlists",
+  "homeEmptyPlaylists": "No recommended playlists yet",
+  "homeHot": "Trending",
+  "homeLatest": "Latest music",
+  "homeCountSongs": "{count} songs",
+  "homeDailyTitle": "Daily picks",
+  "homeDailySubtitle": "Updated daily to your taste"
 }

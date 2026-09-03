@@ -379,6 +379,78 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'下一首'**
   String get nextTrack;
+
+  /// No description provided for @navHome.
+  ///
+  /// In zh, this message translates to:
+  /// **'首页'**
+  String get navHome;
+
+  /// No description provided for @navFavorites.
+  ///
+  /// In zh, this message translates to:
+  /// **'我喜欢的'**
+  String get navFavorites;
+
+  /// No description provided for @navRecents.
+  ///
+  /// In zh, this message translates to:
+  /// **'最近播放'**
+  String get navRecents;
+
+  /// No description provided for @navDownloads.
+  ///
+  /// In zh, this message translates to:
+  /// **'下载管理'**
+  String get navDownloads;
+
+  /// No description provided for @actionRefresh.
+  ///
+  /// In zh, this message translates to:
+  /// **'刷新'**
+  String get actionRefresh;
+
+  /// No description provided for @homeRecPlaylists.
+  ///
+  /// In zh, this message translates to:
+  /// **'推荐歌单'**
+  String get homeRecPlaylists;
+
+  /// No description provided for @homeEmptyPlaylists.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无推荐歌单'**
+  String get homeEmptyPlaylists;
+
+  /// No description provided for @homeHot.
+  ///
+  /// In zh, this message translates to:
+  /// **'热门音乐'**
+  String get homeHot;
+
+  /// No description provided for @homeLatest.
+  ///
+  /// In zh, this message translates to:
+  /// **'最新音乐'**
+  String get homeLatest;
+
+  /// No description provided for @homeCountSongs.
+  ///
+  /// In zh, this message translates to:
+  /// **'{count} 首'**
+  String homeCountSongs(Object count);
+
+  /// No description provided for @homeDailyTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'每日推荐'**
+  String get homeDailyTitle;
+
+  /// No description provided for @homeDailySubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'根据你的音乐口味 · 每日更新'**
+  String get homeDailySubtitle;
 }
 
 class _AppLocalizationsDelegate

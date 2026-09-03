@@ -448,17 +448,19 @@ class _HomePage extends StatelessWidget {
     return ListenableBuilder(
       listenable: core,
       builder: (context, _) {
+        final l10n = AppLocalizations.of(context);
         return ListView(
           children: [
             Row(
               children: [
-                const Text('首页',
-                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+                Text(l10n.navHome,
+                    style: const TextStyle(
+                        fontSize: 22, fontWeight: FontWeight.bold)),
                 const Spacer(),
                 TextButton.icon(
                   onPressed: core.refresh,
                   icon: const Icon(Icons.refresh, size: 16),
-                  label: const Text('刷新'),
+                  label: Text(l10n.actionRefresh),
                 ),
               ],
             ),
@@ -466,10 +468,10 @@ class _HomePage extends StatelessWidget {
             // 每日推荐入口（原版首页顶部入口卡片）
             _DailyEntry(core: core),
             const SizedBox(height: 24),
-            _sectionHeader('推荐歌单', core.homePlaylists.length),
+            _sectionHeader(l10n, l10n.homeRecPlaylists, core.homePlaylists.length),
             const SizedBox(height: 8),
             if (core.homePlaylists.isEmpty)
-              _emptyBlock('暂无推荐歌单')
+              _emptyBlock(l10n.homeEmptyPlaylists)
             else
               GridView.builder(
                 shrinkWrap: true,
@@ -487,11 +489,11 @@ class _HomePage extends StatelessWidget {
                 ),
               ),
             const SizedBox(height: 28),
-            _sectionHeader('热门音乐', core.ranking.length),
+            _sectionHeader(l10n, l10n.homeHot, core.ranking.length),
             const SizedBox(height: 8),
             SongList(core: core, songs: core.ranking),
             const SizedBox(height: 28),
-            _sectionHeader('最新音乐', core.latest.length),
+            _sectionHeader(l10n, l10n.homeLatest, core.latest.length),
             const SizedBox(height: 8),
             SongList(core: core, songs: core.latest),
             const SizedBox(height: 24),
@@ -501,13 +503,13 @@ class _HomePage extends StatelessWidget {
     );
   }
 
-  Widget _sectionHeader(String title, int count) {
+  Widget _sectionHeader(AppLocalizations l10n, String title, int count) {
     return Row(
       children: [
         Text(title,
             style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
         const SizedBox(width: 8),
-        Text('$count 首',
+        Text(l10n.homeCountSongs(count),
             style: TextStyle(fontSize: 12, color: kTextMuted)),
       ],
     );
@@ -528,6 +530,7 @@ class _DailyEntry extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final coverMusicId = core.daily.isNotEmpty ? core.daily.first.id : 0;
     return InkWell(
       onTap: () {
@@ -572,13 +575,13 @@ class _DailyEntry extends StatelessWidget {
                     children: [
                       Icon(Icons.auto_awesome, size: 16, color: kPrimary),
                       const SizedBox(width: 6),
-                      const Text('每日推荐',
-                          style: TextStyle(
+                      Text(l10n.homeDailyTitle,
+                          style: const TextStyle(
                               fontSize: 16, fontWeight: FontWeight.bold)),
                     ],
                   ),
                   const SizedBox(height: 4),
-                  Text('根据你的音乐口味 · 每日更新',
+                  Text(l10n.homeDailySubtitle,
                       style: TextStyle(fontSize: 12, color: kTextMuted)),
                 ],
               ),

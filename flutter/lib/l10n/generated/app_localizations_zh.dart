@@ -148,4 +148,42 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get nextTrack => '下一首';
+
+  @override
+  String get navHome => '首页';
+
+  @override
+  String get navFavorites => '我喜欢的';
+
+  @override
+  String get navRecents => '最近播放';
+
+  @override
+  String get navDownloads => '下载管理';
+
+  @override
+  String get actionRefresh => '刷新';
+
+  @override
+  String get homeRecPlaylists => '推荐歌单';
+
+  @override
+  String get homeEmptyPlaylists => '暂无推荐歌单';
+
+  @override
+  String get homeHot => '热门音乐';
+
+  @override
+  String get homeLatest => '最新音乐';
+
+  @override
+  String homeCountSongs(Object count) {
+    return '$count 首';
+  }
+
+  @override
+  String get homeDailyTitle => '每日推荐';
+
+  @override
+  String get homeDailySubtitle => '根据你的音乐口味 · 每日更新';
 }

@@ -46,5 +46,17 @@
   "playModeSingle": "单曲循环",
   "playModeRandom": "随机播放",
   "prevTrack": "上一首",
-  "nextTrack": "下一首"
+  "nextTrack": "下一首",
+  "navHome": "首页",
+  "navFavorites": "我喜欢的",
+  "navRecents": "最近播放",
+  "navDownloads": "下载管理",
+  "actionRefresh": "刷新",
+  "homeRecPlaylists": "推荐歌单",
+  "homeEmptyPlaylists": "暂无推荐歌单",
+  "homeHot": "热门音乐",
+  "homeLatest": "最新音乐",
+  "homeCountSongs": "{count} 首",
+  "homeDailyTitle": "每日推荐",
+  "homeDailySubtitle": "根据你的音乐口味 · 每日更新"
 }

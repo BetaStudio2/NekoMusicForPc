@@ -152,4 +152,42 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get nextTrack => 'Next';
+
+  @override
+  String get navHome => 'Home';
+
+  @override
+  String get navFavorites => 'Favorites';
+
+  @override
+  String get navRecents => 'Recents';
+
+  @override
+  String get navDownloads => 'Downloads';
+
+  @override
+  String get actionRefresh => 'Refresh';
+
+  @override
+  String get homeRecPlaylists => 'Recommended playlists';
+
+  @override
+  String get homeEmptyPlaylists => 'No recommended playlists yet';
+
+  @override
+  String get homeHot => 'Trending';
+
+  @override
+  String get homeLatest => 'Latest music';
+
+  @override
+  String homeCountSongs(Object count) {
+    return '$count songs';
+  }
+
+  @override
+  String get homeDailyTitle => 'Daily picks';
+
+  @override
+  String get homeDailySubtitle => 'Updated daily to your taste';
 }
