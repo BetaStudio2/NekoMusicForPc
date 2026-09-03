@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 
 import '../main.dart';
+import '../l10n/generated/app_localizations.dart';
 import '../core/core_controller.dart';
 import '../core/engine_controller.dart';
 import '../core/lrc_parser.dart';
@@ -28,6 +29,7 @@ class PlayerDetailPage extends StatefulWidget {
 
 class _PlayerDetailPageState extends State<PlayerDetailPage>
     with SingleTickerProviderStateMixin {
+  AppLocalizations get _l10n => AppLocalizations.of(context);
   /// Qt kPlayerMenuH
   static const double _kMenuBarH = 80;
   /// Qt kPlayerControlH
@@ -233,7 +235,7 @@ class _PlayerDetailPageState extends State<PlayerDetailPage>
       final byPanel = c.maxWidth * 0.70;
       final byVh = c.maxHeight * 0.50;
       final cover = math.min(byPanel, byVh).clamp(200.0, 480.0).toDouble();
-      final title = (music == null || music.title.isEmpty) ? '未在播放' : music.title;
+      final title = (music == null || music.title.isEmpty) ? _l10n.playerIdleTitle : music.title;
       final artist = (music == null || music.artist.isEmpty) ? ' ' : music.artist;
       final album = (music == null || music.album.isEmpty) ? ' ' : music.album;
       return Center(
@@ -352,7 +354,7 @@ class _PlayerDetailPageState extends State<PlayerDetailPage>
     }
     if (core.lyrics.isEmpty) {
       return Center(
-        child: Text('暂无歌词', style: TextStyle(color: kTextMuted)),
+        child: Text(_l10n.noLyrics, style: TextStyle(color: kTextMuted)),
       );
     }
     // 歌词源变化（切歌）→ 重新解析并复位定位状态
@@ -481,17 +483,17 @@ class _PlayerDetailPageState extends State<PlayerDetailPage>
                       Icon(Icons.queue_music,
                           size: 19, color: scheme.primary),
                       const SizedBox(width: 8),
-                      Text('播放队列',
+                      Text(_l10n.queueTitle,
                           style: TextStyle(
                               fontSize: 15, fontWeight: FontWeight.w600)),
                       const SizedBox(width: 8),
                       if (queue.isNotEmpty)
-                        Text('${queue.length} 首',
+                        Text(_l10n.playlistCountSongs(queue.length),
                             style: TextStyle(
                                 fontSize: 12, color: kTextMuted)),
                       const Spacer(),
                       IconButton(
-                        tooltip: '播放模式：' + _playModeLabel(core.playMode),
+                        tooltip: _l10n.playModeColon + _playModeLabel(core.playMode),
                         onPressed: () => core.setPlayMode(switch (
                             core.playMode) {
                           'list' => 'loop',
@@ -507,14 +509,14 @@ class _PlayerDetailPageState extends State<PlayerDetailPage>
                                 : scheme.primary),
                       ),
                       IconButton(
-                        tooltip: '清空队列',
+                        tooltip: _l10n.clearQueue,
                         onPressed: queue.isEmpty ? null : core.clearQueue,
                         visualDensity: VisualDensity.compact,
                         icon: const Icon(Icons.delete_sweep_outlined,
                             size: 18),
                       ),
                       IconButton(
-                        tooltip: '关闭',
+                        tooltip: _l10n.close,
                         onPressed: onClose,
                         visualDensity: VisualDensity.compact,
                         icon: const Icon(Icons.close, size: 18),
@@ -534,11 +536,11 @@ class _PlayerDetailPageState extends State<PlayerDetailPage>
                                   size: 44,
                                   color: kTextMuted.withValues(alpha: 0.35)),
                               const SizedBox(height: 10),
-                              Text('队列为空',
+                              Text(_l10n.queueEmpty,
                                   style: TextStyle(
                                       color: kTextMuted, fontSize: 13)),
                               const SizedBox(height: 4),
-                              Text('从列表中添加歌曲开始播放',
+                              Text(_l10n.queueEmptyHint,
                                   style: TextStyle(
                                       color: kTextMuted
                                           .withValues(alpha: 0.6),
@@ -649,10 +651,10 @@ class _PlayerDetailPageState extends State<PlayerDetailPage>
   }
 
   String _playModeLabel(String mode) => switch (mode) {
-        'loop' => '列表循环',
-        'single' => '单曲循环',
-        'random' => '随机播放',
-        _ => '顺序播放',
+        'loop' => _l10n.playModeLoop,
+        'single' => _l10n.playModeSingle,
+        'random' => _l10n.playModeRandom,
+        _ => _l10n.playModeList,
       };
 
   IconData _modeIconOf(String mode) => switch (mode) {
@@ -696,11 +698,11 @@ class _PlayerDetailPageState extends State<PlayerDetailPage>
               padding: const EdgeInsets.symmetric(horizontal: 30),
               child: Row(
                 children: [
-                  _toolBtn(Icons.keyboard_arrow_down_rounded, '返回',
+                  _toolBtn(Icons.keyboard_arrow_down_rounded, _l10n.back,
                       () => Navigator.of(context).pop()),
                   _toolBtn(
                       favorited ? Icons.favorite : Icons.favorite_border,
-                      '收藏',
+                      _l10n.favorite,
                       () => core.toggleFavorite(music?.id ?? 0),
                       highlight: favorited),
                   _addToPlaylistBtn(core, music),
@@ -720,7 +722,7 @@ class _PlayerDetailPageState extends State<PlayerDetailPage>
                     children: [
                       _modeBtn(core),
                       const SizedBox(width: 12),
-                      _ctrlBtn(Icons.skip_previous_rounded, '上一首', hasMusic
+                      _ctrlBtn(Icons.skip_previous_rounded, _l10n.prevTrack, hasMusic
                           ? () {
                               final m = core.previous();
                               if (m != null) engine.playUrl(m.playUrl());
@@ -743,14 +745,14 @@ class _PlayerDetailPageState extends State<PlayerDetailPage>
                             : engine.togglePlayPause,
                       ),
                       const SizedBox(width: 12),
-                      _ctrlBtn(Icons.skip_next_rounded, '下一首', hasMusic
+                      _ctrlBtn(Icons.skip_next_rounded, _l10n.nextTrack, hasMusic
                           ? () {
                               final m = core.next();
                               if (m != null) engine.playUrl(m.playUrl());
                             }
                           : null),
                       const SizedBox(width: 12),
-                      _ctrlBtn(Icons.download_outlined, '下载', hasMusic
+                      _ctrlBtn(Icons.download_outlined, _l10n.download, hasMusic
                           ? () => _download(core, music!)
                           : null),
                     ],
@@ -833,7 +835,7 @@ class _PlayerDetailPageState extends State<PlayerDetailPage>
                   const SizedBox(width: 8),
                   _toolBtn(
                       Icons.queue_music_rounded,
-                      _showQueue ? '收起队列' : '播放队列',
+                      _showQueue ? _l10n.collapseQueue : _l10n.queueTitle,
                       _toggleQueue,
                       highlight: _showQueue),
                 ],
@@ -858,15 +860,15 @@ class _PlayerDetailPageState extends State<PlayerDetailPage>
       ),
       child: Row(
         children: [
-          _toolBtn(Icons.keyboard_arrow_down_rounded, '返回',
+          _toolBtn(Icons.keyboard_arrow_down_rounded, _l10n.back,
               () => Navigator.of(context).pop()),
           _toolBtn(
               favorited ? Icons.favorite : Icons.favorite_border,
-              '收藏',
+              _l10n.favorite,
               () => core.toggleFavorite(music?.id ?? 0),
               highlight: favorited),
           const Spacer(),
-          _ctrlBtn(Icons.skip_previous_rounded, '上一首', hasMusic
+          _ctrlBtn(Icons.skip_previous_rounded, _l10n.prevTrack, hasMusic
               ? () {
                   final m = core.previous();
                   if (m != null) engine.playUrl(m.playUrl());
@@ -881,7 +883,7 @@ class _PlayerDetailPageState extends State<PlayerDetailPage>
             onPressed:
                 engine.state == NekoPlayState.stopped ? null : engine.togglePlayPause,
           ),
-          _ctrlBtn(Icons.skip_next_rounded, '下一首', hasMusic
+          _ctrlBtn(Icons.skip_next_rounded, _l10n.nextTrack, hasMusic
               ? () {
                   final m = core.next();
                   if (m != null) engine.playUrl(m.playUrl());
@@ -890,7 +892,7 @@ class _PlayerDetailPageState extends State<PlayerDetailPage>
           const Spacer(),
           _toolBtn(
               Icons.queue_music_rounded,
-              _showQueue ? '收起队列' : '播放队列',
+              _showQueue ? _l10n.collapseQueue : _l10n.queueTitle,
               () => setState(() => _showQueue = !_showQueue),
               highlight: _showQueue),
         ],
@@ -928,7 +930,7 @@ class _PlayerDetailPageState extends State<PlayerDetailPage>
     final list =
         core.myPlaylists.isNotEmpty ? core.myPlaylists : core.playlists;
     return PopupMenuButton<int>(
-      tooltip: '加入歌单',
+      tooltip: _l10n.addToPlaylist,
       iconSize: 24,
       icon: const Icon(Icons.playlist_add_rounded),
       enabled: hasMusic,
@@ -936,14 +938,15 @@ class _PlayerDetailPageState extends State<PlayerDetailPage>
         core.addToPlaylist(localId, music!, onDone: (ok) {
           if (!ok && mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('加入歌单失败')));
+                SnackBar(content: Text(_l10n.addToPlaylistFailed)));
           }
         });
       },
       itemBuilder: (context) {
         if (list.isEmpty) {
-          return const [
-            PopupMenuItem<int>(enabled: false, child: Text('暂无本地歌单'))
+          return [
+            PopupMenuItem<int>(
+                enabled: false, child: Text(_l10n.emptyLocalPlaylists))
           ];
         }
         return [
@@ -965,17 +968,17 @@ class _PlayerDetailPageState extends State<PlayerDetailPage>
 
   Widget _modeBtn(CoreController core) {
     return PopupMenuButton<String>(
-      tooltip: '播放模式',
+      tooltip: _l10n.playModeTooltip,
       initialValue: core.playMode,
       // Qt kPpCtrlBtn=38
       constraints: const BoxConstraints.tightFor(width: 38, height: 38),
       icon: Icon(_modeIcon(core.playMode), size: 20, color: kTextSecondary),
       onSelected: (v) => core.setPlayMode(v),
-      itemBuilder: (context) => const [
-        PopupMenuItem(value: 'list', child: Text('顺序播放')),
-        PopupMenuItem(value: 'loop', child: Text('列表循环')),
-        PopupMenuItem(value: 'single', child: Text('单曲循环')),
-        PopupMenuItem(value: 'random', child: Text('随机播放')),
+      itemBuilder: (context) => [
+        PopupMenuItem(value: 'list', child: Text(_l10n.playModeList)),
+        PopupMenuItem(value: 'loop', child: Text(_l10n.playModeLoop)),
+        PopupMenuItem(value: 'single', child: Text(_l10n.playModeSingle)),
+        PopupMenuItem(value: 'random', child: Text(_l10n.playModeRandom)),
       ],
     );
   }
