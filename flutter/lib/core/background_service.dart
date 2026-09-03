@@ -7,6 +7,9 @@
 //  - 托盘环境不可用（如无 appindicator）→ 降级为正常关闭退出
 //
 // ignore_for_file: avoid_print
+import 'dart:async';
+import 'dart:io';
+
 import 'package:flutter/widgets.dart';
 import 'package:tray_manager/tray_manager.dart';
 import 'package:window_manager/window_manager.dart';
@@ -19,6 +22,17 @@ class BackgroundService with WindowListener, TrayListener {
   static final BackgroundService instance = BackgroundService._();
 
   bool _ready = false;
+  Timer? _winRefreshTimer;
+
+  /// Windows 托盘极易被 Explorer 通知区回收：图标消失/右键菜单丢失。
+  /// 用低频周期重设图标与菜单恢复（仅 Windows）。
+  Future<void> _refreshWindowsTray() async {
+    if (!_ready || !Platform.isWindows) return;
+    try {
+      await trayManager.setIcon('assets/logo/nekomusic.png');
+      await trayManager.setContextMenu(_buildMenu());
+    } catch (_) {}
+  }
 
   /// 在主界面就绪后调用；失败自动降级（不 preventClose）
   Future<void> init() async {
@@ -33,9 +47,17 @@ class BackgroundService with WindowListener, TrayListener {
       windowManager.addListener(this);
       await windowManager.setPreventClose(true);
       _ready = true;
+
+      if (Platform.isWindows) {
+        // 首帧后重挂一次（图标注册竞态），之后低频续命防 Explorer 回收
+        Timer(const Duration(seconds: 3), _refreshWindowsTray);
+        _winRefreshTimer = Timer.periodic(
+            const Duration(seconds: 30), (_) => _refreshWindowsTray());
+      }
     } catch (e) {
       debugPrint('[tray] 初始化失败，降级为正常关闭: $e');
       _ready = false;
+      _winRefreshTimer?.cancel();
       try {
         await trayManager.destroy();
       } catch (_) {}
@@ -85,6 +107,8 @@ class BackgroundService with WindowListener, TrayListener {
   @override
   Future<void> onWindowClose() async {
     await windowManager.hide();
+    // 隐藏后补一次刷新（防止切到托盘瞬间图标丢失）
+    _refreshWindowsTray();
   }
 
   // ── 托盘事件 ──
@@ -95,6 +119,7 @@ class BackgroundService with WindowListener, TrayListener {
 
   /// 真正退出：清理托盘并关闭窗口（结束进程）
   Future<void> quit() async {
+    _winRefreshTimer?.cancel();
     if (_ready) {
       try {
         await trayManager.destroy();

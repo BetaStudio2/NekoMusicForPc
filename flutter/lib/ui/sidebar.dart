@@ -13,11 +13,13 @@ import 'local_playlist_detail_page.dart';
 ///   + 「收藏的歌单」列表。
 /// 搜索/设置/VIP 入口在标题栏，不占用导航项。
 class Sidebar extends StatelessWidget {
-  const Sidebar({super.key, required this.selected, required this.onSelect});
+  const Sidebar({super.key, required this.selected, required this.onSelect,
+      this.onLan});
 
   /// 0=首页 1=我喜欢的 2=最近播放 3=下载管理
   final int selected;
   final ValueChanged<int> onSelect;
+  final VoidCallback? onLan;
 
   static const _items = [
     (Icons.home_outlined, '首页'),
@@ -121,6 +123,28 @@ class Sidebar extends StatelessWidget {
                 ],
               ),
             ),
+            if (onLan != null)
+              InkWell(
+                onTap: onLan,
+                borderRadius: BorderRadius.circular(8),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 12, vertical: 9),
+                  child: Row(
+                    children: [
+                      Icon(Icons.devices_other,
+                          size: 16, color: kTextSecondary),
+                      const SizedBox(width: 10),
+                      Text('设备同步',
+                          style: TextStyle(
+                              fontSize: 13, color: kTextSecondary)),
+                      const Spacer(),
+                      Icon(Icons.keyboard_arrow_right,
+                          size: 16, color: kTextFaint),
+                    ],
+                  ),
+                ),
+              ),
             Padding(
               padding: const EdgeInsets.all(24),
               child: Text('Neko歌姬计划',

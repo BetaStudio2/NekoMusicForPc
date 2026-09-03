@@ -12,6 +12,7 @@ import '../l10n/generated/app_localizations.dart';
 import 'list_pages.dart';
 import 'login_dialog.dart';
 import 'player_bar.dart';
+import 'lan_panel.dart';
 import 'daily_music_page.dart';
 import 'search_page.dart';
 import 'settings_page.dart';
@@ -70,6 +71,9 @@ class _MainShellState extends State<MainShell> {
 
   /// 当前播放的在线 URL（断流重试用）与播放序号（用于丢弃过期的重试 Timer）
   Timer? _lanTimer;
+  bool _lanVisible = false;
+  void _openLan() => setState(() => _lanVisible = true);
+  void _closeLan() => setState(() => _lanVisible = false);
 
   String? _currentUrl;
   int _streamSeq = 0;
@@ -215,7 +219,8 @@ class _MainShellState extends State<MainShell> {
                       children: [
                         Sidebar(
                             selected: _page >= 0 && _page <= 3 ? _page : -1,
-                            onSelect: _selectPage),
+                            onSelect: _selectPage,
+                            onLan: _openLan),
                         Expanded(
                           child: Padding(
                             padding: const EdgeInsets.all(24),
@@ -228,6 +233,24 @@ class _MainShellState extends State<MainShell> {
                   PlayerBar(), // 非 const：主题切换时随 NekoApp 重建刷新配色
                 ],
               ),
+              // LAN 设备面板遮罩 + 右缘面板
+              if (_lanVisible) ...[
+                Positioned.fill(
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: _closeLan,
+                    child: ColoredBox(
+                        color: Colors.black.withValues(alpha: 0.35)),
+                  ),
+                ),
+                Positioned(
+                  right: 12,
+                  top: 12,
+                  bottom: 12,
+                  width: 384,
+                  child: LanPanel(onClose: _closeLan),
+                ),
+              ],
             ],
           ),
             ),
