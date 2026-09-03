@@ -105,11 +105,25 @@ jobs:
           cache: true
       - name: Build (release)
         run: ./scripts/build.sh release
+      - name: Install dylibbundler
+        run: brew install dylibbundler
       - name: Bundle Qt frameworks (macdeployqt)
         run: |
           APP_DIR=$(ls -d flutter/build/macos/Build/Products/Release/*.app | head -1)
           QT_BIN="$(brew --prefix qt)/bin"
-          "$QT_BIN/macdeployqt" "$APP_DIR" -no-plugins -no-strip
+          # 默认插件：补齐 QtSql sqldrivers / QtGui imageformats / QtNetwork tls
+          "$QT_BIN/macdeployqt" "$APP_DIR" -no-strip
+          # libmpv 及其依赖闭包拷入 Frameworks 并改相对路径（引擎在 Contents/Frameworks）
+          ENGINE_DYLIB=$(ls "$APP_DIR/Contents/Frameworks"/libneko_engine.dylib 2>/dev/null || true)
+          if [[ -n "$ENGINE_DYLIB" ]]; then
+            dylibbundler -of -b -x "$ENGINE_DYLIB" \
+              -d "$APP_DIR/Contents/Frameworks" \
+              -p @executable_path/../Frameworks
+          else
+            echo "警告: 未找到 libneko_engine.dylib，跳过 dylibbundler"
+          fi
+          # Apple Silicon：对 app 内全部二进制 ad-hoc 签名，否则 unsigned dylib 拒绝加载
+          codesign --force --deep --sign - "$APP_DIR"
       - name: Package .app (zip)
         run: |
           APP_DIR=$(ls -d flutter/build/macos/Build/Products/Release/*.app | head -1)
