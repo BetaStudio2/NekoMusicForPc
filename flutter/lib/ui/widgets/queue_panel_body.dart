@@ -8,20 +8,14 @@ import '../../l10n/generated/app_localizations.dart';
 import '../../main.dart';
 import '../neko_icons.dart';
 
-/// 统一「播放队列」面板组件：播放详情页内嵌面板与播放条队列
-/// BottomSheet 共用同一份视图（对齐 Qt PlaylistPanel）。
+/// 统一「播放队列」面板组件（播放页与播放条共用）。
+/// 头部含设备选择器（本机 + LAN 设备，对齐 Qt PlaylistPanel QComboBox）：
+///   - 选「本机」→ 显示本地播放队列
+///   - 选远端设备 → 同一列表切换为该设备远端队列，底部提供「接管播放」
 class QueuePanelBody extends StatelessWidget {
-  const QueuePanelBody(
-      {super.key,
-      required this.onClose,
-      this.onLan,
-      this.showDevices = false});
+  const QueuePanelBody({super.key, required this.onClose});
 
   final VoidCallback onClose;
-  final VoidCallback? onLan;
-
-  /// 是否内嵌「设备同步」设备列表（设备可直接点选切换）
-  final bool showDevices;
 
   String _fmt(double s) {
     if (s.isNaN || s.isInfinite || s <= 0) return '00:00';
@@ -42,12 +36,32 @@ class QueuePanelBody extends StatelessWidget {
     final core = CoreScope.of(context);
     final engine = EngineScope.of(context);
     final l10n = AppLocalizations.of(context);
+    final t = ThemeController.instance;
     return ListenableBuilder(
       listenable: Listenable.merge([core, engine, ThemeController.instance]),
       builder: (context, _) {
-        final queue = core.queue;
         final scheme = Theme.of(context).colorScheme;
         final playing = engine.state == NekoPlayState.playing;
+        final sel = core.lanSelectedDeviceId;
+        final remote = sel.isNotEmpty;
+        final rq = core.lanRemoteQueue;
+        final remoteItems =
+            (rq?['items'] as List? ?? const <dynamic>[]).cast<Map<String, dynamic>>();
+        final localQueue = core.queue;
+        final curRemoteId =
+            (rq?['currentMusicId'] as num?)?.toInt() ?? 0;
+        final deviceName = remote
+            ? (() {
+                for (final d in core.lanDevices) {
+                  if ((d['id'] ?? d['deviceId'])?.toString() == sel) {
+                    return d['deviceName']?.toString() ?? sel;
+                  }
+                }
+                return sel;
+              })()
+            : t.t('本机', 'This device');
+        final count = remote ? remoteItems.length : localQueue.length;
+
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -55,19 +69,104 @@ class QueuePanelBody extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(18, 8, 6, 4),
               child: Row(
                 children: [
-                  Icon(NekoIcons.QueueMusic, size: 19, color: scheme.primary),
+                  Icon(remote ? NekoIcons.DevicesOther : NekoIcons.QueueMusic,
+                      size: 19, color: scheme.primary),
                   const SizedBox(width: 8),
-                  Text(l10n.queueTitle,
+                  Text(remote
+                      ? t.t('远端队列', 'Remote queue')
+                      : l10n.queueTitle,
                       style: const TextStyle(
                           fontSize: 15, fontWeight: FontWeight.w600)),
                   const SizedBox(width: 8),
-                  if (queue.isNotEmpty)
-                    Text(l10n.playlistCountSongs(queue.length),
+                  if (count > 0)
+                    Text('$count',
                         style:
                             TextStyle(fontSize: 12, color: kTextMuted)),
+                  const SizedBox(width: 8),
+                  // ── 设备选择器（本机 + LAN 设备，对齐 Qt deviceCombo）──
+                  PopupMenuButton<String>(
+                    onSelected: (v) => core.lanSelectDevice(v),
+                    itemBuilder: (_) => [
+                      PopupMenuItem(
+                        value: '',
+                        height: 38,
+                        child: Row(
+                          children: [
+                            Icon(NekoIcons.QueueMusic,
+                                size: 16,
+                                color: !remote ? kPrimary : kTextSecondary),
+                            const SizedBox(width: 8),
+                            Text(t.t('本机', 'This device'),
+                                style: const TextStyle(fontSize: 13)),
+                          ],
+                        ),
+                      ),
+                      for (final d in core.lanDevices)
+                        PopupMenuItem(
+                          value:
+                              (d['id'] ?? d['deviceId'])?.toString() ?? '',
+                          height: 38,
+                          child: Row(
+                            children: [
+                              Icon(NekoIcons.DevicesOther,
+                                  size: 16,
+                                  color: remote &&
+                                          (d['id'] ?? d['deviceId'])
+                                                  ?.toString() ==
+                                      sel
+                                      ? kPrimary
+                                      : kTextSecondary),
+                              const SizedBox(width: 8),
+                              Flexible(
+                                child: Text(
+                                  d['deviceName']?.toString() ?? '?',
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(fontSize: 13),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: remote
+                            ? kPrimary.withValues(alpha: 0.15)
+                            : kBgMid,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(NekoIcons.DevicesOther,
+                              size: 14,
+                              color: remote ? kPrimary : kTextSecondary),
+                          const SizedBox(width: 4),
+                          ConstrainedBox(
+                            constraints:
+                                const BoxConstraints(maxWidth: 120),
+                            child: Text(
+                              deviceName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                  fontSize: 12,
+                                  color: remote
+                                      ? kPrimary
+                                      : kTextPrimary),
+                            ),
+                          ),
+                          Icon(NekoIcons.Down,
+                              size: 14, color: kTextMuted),
+                        ],
+                      ),
+                    ),
+                  ),
                   const Spacer(),
                   IconButton(
-                    tooltip: ThemeController.instance.t('播放模式', 'Play mode'),
+                    tooltip: t.t('播放模式', 'Play mode'),
                     onPressed: () => core.setPlayMode(switch (core.playMode) {
                       'list' => 'loop',
                       'loop' => 'single',
@@ -83,37 +182,11 @@ class QueuePanelBody extends StatelessWidget {
                   ),
                   IconButton(
                     tooltip: l10n.clearQueue,
-                    onPressed: queue.isEmpty ? null : core.clearQueue,
+                    onPressed:
+                        localQueue.isEmpty || remote ? null : core.clearQueue,
                     visualDensity: VisualDensity.compact,
                     icon: const Icon(NekoIcons.DeleteSweep, size: 18),
                   ),
-                  if (onLan != null)
-                    PopupMenuButton<String>(
-                      icon: Icon(NekoIcons.More,
-                          size: 18, color: kTextSecondary),
-                      onSelected: (v) {
-                        if (v == 'lan') {
-                          onLan!();
-                        }
-                      },
-                      itemBuilder: (_) => [
-                        PopupMenuItem(
-                          value: 'lan',
-                          height: 40,
-                          child: Row(
-                            children: [
-                              Icon(NekoIcons.DevicesOther,
-                                  size: 18, color: kTextSecondary),
-                              const SizedBox(width: 10),
-                              Text(
-                                  ThemeController.instance.t(
-                                      '设备同步', 'Device sync'),
-                                  style: const TextStyle(fontSize: 13)),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
                   IconButton(
                     tooltip: l10n.close,
                     onPressed: onClose,
@@ -124,196 +197,220 @@ class QueuePanelBody extends StatelessWidget {
               ),
             ),
             Divider(height: 1, color: kDivider),
-            if (showDevices && core.lanDevices.isNotEmpty) _lanStrip(context, core),
             Expanded(
-              child: queue.isEmpty
-                  ? Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(NekoIcons.PlaylistPlay,
-                              size: 44,
-                              color: kTextMuted.withValues(alpha: 0.35)),
-                          const SizedBox(height: 10),
-                          Text(l10n.queueEmpty,
+              child: remote
+                  ? (remoteItems.isEmpty
+                      ? Center(
+                          child: Text(t.t('该设备暂无播放内容', 'Nothing playing'),
                               style: TextStyle(
-                                  color: kTextMuted, fontSize: 13)),
-                          const SizedBox(height: 4),
-                          Text(l10n.queueEmptyHint,
-                              style: TextStyle(
-                                  color:
-                                      kTextMuted.withValues(alpha: 0.6),
-                                  fontSize: 12)),
-                        ],
-                      ),
-                    )
-                  : ListView.builder(
-                      padding: const EdgeInsets.symmetric(vertical: 4),
-                      itemCount: queue.length,
-                      itemBuilder: (context, i) {
-                        final m = queue[i];
-                        final active = i == core.currentIndex;
-                        return ListTile(
-                          dense: true,
-                          onTap: () {
-                            core.playAt(i);
-                            engine.playUrl(m.playUrl());
-                          },
-                          leading: SizedBox(
-                            width: 36,
-                            child: Center(
-                              child: active
-                                  ? Icon(
-                                      playing
-                                          ? NekoIcons.Eq
-                                          : NekoIcons.Play,
-                                      size: 18,
-                                      color: kPrimary)
-                                  : Text('${i + 1}',
-                                      style: TextStyle(
-                                          fontSize: 12,
-                                          color: kTextMuted)),
-                            ),
-                          ),
-                          title: Row(
-                            children: [
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(6),
-                                child: SizedBox(
-                                  width: 30,
-                                  height: 30,
-                                  child: m.coverUrl.isNotEmpty
-                                      ? Image.network(
-                                          m.fullCoverUrl,
-                                          fit: BoxFit.cover,
-                                          cacheWidth: 60,
-                                          errorBuilder: (_, __, ___) =>
-                                              Container(
-                                            color: kBgSurface,
-                                            child: Icon(NekoIcons.Music,
-                                                size: 16,
-                                                color: kTextMuted),
-                                          ),
-                                        )
-                                      : Container(
-                                          color: kBgSurface,
-                                          child: Icon(NekoIcons.Music,
-                                              size: 16,
-                                              color: kTextMuted),
-                                        ),
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.start,
-                                  children: [
-                                    Text(m.title,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(
-                                            fontSize: 13,
-                                            fontWeight: active
-                                                ? FontWeight.w600
-                                                : FontWeight.w400,
-                                            color: active
-                                                ? kPrimary
-                                                : kTextPrimary)),
-                                    if (m.artist.isNotEmpty)
-                                      Text(m.artist,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
+                                  fontSize: 12, color: kTextMuted)))
+                      : ListView.builder(
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          itemCount: remoteItems.length,
+                          itemBuilder: (context, i) {
+                            final m = remoteItems[i];
+                            final active =
+                                (m['id'] as num?)?.toInt() == curRemoteId;
+                            return ListTile(
+                              dense: true,
+                              leading: SizedBox(
+                                width: 36,
+                                child: Center(
+                                  child: active
+                                      ? Icon(playing
+                                              ? NekoIcons.Eq
+                                              : NekoIcons.Play,
+                                          size: 18,
+                                          color: kPrimary)
+                                      : Text('${i + 1}',
                                           style: TextStyle(
-                                              fontSize: 11,
+                                              fontSize: 12,
                                               color: kTextMuted)),
-                                  ],
                                 ),
                               ),
+                              title: Text(
+                                m['title']?.toString() ?? '',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                    fontSize: 13,
+                                    color: active
+                                        ? kPrimary
+                                        : kTextPrimary),
+                              ),
+                              subtitle: m['artist']?.toString().isNotEmpty ==
+                                      true
+                                  ? Text(
+                                      m['artist'].toString(),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                          fontSize: 11,
+                                          color: kTextMuted))
+                                  : null,
+                            );
+                          },
+                        ))
+                  : (localQueue.isEmpty
+                      ? Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(NekoIcons.PlaylistPlay,
+                                  size: 44,
+                                  color:
+                                      kTextMuted.withValues(alpha: 0.35)),
+                              const SizedBox(height: 10),
+                              Text(l10n.queueEmpty,
+                                  style: TextStyle(
+                                      color: kTextMuted, fontSize: 13)),
+                              const SizedBox(height: 4),
+                              Text(l10n.queueEmptyHint,
+                                  style: TextStyle(
+                                      color: kTextMuted
+                                          .withValues(alpha: 0.6),
+                                      fontSize: 12)),
                             ],
                           ),
-                          trailing: Text(_fmt(m.duration.toDouble()),
-                              style: TextStyle(
-                                  fontSize: 11, color: kTextMuted)),
-                        );
-                      },
-                    ),
+                        )
+                      : ListView.builder(
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          itemCount: localQueue.length,
+                          itemBuilder: (context, i) {
+                            final m = localQueue[i];
+                            final active = i == core.currentIndex;
+                            return ListTile(
+                              dense: true,
+                              onTap: () {
+                                core.playAt(i);
+                                engine.playUrl(m.playUrl());
+                              },
+                              leading: SizedBox(
+                                width: 36,
+                                child: Center(
+                                  child: active
+                                      ? Icon(
+                                          playing
+                                              ? NekoIcons.Eq
+                                              : NekoIcons.Play,
+                                          size: 18,
+                                          color: kPrimary)
+                                      : Text('${i + 1}',
+                                          style: TextStyle(
+                                              fontSize: 12,
+                                              color: kTextMuted)),
+                                ),
+                              ),
+                              title: Row(
+                                children: [
+                                  ClipRRect(
+                                    borderRadius:
+                                        BorderRadius.circular(6),
+                                    child: SizedBox(
+                                      width: 30,
+                                      height: 30,
+                                      child: m.coverUrl.isNotEmpty
+                                          ? Image.network(
+                                              m.fullCoverUrl,
+                                              fit: BoxFit.cover,
+                                              cacheWidth: 60,
+                                              errorBuilder: (_, __, ___) =>
+                                                  Container(
+                                                color: kBgSurface,
+                                                child: Icon(
+                                                    NekoIcons.Music,
+                                                    size: 16,
+                                                    color: kTextMuted),
+                                              ),
+                                            )
+                                          : Container(
+                                              color: kBgSurface,
+                                              child: Icon(
+                                                  NekoIcons.Music,
+                                                  size: 16,
+                                                  color: kTextMuted),
+                                            ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(m.title,
+                                            maxLines: 1,
+                                            overflow:
+                                                TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                                fontSize: 13,
+                                                fontWeight: active
+                                                    ? FontWeight.w600
+                                                    : FontWeight.w400,
+                                                color: active
+                                                    ? kPrimary
+                                                    : kTextPrimary)),
+                                        if (m.artist.isNotEmpty)
+                                          Text(m.artist,
+                                              maxLines: 1,
+                                              overflow:
+                                                  TextOverflow.ellipsis,
+                                              style: TextStyle(
+                                                  fontSize: 11,
+                                                  color: kTextMuted)),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              trailing: Text(
+                                  _fmt(m.duration.toDouble()),
+                                  style: TextStyle(
+                                      fontSize: 11, color: kTextMuted)),
+                            );
+                          },
+                        )),
             ),
+            if (remote && remoteItems.isNotEmpty)
+              Divider(height: 1, color: kDivider),
+            if (remote && remoteItems.isNotEmpty)
+              Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: kPrimary,
+                      side: BorderSide(color: kPrimary.withValues(alpha: 0.5)),
+                    ),
+                    onPressed: () {
+                      final songs = <NekoCoreMusic>[];
+                      for (final it in remoteItems) {
+                        songs.add(NekoCoreMusic(
+                          id: (it['id'] as num?)?.toInt() ?? 0,
+                          title: (it['title'] as String?) ?? '',
+                          artist: (it['artist'] as String?) ?? '',
+                          album: (it['album'] as String?) ?? '',
+                          duration: (it['duration'] as num?)?.toInt() ?? 0,
+                          coverUrl: (it['coverPath'] as String?) ?? '',
+                          localPath: '',
+                          playCount: 0,
+                          uploadedAtMs: 0,
+                          lrc: false,
+                        ));
+                      }
+                      if (songs.isNotEmpty) core.playAll(songs);
+                    },
+                    icon: const Icon(NekoIcons.PlaylistPlay, size: 18),
+                    label: Text(t.t('接管并播放', 'Take over & play'),
+                        style: const TextStyle(fontSize: 13)),
+                  ),
+                ),
+              ),
           ],
         );
       },
-    );
-  }
-
-  Widget _lanStrip(BuildContext context, CoreController core) {
-    final t = ThemeController.instance;
-    final sel = core.lanSelectedDeviceId;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(18, 8, 18, 2),
-          child: Row(
-            children: [
-              Icon(NekoIcons.DevicesOther, size: 14, color: kTextMuted),
-              const SizedBox(width: 6),
-              Text(t.t('设备同步', 'Device sync'),
-                  style: TextStyle(fontSize: 11, color: kTextMuted)),
-            ],
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
-          child: Wrap(
-            spacing: 8,
-            runSpacing: 6,
-            children: [
-              for (final d in core.lanDevices.take(6))
-                InkWell(
-                  borderRadius: BorderRadius.circular(8),
-                  onTap: () {
-                    final id = (d['id'] ?? d['deviceId'])?.toString();
-                    if (id != null && id.isNotEmpty) {
-                      core.lanSelectDevice(id);
-                    }
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 10, vertical: 5),
-                    decoration: BoxDecoration(
-                      color: sel == (d['id'] ?? d['deviceId'])?.toString()
-                          ? kPrimary.withValues(alpha: 0.18)
-                          : kBgMid,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(NekoIcons.DevicesOther,
-                            size: 13,
-                            color: sel ==
-                                    (d['id'] ?? d['deviceId'])?.toString()
-                                ? kPrimary
-                                : kTextSecondary),
-                        const SizedBox(width: 6),
-                        Text(
-                          d['deviceName']?.toString() ?? '?',
-                          style: TextStyle(
-                              fontSize: 12,
-                              color: sel ==
-                                      (d['id'] ?? d['deviceId'])?.toString()
-                                  ? kPrimary
-                                  : kTextPrimary),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ),
-        Divider(height: 8, color: kDivider),
-      ],
     );
   }
 }

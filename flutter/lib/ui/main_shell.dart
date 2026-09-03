@@ -14,7 +14,7 @@ import '../l10n/generated/app_localizations.dart';
 import 'list_pages.dart';
 import 'login_dialog.dart';
 import 'player_bar.dart';
-import 'widgets/queue_panel_body.dart';
+import 'widgets/queue_glass.dart';
 import 'lan_panel.dart';
 import 'daily_music_page.dart';
 import 'search_page.dart';
@@ -334,32 +334,7 @@ class _MainShellState extends State<MainShell>
                 width: 384,
                 child: SlideTransition(
                   position: _queueSlide,
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(16),
-                    child: BackdropFilter(
-                      filter: ui.ImageFilter.blur(sigmaX: 24, sigmaY: 24),
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          color: kBgSurface.withValues(alpha: 0.72),
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.1)),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.28),
-                              blurRadius: 28,
-                              offset: const Offset(0, 10),
-                            ),
-                          ],
-                        ),
-                        child: QueuePanelBody(
-                          onClose: _closeQueueDrawer,
-                          onLan: _openLan,
-                          showDevices: true,
-                        ),
-                      ),
-                    ),
-                  ),
+                  child: QueueGlass(onClose: _closeQueueDrawer),
                 ),
               ),
             ],

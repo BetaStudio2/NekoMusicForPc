@@ -39,6 +39,20 @@ List<PopupMenuEntry<VoidCallback>> buildSongMenuEntries(
       label: l10n.addToPlaylist,
       action: () => _addToPlaylist(context, core, music),
     ),
+    (
+      icon: NekoIcons.AddList,
+      label: ThemeController.instance.t('加入播放队列', 'Add to queue'),
+      action: () {
+        core.addToQueue(music);
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(SnackBar(
+            content: Text(ThemeController.instance.t(
+                '已加入播放队列', 'Added to queue')),
+            duration: const Duration(seconds: 2),
+          ));
+      },
+    ),
     if (music.id > 0)
       (
         icon: NekoIcons.Share,

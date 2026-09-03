@@ -1,5 +1,5 @@
 import 'neko_icons.dart';
-import 'widgets/queue_panel_body.dart';
+import 'widgets/queue_glass.dart';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
@@ -455,27 +455,7 @@ class _PlayerDetailPageState extends State<PlayerDetailPage>
     // 统一队列面板组件（与播放条队列共用同一视图）
     return Padding(
       padding: const EdgeInsets.only(top: 12, bottom: 12, right: 12),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
-        child: BackdropFilter(
-          filter: ui.ImageFilter.blur(sigmaX: 24, sigmaY: 24),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: kBgSurface.withValues(alpha: 0.66),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.28),
-                  blurRadius: 28,
-                  offset: const Offset(0, 10),
-                ),
-              ],
-            ),
-            child: QueuePanelBody(onClose: onClose),
-          ),
-        ),
-      ),
+      child: QueueGlass(onClose: onClose),
     );
   }
 
