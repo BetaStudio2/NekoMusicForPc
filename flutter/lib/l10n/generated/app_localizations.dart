@@ -1411,6 +1411,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'支付链接已复制'**
   String get payLinkCopied;
+
+  /// No description provided for @scanPayN.
+  ///
+  /// In zh, this message translates to:
+  /// **'扫码支付（{method}）'**
+  String scanPayN(Object method);
 }
 
 class _AppLocalizationsDelegate

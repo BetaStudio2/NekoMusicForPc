@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import '../main.dart';
 import '../core/core_controller.dart';
+import '../l10n/generated/app_localizations.dart';
 
 /// 会员中心：左侧套餐列表，右侧扫码支付。
 /// 数据流：vipPricing() → 选套餐/支付方式 → vipPayCreate() → 展示二维码。
@@ -16,6 +17,7 @@ class VipPage extends StatefulWidget {
 }
 
 class _VipPageState extends State<VipPage> {
+  AppLocalizations get _l10n => AppLocalizations.of(context);
   List<Map<String, dynamic>> _plans = [];
   Map<String, dynamic>? _order;
   bool _loading = true;
@@ -48,7 +50,7 @@ class _VipPageState extends State<VipPage> {
             _selectedPlanId = (_plans.first['id'] as num).toInt();
           }
         } else {
-          _error = msg.isEmpty ? '加载失败' : msg;
+          _error = msg.isEmpty ? _l10n.loadFailed : msg;
         }
       });
     });
@@ -66,8 +68,8 @@ class _VipPageState extends State<VipPage> {
     final days = (p['days'] as num?)?.toInt() ?? 0;
     final name = p['name']?.toString() ?? '';
     if (name.isNotEmpty) return name;
-    if (months > 0) return '$months 个月';
-    if (days > 0) return '$days 天';
+    if (months > 0) return _l10n.monthsN(months);
+    if (days > 0) return _l10n.daysN(days);
     return 'VIP';
   }
 
@@ -87,7 +89,7 @@ class _VipPageState extends State<VipPage> {
         if (ok && order != null) {
           _order = order;
         } else {
-          _error = msg.isEmpty ? '创建订单失败' : msg;
+          _error = msg.isEmpty ? _l10n.createOrderFailed : msg;
         }
       });
     });
@@ -115,7 +117,7 @@ class _VipPageState extends State<VipPage> {
       backgroundColor: kBgSurface,
       appBar: AppBar(
         backgroundColor: kBgSurface,
-        title: const Text('会员中心'),
+        title: Text(_l10n.vipCenter),
         centerTitle: false,
         actions: [
           if (_isVip)
@@ -127,8 +129,8 @@ class _VipPageState extends State<VipPage> {
                       color: Color(0xFFFFB300), size: 18),
                   label: Text(
                     _vipExpiresAt.isNotEmpty
-                        ? '会员至 $_vipExpiresAt'
-                        : 'VIP 会员',
+                        ? _l10n.vipUntil(_vipExpiresAt)
+                        : _l10n.vipMember,
                     style: const TextStyle(fontSize: 12),
                   ),
                   backgroundColor: const Color(0x33FFB300),
@@ -138,7 +140,7 @@ class _VipPageState extends State<VipPage> {
             )
           else
             IconButton(
-              tooltip: '刷新',
+              tooltip: _l10n.actionRefresh,
               icon: const Icon(Icons.refresh),
               onPressed: _load,
             ),
@@ -149,7 +151,7 @@ class _VipPageState extends State<VipPage> {
           : _plans.isEmpty
               ? Center(
                   child: Text(
-                    _error ?? '暂无可用套餐',
+                    _error ?? _l10n.noPlans,
                     style: TextStyle(color: kTextSecondary),
                   ),
                 )
@@ -164,21 +166,21 @@ class _VipPageState extends State<VipPage> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            Text('选择套餐',
+                            Text(_l10n.choosePlan,
                                 style: TextStyle(
                                     fontSize: 16, color: kTextSecondary)),
                             const SizedBox(height: 12),
                             ..._plans.map(_buildPlanCard),
                             const SizedBox(height: 24),
-                            Text('支付方式',
+                            Text(_l10n.payMethod,
                                 style: TextStyle(
                                     fontSize: 16, color: kTextSecondary)),
                             const SizedBox(height: 12),
                             Row(
                               children: [
-                                _buildPayType('alipay', '支付宝'),
+                                _buildPayType('alipay', _l10n.alipay),
                                 const SizedBox(width: 12),
-                                _buildPayType('wxpay', '微信支付'),
+                                _buildPayType('wxpay', _l10n.wechatPay),
                               ],
                             ),
                             const SizedBox(height: 24),
@@ -196,7 +198,7 @@ class _VipPageState extends State<VipPage> {
                                       child: CircularProgressIndicator(
                                           strokeWidth: 2))
                                   : const Icon(Icons.payment),
-                              label: Text(_creating ? '创建订单中…' : '立即开通'),
+                              label: Text(_creating ? _l10n.creatingOrder : _l10n.activateNow),
                             ),
                             if (_error != null) ...[
                               const SizedBox(height: 12),
@@ -223,7 +225,7 @@ class _VipPageState extends State<VipPage> {
                                     Icon(Icons.qr_code_2,
                                         size: 64, color: kTextMuted),
                                     const SizedBox(height: 16),
-                                    Text('选择套餐并创建订单后展示付款二维码',
+                                    Text(_l10n.qrHint,
                                         textAlign: TextAlign.center,
                                         style: TextStyle(
                                             color: kTextSecondary,
@@ -233,7 +235,9 @@ class _VipPageState extends State<VipPage> {
                               : Column(
                                   children: [
                                     Text(
-                                      '扫码支付（${_payType == "alipay" ? "支付宝" : "微信支付"}）',
+                                      _l10n.scanPayN(_payType == "alipay"
+                                          ? _l10n.alipay
+                                          : _l10n.wechatPay),
                                       style:
                                           TextStyle(fontSize: 13, color: kTextSecondary),
                                     ),
@@ -241,7 +245,7 @@ class _VipPageState extends State<VipPage> {
                                     _buildQr(),
                                     const SizedBox(height: 12),
                                     Text(
-                                      '请使用手机扫码完成支付',
+                                      _l10n.scanToPay,
                                       style: TextStyle(
                                           fontSize: 12, color: kTextMuted),
                                     ),
@@ -328,7 +332,7 @@ class _VipPageState extends State<VipPage> {
   Widget _buildQr() {
     final url = _qrUrl();
     if (url == null) {
-      return Text('支付信息缺失',
+      return Text(_l10n.payInfoMissing,
           style: TextStyle(color: kTextMuted, fontSize: 13));
     }
     return ClipRRect(
@@ -367,10 +371,10 @@ class _VipPageState extends State<VipPage> {
               children: [
                 const Icon(Icons.qr_code, size: 48, color: Colors.grey),
                 const SizedBox(height: 8),
-                Text('二维码加载失败',
+                Text(_l10n.qrLoadFailed,
                     style: TextStyle(color: kTextMuted, fontSize: 12)),
                 const SizedBox(height: 4),
-                Text('请点击复制链接', style: TextStyle(color: kTextMuted, fontSize: 12)),
+                Text(_l10n.copyLinkHint, style: TextStyle(color: kTextMuted, fontSize: 12)),
               ],
             ),
           );
@@ -390,12 +394,12 @@ class _VipPageState extends State<VipPage> {
         const SizedBox(height: 8),
         TextButton.icon(
           icon: const Icon(Icons.link, size: 14),
-          label: const Text('复制支付链接', style: TextStyle(fontSize: 12)),
+          label: Text(_l10n.copyPayLink, style: const TextStyle(fontSize: 12)),
           onPressed: () async {
             await Clipboard.setData(ClipboardData(text: text));
             if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                  content: Text('支付链接已复制'), duration: Duration(seconds: 1)));
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                  content: Text(_l10n.payLinkCopied), duration: const Duration(seconds: 1)));
             }
           },
         ),

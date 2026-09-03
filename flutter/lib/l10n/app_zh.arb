@@ -218,5 +218,6 @@
   "qrLoadFailed": "二维码加载失败",
   "copyLinkHint": "请点击复制链接",
   "copyPayLink": "复制支付链接",
-  "payLinkCopied": "支付链接已复制"
+  "payLinkCopied": "支付链接已复制",
+  "scanPayN": "扫码支付（{method}）"
 }

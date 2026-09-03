@@ -708,4 +708,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get payLinkCopied => 'Payment link copied';
+
+  @override
+  String scanPayN(Object method) {
+    return 'Scan to pay ($method)';
+  }
 }

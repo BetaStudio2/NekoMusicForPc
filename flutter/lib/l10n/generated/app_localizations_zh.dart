@@ -702,4 +702,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get payLinkCopied => '支付链接已复制';
+
+  @override
+  String scanPayN(Object method) {
+    return '扫码支付（$method）';
+  }
 }

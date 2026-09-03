@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../main.dart';
 import '../core/core_controller.dart';
+import '../l10n/generated/app_localizations.dart';
 
 /// 歌单导入对话框：网易云 / QQ 音乐歌单 → 批量搜索匹配 → 加入目标歌单或收藏。
 /// 流程对齐原版 NeteaseImportDialog / QqImportDialog。
@@ -19,6 +20,7 @@ const _kTargetFavorites = -1;
 const _kTargetNewPlaylist = -2;
 
 class _ImportPlaylistDialogState extends State<ImportPlaylistDialog> {
+  AppLocalizations get _l10n => AppLocalizations.of(context);
   bool _netease = true;
   final TextEditingController _idCtrl = TextEditingController();
   final TextEditingController _newNameCtrl = TextEditingController();
@@ -43,7 +45,7 @@ class _ImportPlaylistDialogState extends State<ImportPlaylistDialog> {
     final id = _idCtrl.text.trim();
     if (id.isEmpty) {
       setState(() {
-        _fetchError = '请输入歌单 ID';
+        _fetchError = _l10n.enterPlaylistId;
         _info = null;
       });
       return;
@@ -77,19 +79,19 @@ class _ImportPlaylistDialogState extends State<ImportPlaylistDialog> {
         .map((m) => {'title': '${m['name'] ?? ''}', 'artist': '${m['artist'] ?? ''}'})
         .toList();
     if (tracks.isEmpty) {
-      setState(() => _status = '歌单里没有可导入的曲目');
+      setState(() => _status = _l10n.noImportableTracks);
       return;
     }
     if (_target == _kTargetNewPlaylist) {
       final name = _newNameCtrl.text.trim();
       if (name.isEmpty) {
-        setState(() => _status = '请输入新建歌单名称');
+        setState(() => _status = _l10n.enterNewPlaylistName);
         return;
       }
     }
     setState(() {
       _importing = true;
-      _status = '正在批量搜索匹配歌曲…';
+      _status = _l10n.importSearching;
     });
 
     // 1) 批量搜索匹配
@@ -99,7 +101,7 @@ class _ImportPlaylistDialogState extends State<ImportPlaylistDialog> {
       if (error != null || result == null) {
         setState(() {
           _importing = false;
-          _status = '批量搜索失败：$error';
+          _status = _l10n.importSearchFailed(error ?? '');
         });
         return;
       }
@@ -110,7 +112,7 @@ class _ImportPlaylistDialogState extends State<ImportPlaylistDialog> {
       if (ids.isEmpty) {
         setState(() {
           _importing = false;
-          _status = '没有匹配到可导入的歌曲';
+          _status = _l10n.noMatchSongs;
         });
         return;
       }
@@ -121,14 +123,14 @@ class _ImportPlaylistDialogState extends State<ImportPlaylistDialog> {
   void _addMatched(List<int> ids, int successCount) {
     // 目标解析：新建歌单 → 先创建再添加
     if (_target == _kTargetNewPlaylist) {
-      setState(() => _status = '正在创建歌单…');
+      setState(() => _status = _l10n.creatingPlaylist);
       widget.core.createCloudPlaylist(_newNameCtrl.text.trim(),
           onDone: (id) {
         if (!mounted) return;
         if (id == null) {
           setState(() {
             _importing = false;
-            _status = '新建歌单失败';
+            _status = _l10n.createPlaylistFailed;
           });
           return;
         }
@@ -143,8 +145,8 @@ class _ImportPlaylistDialogState extends State<ImportPlaylistDialog> {
     final toFavorites = playlistId == _kTargetFavorites;
     setState(() {
       _status = toFavorites
-          ? '正在加入收藏（${ids.length} 首）…'
-          : '正在加入歌单（${ids.length} 首）…';
+          ? _l10n.importingToFavoritesN(ids.length)
+          : _l10n.importingToPlaylistN(ids.length);
     });
     if (toFavorites) {
       // 收藏走批量收藏接口不可用时的兜底：逐个收藏
@@ -155,7 +157,7 @@ class _ImportPlaylistDialogState extends State<ImportPlaylistDialog> {
       }
       setState(() {
         _importing = false;
-        _resultText = '已收藏 $done 首（匹配 $successCount 首）';
+        _resultText = _l10n.favoritedDoneN(done, successCount);
       });
       return;
     }
@@ -166,9 +168,9 @@ class _ImportPlaylistDialogState extends State<ImportPlaylistDialog> {
       setState(() {
         _importing = false;
         if (error != null) {
-          _resultText = '添加失败：$error';
+          _resultText = _l10n.addFailed(error);
         } else {
-          _resultText = '成功添加 $added 首（匹配 $successCount 首）';
+          _resultText = _l10n.addedDoneN(added, successCount);
         }
       });
     });
@@ -178,7 +180,7 @@ class _ImportPlaylistDialogState extends State<ImportPlaylistDialog> {
   Widget build(BuildContext context) {
     return AlertDialog(
       backgroundColor: kBgSurface,
-      title: const Text('导入歌单'),
+      title: Text(_l10n.importPlaylist),
       content: SizedBox(
         width: 460,
         child: SingleChildScrollView(
@@ -190,9 +192,9 @@ class _ImportPlaylistDialogState extends State<ImportPlaylistDialog> {
               Row(
                 children: [
                   SegmentedButton<bool>(
-                    segments: const [
-                      ButtonSegment(value: true, label: Text('网易云')),
-                      ButtonSegment(value: false, label: Text('QQ 音乐')),
+                    segments: [
+                      ButtonSegment(value: true, label: Text(_l10n.neteaseName)),
+                      ButtonSegment(value: false, label: Text(_l10n.qqName)),
                     ],
                     selected: {_netease},
                     onSelectionChanged: (s) {
@@ -209,7 +211,7 @@ class _ImportPlaylistDialogState extends State<ImportPlaylistDialog> {
                     child: TextField(
                       controller: _idCtrl,
                       decoration: InputDecoration(
-                        labelText: _netease ? '网易云歌单 ID' : 'QQ 歌单 disstid',
+                        labelText: _netease ? _l10n.neteasePlaylistId : _l10n.qqDisstid,
                         isDense: true,
                       ),
                       onSubmitted: (_) => _fetch(),
@@ -225,44 +227,44 @@ class _ImportPlaylistDialogState extends State<ImportPlaylistDialog> {
                             height: 16,
                             child: CircularProgressIndicator(
                                 strokeWidth: 2, color: Colors.white))
-                        : const Text('获取'),
+                        : Text(_l10n.fetch),
                   ),
                 ],
               ),
               if (_fetchError != null) ...[
                 const SizedBox(height: 10),
                 Text(_fetchError!,
-                    style: const TextStyle(color: Color(0xFFFF8A80), fontSize: 12)),
+                    style: TextStyle(color: Color(0xFFFF8A80), fontSize: 12)),
               ],
               if (_info != null) ...[
                 const SizedBox(height: 12),
-                Text('歌单：${_info!['name'] ?? ''}',
-                    style: const TextStyle(
+                Text(_l10n.playlistPrefix(_info!['name'] ?? ''),
+                    style: TextStyle(
                         fontSize: 14, fontWeight: FontWeight.w600)),
                 const SizedBox(height: 4),
-                Text('共 ${((_info!['tracks'] as List?) ?? const []).length} 首（最多导入前 60 首）',
+                Text(_l10n.importCountN((( _info!['tracks'] as List?) ?? const []).length),
                     style: TextStyle(fontSize: 12, color: kTextMuted)),
                 const SizedBox(height: 12),
                 // 目标选择
                 Row(
                   children: [
-                    const Text('导入到：',
+                    Text(_l10n.importTo,
                         style: TextStyle(fontSize: 13)),
                     const SizedBox(width: 8),
                     DropdownButton<int>(
                       value: _target,
                       isDense: true,
                       items: [
-                        const DropdownMenuItem(
-                            value: _kTargetFavorites, child: Text('我的收藏')),
+                        DropdownMenuItem(
+                            value: _kTargetFavorites, child: Text(_l10n.myFavorites)),
                         for (final p in widget.core.myPlaylists)
                           DropdownMenuItem(
                               value: p.localId.toInt(),
                               child: Text(p.name,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis)),
-                        const DropdownMenuItem(
-                            value: _kTargetNewPlaylist, child: Text('新建歌单')),
+                        DropdownMenuItem(
+                            value: _kTargetNewPlaylist, child: Text(_l10n.newPlaylist)),
                       ],
                       onChanged: _importing
                           ? null
@@ -275,8 +277,8 @@ class _ImportPlaylistDialogState extends State<ImportPlaylistDialog> {
                   TextField(
                     controller: _newNameCtrl,
                     enabled: !_importing,
-                    decoration: const InputDecoration(
-                        labelText: '新建歌单名称', isDense: true),
+                    decoration: InputDecoration(
+                        labelText: _l10n.newPlaylistName, isDense: true),
                   ),
                 ],
                 const SizedBox(height: 12),
@@ -285,13 +287,13 @@ class _ImportPlaylistDialogState extends State<ImportPlaylistDialog> {
                   child: FilledButton.icon(
                     style: FilledButton.styleFrom(backgroundColor: kPrimary),
                     onPressed: _importing ? null : _startImport,
-                    icon: const Icon(Icons.download_rounded, size: 18),
-                    label: Text(_importing ? _status : '开始导入'),
+                    icon: Icon(Icons.download_rounded, size: 18),
+                    label: Text(_importing ? _status : _l10n.startImport),
                   ),
                 ),
                 if (_importing)
                   Padding(
-                    padding: const EdgeInsets.only(top: 8),
+                    padding: EdgeInsets.only(top: 8),
                     child: Text(_status,
                         style: TextStyle(fontSize: 12, color: kTextSecondary)),
                   ),
@@ -311,7 +313,7 @@ class _ImportPlaylistDialogState extends State<ImportPlaylistDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('关闭'),
+          child: Text(_l10n.close),
         ),
       ],
     );

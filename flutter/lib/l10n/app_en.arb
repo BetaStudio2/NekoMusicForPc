@@ -218,5 +218,6 @@
   "qrLoadFailed": "Failed to load QR code",
   "copyLinkHint": "Click to copy the link",
   "copyPayLink": "Copy payment link",
-  "payLinkCopied": "Payment link copied"
+  "payLinkCopied": "Payment link copied",
+  "scanPayN": "Scan to pay ({method})"
 }
