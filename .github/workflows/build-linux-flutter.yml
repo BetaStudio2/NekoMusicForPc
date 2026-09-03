@@ -200,7 +200,7 @@ jobs:
           $mpv = Get-ChildItem "$env:RUNNER_TEMP\mpv" -Recurse -Filter mpv-2.dll |
             Select-Object -First 1
           if ($mpv) { Copy-Item $mpv.FullName "$rel\mpv-2.dll" -Force }
-          $outDir = Join-Path $GITHUB_WORKSPACE "portable"
+          $outDir = Join-Path $env:GITHUB_WORKSPACE "portable"
           New-Item -ItemType Directory -Force -Path $outDir | Out-Null
           $zip = Join-Path $outDir "nekomusic-1.0.1-windows-x64.zip"
           if (Test-Path $zip) { Remove-Item $zip }
@@ -368,6 +368,7 @@ jobs:
   linux-snap:
     runs-on: ubuntu-24.04
     needs: linux-deb
+    continue-on-error: true   # snapcraft 需 snap 运行环境，GitHub runner 受限 → 尽力而为
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
