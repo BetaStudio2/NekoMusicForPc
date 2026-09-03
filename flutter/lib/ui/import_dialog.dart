@@ -1,3 +1,4 @@
+import 'neko_icons.dart';
 import 'package:flutter/material.dart';
 
 import '../main.dart';
@@ -287,7 +288,7 @@ class _ImportPlaylistDialogState extends State<ImportPlaylistDialog> {
                   child: FilledButton.icon(
                     style: FilledButton.styleFrom(backgroundColor: kPrimary),
                     onPressed: _importing ? null : _startImport,
-                    icon: Icon(Icons.download_rounded, size: 18),
+                    icon: Icon(NekoIcons.Download, size: 18),
                     label: Text(_importing ? _status : _l10n.startImport),
                   ),
                 ),

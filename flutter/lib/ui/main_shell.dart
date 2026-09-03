@@ -574,7 +574,7 @@ class _DailyEntry extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.auto_awesome, size: 16, color: kPrimary),
+                      Icon(NekoIcons.AutoFix, size: 16, color: kPrimary),
                       const SizedBox(width: 6),
                       Text(l10n.homeDailyTitle,
                           style: const TextStyle(

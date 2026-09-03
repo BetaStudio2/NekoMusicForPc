@@ -795,7 +795,7 @@ class UserMenu extends StatelessWidget {
     return PopupMenuButton<String>(
       tooltip: l10n.account,
       icon: Icon(
-        core.isLoggedIn ? Icons.account_circle : Icons.account_circle_outlined,
+        core.isLoggedIn ? NekoIcons.Person : NekoIcons.Person,
         color: core.isLoggedIn ? kPrimary : kTextSecondary,
       ),
       onSelected: (v) {

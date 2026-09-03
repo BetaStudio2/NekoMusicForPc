@@ -28,7 +28,7 @@ class Sidebar extends StatelessWidget {
     final core = CoreScope.of(context);
     final l10n = AppLocalizations.of(context);
     final _navItems = [
-      (Icons.home_outlined, l10n.navHome),
+      (NekoIcons.Home, l10n.navHome),
       (NekoIcons.Favorite, l10n.navFavorites),
       (NekoIcons.History, l10n.navRecents),
       (NekoIcons.Download, l10n.navDownloads),

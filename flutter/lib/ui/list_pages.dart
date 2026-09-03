@@ -317,7 +317,7 @@ class _DownloadsPageState extends State<DownloadsPage> {
                 IconButton(
                   tooltip: _l10n.openContainingFolder,
                   iconSize: 18,
-                  icon: const Icon(Icons.folder_open),
+                  icon: const Icon(NekoIcons.Folder),
                   color: kTextSecondary,
                   onPressed: () {
                     final idx = m.localPath.lastIndexOf('/');

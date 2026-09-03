@@ -33,7 +33,7 @@ class SettingsPage extends StatelessWidget {
             // ── 通用：语言切换（dart 原生 l10n，实时生效并持久化） ──
             _section(l10n.settingsGeneral, [
               ListTile(
-                leading: const Icon(Icons.language),
+                leading: const Icon(NekoIcons.Earth),
                 title: Text(l10n.settingsLanguage),
                 trailing: DropdownButton<String>(
                   value: ThemeController.instance.language,
@@ -94,7 +94,7 @@ class SettingsPage extends StatelessWidget {
               ),
               if (ThemeController.instance.backdropKind == 'solid')
                 ListTile(
-                  leading: const Icon(Icons.color_lens_outlined),
+                  leading: const Icon(NekoIcons.Palette),
                   title: Text(l10n.settingsBackdropColor),
                   trailing: InkWell(
                     borderRadius: BorderRadius.circular(8),
@@ -161,7 +161,7 @@ class SettingsPage extends StatelessWidget {
                 subtitle: Text(l10n.settingsAppSubtitle),
               ),
               ListTile(
-                leading: const Icon(Icons.abc),
+                leading: const Icon(NekoIcons.Tag),
                 title: Text(l10n.settingsVersion),
                 // 版本读取自 pubspec.yaml（version 字段，随构建注入）
                 trailing: FutureBuilder<PackageInfo>(
@@ -172,7 +172,7 @@ class SettingsPage extends StatelessWidget {
                 ),
               ),
               ListTile(
-                leading: const Icon(NekoIcons.Link),
+                leading: const Icon(NekoIcons.Github),
                 title: Text(l10n.settingsGithubRepo),
                 subtitle: const Text('FantasyNetworkCN/NekoMusicForPc'),
                 trailing: const Icon(Icons.open_in_new, size: 16),
@@ -187,7 +187,7 @@ class SettingsPage extends StatelessWidget {
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.system_update_alt),
+                leading: const Icon(NekoIcons.Update),
                 title: Text(l10n.settingsCheckUpdate),
                 trailing: const Icon(NekoIcons.Right, size: 18),
                 onTap: () {

@@ -567,7 +567,7 @@ class _PlayerDetailPageState extends State<PlayerDetailPage>
                                   child: active
                                       ? Icon(
                                           playing
-                                              ? Icons.graphic_eq
+                                              ? NekoIcons.Eq
                                               : NekoIcons.Play,
                                           size: 18,
                                           color: kPrimary)
