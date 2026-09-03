@@ -331,4 +331,96 @@ class AppLocalizationsEn extends AppLocalizations {
   String remoteQueueSubtitle(Object count, Object title) {
     return '$count songs · $title';
   }
+
+  @override
+  String get search => 'Search';
+
+  @override
+  String searchTotalSongs(Object total) {
+    return 'Found $total songs';
+  }
+
+  @override
+  String get tabSongs => 'Songs';
+
+  @override
+  String get tabPlaylists => 'Playlists';
+
+  @override
+  String get tabArtists => 'Artists';
+
+  @override
+  String get searchStartHint => 'Type keywords to search';
+
+  @override
+  String get searchNoSongs => 'No matching songs';
+
+  @override
+  String get searchNoPlaylists => 'No matching playlists';
+
+  @override
+  String get searchNoArtists => 'No matching artists';
+
+  @override
+  String get unknownArtist => 'Unknown artist';
+
+  @override
+  String songCountN(Object count) {
+    return '$count songs';
+  }
+
+  @override
+  String get viewArtist => 'View artist';
+
+  @override
+  String get shuffleAgain => 'Shuffle';
+
+  @override
+  String get dailyShuffleHint => 'Tap Shuffle to get today\'s picks';
+
+  @override
+  String get myFavorites => 'My favorites';
+
+  @override
+  String get loginHintFavorites => 'Sign in to view cloud favorites';
+
+  @override
+  String get emptyFavorites => 'No favorites';
+
+  @override
+  String get emptyRecents => 'No play history';
+
+  @override
+  String downloadsActiveN(Object n) {
+    return 'Downloading $n';
+  }
+
+  @override
+  String downloadsDoneN(Object n) {
+    return 'Done $n';
+  }
+
+  @override
+  String get cancelAllDownloads => 'Cancel all';
+
+  @override
+  String get playAll => 'Play all';
+
+  @override
+  String get noActiveDownloads => 'No active downloads';
+
+  @override
+  String get queuing => 'Queued…';
+
+  @override
+  String get cancelDownload => 'Cancel download';
+
+  @override
+  String get emptyDownloads => 'No downloaded music';
+
+  @override
+  String get play => 'Play';
+
+  @override
+  String get openContainingFolder => 'Open containing folder';
 }

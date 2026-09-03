@@ -721,6 +721,174 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'{count} 首 · {title}'**
   String remoteQueueSubtitle(Object count, Object title);
+
+  /// No description provided for @search.
+  ///
+  /// In zh, this message translates to:
+  /// **'搜索'**
+  String get search;
+
+  /// No description provided for @searchTotalSongs.
+  ///
+  /// In zh, this message translates to:
+  /// **'找到 {total} 首'**
+  String searchTotalSongs(Object total);
+
+  /// No description provided for @tabSongs.
+  ///
+  /// In zh, this message translates to:
+  /// **'单曲'**
+  String get tabSongs;
+
+  /// No description provided for @tabPlaylists.
+  ///
+  /// In zh, this message translates to:
+  /// **'歌单'**
+  String get tabPlaylists;
+
+  /// No description provided for @tabArtists.
+  ///
+  /// In zh, this message translates to:
+  /// **'歌手'**
+  String get tabArtists;
+
+  /// No description provided for @searchStartHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'输入关键字开始搜索'**
+  String get searchStartHint;
+
+  /// No description provided for @searchNoSongs.
+  ///
+  /// In zh, this message translates to:
+  /// **'未找到相关歌曲'**
+  String get searchNoSongs;
+
+  /// No description provided for @searchNoPlaylists.
+  ///
+  /// In zh, this message translates to:
+  /// **'未找到相关歌单'**
+  String get searchNoPlaylists;
+
+  /// No description provided for @searchNoArtists.
+  ///
+  /// In zh, this message translates to:
+  /// **'未找到相关歌手'**
+  String get searchNoArtists;
+
+  /// No description provided for @unknownArtist.
+  ///
+  /// In zh, this message translates to:
+  /// **'未知歌手'**
+  String get unknownArtist;
+
+  /// No description provided for @songCountN.
+  ///
+  /// In zh, this message translates to:
+  /// **'{count} 首歌'**
+  String songCountN(Object count);
+
+  /// No description provided for @viewArtist.
+  ///
+  /// In zh, this message translates to:
+  /// **'查看歌手'**
+  String get viewArtist;
+
+  /// No description provided for @shuffleAgain.
+  ///
+  /// In zh, this message translates to:
+  /// **'换一批'**
+  String get shuffleAgain;
+
+  /// No description provided for @dailyShuffleHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'点击「换一批」获取每日推荐'**
+  String get dailyShuffleHint;
+
+  /// No description provided for @myFavorites.
+  ///
+  /// In zh, this message translates to:
+  /// **'我的收藏'**
+  String get myFavorites;
+
+  /// No description provided for @loginHintFavorites.
+  ///
+  /// In zh, this message translates to:
+  /// **'登录后显示云端收藏'**
+  String get loginHintFavorites;
+
+  /// No description provided for @emptyFavorites.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无收藏'**
+  String get emptyFavorites;
+
+  /// No description provided for @emptyRecents.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无播放记录'**
+  String get emptyRecents;
+
+  /// No description provided for @downloadsActiveN.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在下载 {n}'**
+  String downloadsActiveN(Object n);
+
+  /// No description provided for @downloadsDoneN.
+  ///
+  /// In zh, this message translates to:
+  /// **'已完成 {n}'**
+  String downloadsDoneN(Object n);
+
+  /// No description provided for @cancelAllDownloads.
+  ///
+  /// In zh, this message translates to:
+  /// **'全部取消'**
+  String get cancelAllDownloads;
+
+  /// No description provided for @playAll.
+  ///
+  /// In zh, this message translates to:
+  /// **'播放全部'**
+  String get playAll;
+
+  /// No description provided for @noActiveDownloads.
+  ///
+  /// In zh, this message translates to:
+  /// **'没有进行中的下载'**
+  String get noActiveDownloads;
+
+  /// No description provided for @queuing.
+  ///
+  /// In zh, this message translates to:
+  /// **'排队中…'**
+  String get queuing;
+
+  /// No description provided for @cancelDownload.
+  ///
+  /// In zh, this message translates to:
+  /// **'取消下载'**
+  String get cancelDownload;
+
+  /// No description provided for @emptyDownloads.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无已下载的音乐'**
+  String get emptyDownloads;
+
+  /// No description provided for @play.
+  ///
+  /// In zh, this message translates to:
+  /// **'播放'**
+  String get play;
+
+  /// No description provided for @openContainingFolder.
+  ///
+  /// In zh, this message translates to:
+  /// **'打开所在文件夹'**
+  String get openContainingFolder;
 }
 
 class _AppLocalizationsDelegate

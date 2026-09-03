@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../main.dart';
 import '../core/core_controller.dart';
+import '../l10n/generated/app_localizations.dart';
 import '../ffi/neko_core.dart';
 import 'widgets/song_tile.dart';
 
@@ -14,16 +15,17 @@ class FavoritesPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final core = CoreScope.of(context);
+    final l10n = AppLocalizations.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
-            const Text('我的收藏',
+            Text(l10n.myFavorites,
                 style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
             const Spacer(),
             if (core.favorites.isNotEmpty)
-              Text('${core.favorites.length} 首',
+              Text(l10n.playlistCountSongs(core.favorites.length),
                   style: TextStyle(color: kTextMuted, fontSize: 12)),
           ],
         ),
@@ -34,10 +36,10 @@ class FavoritesPage extends StatelessWidget {
               if (!core.isLoggedIn)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 12),
-                  child: Text('登录后显示云端收藏',
+                  child: Text(l10n.loginHintFavorites,
                       style: TextStyle(color: kTextMuted, fontSize: 12)),
                 ),
-              SongList(core: core, songs: core.favorites, emptyText: '暂无收藏'),
+              SongList(core: core, songs: core.favorites, emptyText: l10n.emptyFavorites),
             ],
           ),
         ),
@@ -53,16 +55,17 @@ class RecentsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final core = CoreScope.of(context);
+    final l10n = AppLocalizations.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
-            const Text('最近播放',
+            Text(l10n.navRecents,
                 style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
             const Spacer(),
             if (core.recents.isNotEmpty)
-              Text('${core.recents.length} 首',
+              Text(l10n.playlistCountSongs(core.recents.length),
                   style: TextStyle(color: kTextMuted, fontSize: 12)),
           ],
         ),
@@ -70,7 +73,7 @@ class RecentsPage extends StatelessWidget {
         Expanded(
           child: ListView(
             children: [
-              SongList(core: core, songs: core.recents, emptyText: '暂无播放记录'),
+              SongList(core: core, songs: core.recents, emptyText: l10n.emptyRecents),
             ],
           ),
         ),
@@ -89,6 +92,7 @@ class DownloadsPage extends StatefulWidget {
 }
 
 class _DownloadsPageState extends State<DownloadsPage> {
+  AppLocalizations get _l10n => AppLocalizations.of(context);
   int _tab = 0; // 0 = 正在下载, 1 = 已完成
 
   @override
@@ -114,13 +118,13 @@ class _DownloadsPageState extends State<DownloadsPage> {
       children: [
         Row(
           children: [
-            const Text('下载',
+            Text(_l10n.download,
                 style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
             const Spacer(),
             TextButton.icon(
               onPressed: core.requestDownloadsStatus,
               icon: const Icon(Icons.refresh, size: 16),
-              label: const Text('刷新'),
+              label: Text(_l10n.actionRefresh),
             ),
           ],
         ),
@@ -131,9 +135,9 @@ class _DownloadsPageState extends State<DownloadsPage> {
               segments: [
                 ButtonSegment<int>(
                     value: 0,
-                    label: Text('正在下载 ${core.downloadsActive.length}')),
+                    label: Text(_l10n.downloadsActiveN(core.downloadsActive.length))),
                 ButtonSegment<int>(
-                    value: 1, label: Text('已完成 ${core.downloads.length}')),
+                    value: 1, label: Text(_l10n.downloadsDoneN(core.downloads.length))),
               ],
               selected: {_tab},
               showSelectedIcon: false,
@@ -147,7 +151,7 @@ class _DownloadsPageState extends State<DownloadsPage> {
                     core.cancelDownload(m.id);
                   }
                 },
-                child: const Text('全部取消',
+                child: Text(_l10n.cancelAllDownloads,
                     style: TextStyle(color: Colors.redAccent, fontSize: 13)),
               )
             else if (_tab == 1 && core.downloads.isNotEmpty)
@@ -157,7 +161,7 @@ class _DownloadsPageState extends State<DownloadsPage> {
                   if (core.downloads.isNotEmpty) core.play(core.downloads.first);
                 },
                 icon: const Icon(Icons.play_arrow, size: 16),
-                label: const Text('播放全部', style: TextStyle(fontSize: 13)),
+                label: Text(_l10n.playAll, style: TextStyle(fontSize: 13)),
               ),
           ],
         ),
@@ -181,7 +185,7 @@ class _DownloadsPageState extends State<DownloadsPage> {
     final list = core.downloadsActive;
     if (list.isEmpty) {
       return Center(
-        child: Text('没有进行中的下载',
+        child: Text(_l10n.noActiveDownloads,
             style: TextStyle(color: kTextMuted, fontSize: 13)),
       );
     }
@@ -234,7 +238,7 @@ class _DownloadsPageState extends State<DownloadsPage> {
                           child: Text(
                             total > 0
                                 ? '${(pct * 100).toStringAsFixed(0)}%  ${_fmtBytes(received)}/${_fmtBytes(total)}'
-                                : '排队中…',
+                                : _l10n.queuing,
                             textAlign: TextAlign.right,
                             style: TextStyle(
                                 fontSize: 11, color: kTextMuted),
@@ -247,7 +251,7 @@ class _DownloadsPageState extends State<DownloadsPage> {
               ),
               const SizedBox(width: 8),
               IconButton(
-                tooltip: '取消下载',
+                tooltip: _l10n.cancelDownload,
                 iconSize: 18,
                 icon: const Icon(Icons.close),
                 color: kTextSecondary,
@@ -266,7 +270,7 @@ class _DownloadsPageState extends State<DownloadsPage> {
     final list = core.downloads;
     if (list.isEmpty) {
       return Center(
-        child: Text('暂无已下载的音乐',
+        child: Text(_l10n.emptyDownloads,
             style: TextStyle(color: kTextMuted, fontSize: 13)),
       );
     }
@@ -303,14 +307,14 @@ class _DownloadsPageState extends State<DownloadsPage> {
                   ),
                 ),
                 IconButton(
-                  tooltip: '播放',
+                  tooltip: _l10n.play,
                   iconSize: 20,
                   icon: const Icon(Icons.play_circle_outline),
                   color: kTextSecondary,
                   onPressed: () => core.play(m),
                 ),
                 IconButton(
-                  tooltip: '打开所在文件夹',
+                  tooltip: _l10n.openContainingFolder,
                   iconSize: 18,
                   icon: const Icon(Icons.folder_open),
                   color: kTextSecondary,

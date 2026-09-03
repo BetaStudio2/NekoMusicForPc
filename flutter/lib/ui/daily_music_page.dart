@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../main.dart';
 import '../core/core_controller.dart';
+import '../l10n/generated/app_localizations.dart';
 import 'widgets/song_tile.dart';
 
 /// 每日推荐列表页（由首页入口卡片 push 进入，对齐原版 Daily 音乐列表页）。
@@ -11,6 +12,7 @@ class DailyMusicPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final core = CoreScope.of(context);
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
       backgroundColor: kBgDeep,
       body: Stack(
@@ -27,26 +29,26 @@ class DailyMusicPage extends StatelessWidget {
                   child: Row(
                     children: [
                       IconButton(
-                        tooltip: '返回',
+                        tooltip: l10n.back,
                         icon: const Icon(Icons.arrow_back),
                         onPressed: () => Navigator.of(context).pop(),
                       ),
                       const SizedBox(width: 4),
-                      const Text('每日推荐',
-                          style: TextStyle(
+                      Text(l10n.homeDailyTitle,
+                          style: const TextStyle(
                               fontSize: 18, fontWeight: FontWeight.bold)),
                       const Spacer(),
                       TextButton.icon(
                         onPressed: core.fetchDaily,
                         icon: const Icon(Icons.refresh, size: 16),
-                        label: const Text('换一批'),
+                        label: Text(l10n.shuffleAgain),
                       ),
                     ],
                   ),
                 ),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(24, 8, 24, 12),
-                  child: Text('根据你的音乐口味 · 每日更新',
+                  child: Text(l10n.homeDailySubtitle,
                       style: TextStyle(fontSize: 12, color: kTextMuted)),
                 ),
                 Divider(height: 1, color: kDivider),
@@ -59,7 +61,7 @@ class DailyMusicPage extends StatelessWidget {
                         SongList(
                             core: core,
                             songs: core.daily,
-                            emptyText: '点击「换一批」获取每日推荐'),
+                            emptyText: l10n.dailyShuffleHint),
                       ],
                     ),
                   ),

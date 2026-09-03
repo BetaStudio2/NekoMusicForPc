@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../main.dart';
 import '../core/core_controller.dart';
+import '../l10n/generated/app_localizations.dart';
 import '../ffi/neko_core.dart';
 import 'artist_detail_page.dart';
 import 'widgets/playlist_card.dart';
@@ -21,6 +22,7 @@ class SearchPage extends StatefulWidget {
 enum _SearchTab { songs, playlists, artists }
 
 class _SearchPageState extends State<SearchPage> {
+  AppLocalizations get _l10n => AppLocalizations.of(context);
   String? _lastQuery; // 已执行搜索的关键字（随标题栏全局搜索更新）
 
   // 单曲
@@ -114,11 +116,12 @@ class _SearchPageState extends State<SearchPage> {
       children: [
         Row(
           children: [
-            const Text('搜索',
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+            Text(_l10n.search,
+                style: const TextStyle(
+                    fontSize: 22, fontWeight: FontWeight.bold)),
             const Spacer(),
             if (_tab == _SearchTab.songs && _total > 0)
-              Text('找到 $_total 首',
+              Text(_l10n.searchTotalSongs(_total),
                   style: TextStyle(color: kTextMuted, fontSize: 12)),
           ],
         ),
@@ -127,9 +130,9 @@ class _SearchPageState extends State<SearchPage> {
         if (_searched)
           Row(
             children: [
-              _tabBtn('单曲', _SearchTab.songs),
-              _tabBtn('歌单', _SearchTab.playlists),
-              _tabBtn('歌手', _SearchTab.artists),
+              _tabBtn(_l10n.tabSongs, _SearchTab.songs),
+              _tabBtn(_l10n.tabPlaylists, _SearchTab.playlists),
+              _tabBtn(_l10n.tabArtists, _SearchTab.artists),
             ],
           ),
         const SizedBox(height: 12),
@@ -167,7 +170,7 @@ class _SearchPageState extends State<SearchPage> {
   Widget _buildBody(CoreController core) {
     if (!_searched) {
       return Center(
-        child: Text('输入关键字开始搜索', style: TextStyle(color: kTextMuted)),
+        child: Text(_l10n.searchStartHint, style: TextStyle(color: kTextMuted)),
       );
     }
     return switch (_tab) {
@@ -176,14 +179,14 @@ class _SearchPageState extends State<SearchPage> {
           : ListView(
               children: [
                 SongList(core: core,
-                    songs: _results, emptyText: '未找到相关歌曲'),
+                    songs: _results, emptyText: _l10n.searchNoSongs),
               ],
             ),
       _SearchTab.playlists => _searchingPlaylists
           ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
           : _playlistResults.isEmpty
               ? Center(
-                  child: Text('未找到相关歌单',
+                  child: Text(_l10n.searchNoPlaylists,
                       style: TextStyle(color: kTextMuted)))
               : GridView.builder(
                   padding: const EdgeInsets.only(bottom: 24),
@@ -204,7 +207,7 @@ class _SearchPageState extends State<SearchPage> {
           ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
           : _artist == null
               ? Center(
-                  child: Text('未找到相关歌手',
+                  child: Text(_l10n.searchNoArtists,
                       style: TextStyle(color: kTextMuted)))
               : Align(
                   alignment: Alignment.topLeft,
@@ -231,7 +234,8 @@ class _ArtistCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final name = '${artist['name'] ?? '未知歌手'}';
+    final l10n = AppLocalizations.of(context);
+    final name = '${artist['name'] ?? l10n.unknownArtist}';
     final tracks = artist['musicList'];
     final count = tracks is List ? tracks.length : 0;
     return InkWell(
@@ -259,7 +263,7 @@ class _ArtistCard extends StatelessWidget {
                 style: const TextStyle(
                     fontSize: 16, fontWeight: FontWeight.w600)),
             const SizedBox(height: 4),
-            Text('$count 首歌',
+            Text(l10n.songCountN(count),
                 style: TextStyle(fontSize: 12, color: kTextMuted)),
             const SizedBox(height: 12),
             SizedBox(
@@ -268,7 +272,7 @@ class _ArtistCard extends StatelessWidget {
                 style: FilledButton.styleFrom(backgroundColor: kPrimary),
                 onPressed: onTap,
                 icon: const Icon(Icons.person_rounded, size: 16),
-                label: const Text('查看歌手'),
+                label: Text(l10n.viewArtist),
               ),
             ),
           ],

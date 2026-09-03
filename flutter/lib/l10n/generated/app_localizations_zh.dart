@@ -327,4 +327,96 @@ class AppLocalizationsZh extends AppLocalizations {
   String remoteQueueSubtitle(Object count, Object title) {
     return '$count 首 · $title';
   }
+
+  @override
+  String get search => '搜索';
+
+  @override
+  String searchTotalSongs(Object total) {
+    return '找到 $total 首';
+  }
+
+  @override
+  String get tabSongs => '单曲';
+
+  @override
+  String get tabPlaylists => '歌单';
+
+  @override
+  String get tabArtists => '歌手';
+
+  @override
+  String get searchStartHint => '输入关键字开始搜索';
+
+  @override
+  String get searchNoSongs => '未找到相关歌曲';
+
+  @override
+  String get searchNoPlaylists => '未找到相关歌单';
+
+  @override
+  String get searchNoArtists => '未找到相关歌手';
+
+  @override
+  String get unknownArtist => '未知歌手';
+
+  @override
+  String songCountN(Object count) {
+    return '$count 首歌';
+  }
+
+  @override
+  String get viewArtist => '查看歌手';
+
+  @override
+  String get shuffleAgain => '换一批';
+
+  @override
+  String get dailyShuffleHint => '点击「换一批」获取每日推荐';
+
+  @override
+  String get myFavorites => '我的收藏';
+
+  @override
+  String get loginHintFavorites => '登录后显示云端收藏';
+
+  @override
+  String get emptyFavorites => '暂无收藏';
+
+  @override
+  String get emptyRecents => '暂无播放记录';
+
+  @override
+  String downloadsActiveN(Object n) {
+    return '正在下载 $n';
+  }
+
+  @override
+  String downloadsDoneN(Object n) {
+    return '已完成 $n';
+  }
+
+  @override
+  String get cancelAllDownloads => '全部取消';
+
+  @override
+  String get playAll => '播放全部';
+
+  @override
+  String get noActiveDownloads => '没有进行中的下载';
+
+  @override
+  String get queuing => '排队中…';
+
+  @override
+  String get cancelDownload => '取消下载';
+
+  @override
+  String get emptyDownloads => '暂无已下载的音乐';
+
+  @override
+  String get play => '播放';
+
+  @override
+  String get openContainingFolder => '打开所在文件夹';
 }
