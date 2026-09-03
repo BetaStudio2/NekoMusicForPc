@@ -1,4 +1,4 @@
-// 由 src/resources/icons 经 scripts/build-icon-font.sh 生成，勿手改。
+// 由 resources/icons 经 scripts/build-icon-font.sh 生成，勿手改。
 import 'package:flutter/widgets.dart';
 
 /// 原作者自制图标字体（neko_icons.ttf）——单色字形，颜色由 IconTheme 决定，深浅主题自适应。
