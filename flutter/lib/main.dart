@@ -38,6 +38,14 @@ class NekoPalette {
   );
 }
 
+/// 跨平台用户主目录（Windows 无 HOME 变量，回退 USERPROFILE）
+String get userHomeDir {
+  final p = Platform.environment['USERPROFILE'] ??
+      Platform.environment['HOME'];
+  if (p != null && p.isNotEmpty) return p;
+  return Directory.systemTemp.path;
+}
+
 /// 主题控制器：深/浅切换 + 背景个性化 + 本地持久化（~/.nekomusic/settings.json）
 class ThemeController extends ChangeNotifier {
   ThemeController._();
@@ -62,7 +70,7 @@ class ThemeController extends ChangeNotifier {
   String get backdropImagePath => _backdropImagePath;
 
   File get _file =>
-      File('${Platform.environment['HOME'] ?? '.'}/.nekomusic/settings.json');
+      File('${userHomeDir}/.nekomusic/settings.json');
 
   Future<void> load() async {
     try {

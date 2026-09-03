@@ -166,22 +166,7 @@ jobs:
       - name: Build (release)
         shell: cmd
         run: scripts\build.bat release
-      - name: Install NSIS
-        run: choco install nsis -y --no-progress
-      - name: Build installer (NSIS)
-        shell: cmd
-        run: |
-          set "PATH=C:\Program Files (x86)\NSIS;%PATH%"
-          makensis /DVERSION=1.0.1 ^
-            /DOUT=%GITHUB_WORKSPACE%\nekomusic-setup-1.0.1.exe ^
-            /DSTAGING=%GITHUB_WORKSPACE%\flutter\build\windows\x64\runner\Release ^
-            packaging\nekomusic.nsi
-      - uses: actions/upload-artifact@v4
-        with:
-          name: nekomusic-windows-x64
-          path: flutter/build/windows/x64/runner/Release/
-          if-no-files-found: error
-      - name: Bundle Qt runtime + zip (portable)
+      - name: Bundle Qt runtime (windeployqt + mpv)
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
@@ -200,6 +185,26 @@ jobs:
           $mpv = Get-ChildItem "$env:RUNNER_TEMP\mpv" -Recurse -Filter mpv-2.dll |
             Select-Object -First 1
           if ($mpv) { Copy-Item $mpv.FullName "$rel\mpv-2.dll" -Force }
+      - name: Install NSIS
+        run: choco install nsis -y --no-progress
+      - name: Build installer (NSIS)
+        shell: cmd
+        run: |
+          set "PATH=C:\Program Files (x86)\NSIS;%PATH%"
+          makensis /DVERSION=1.0.1 ^
+            /DOUT=%GITHUB_WORKSPACE%\nekomusic-setup-1.0.1.exe ^
+            /DSTAGING=%GITHUB_WORKSPACE%\flutter\build\windows\x64\runner\Release ^
+            packaging\nekomusic.nsi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nekomusic-windows-x64
+          path: flutter/build/windows/x64/runner/Release/
+          if-no-files-found: error
+      - name: Package portable zip
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $rel = "flutter\build\windows\x64\runner\Release"
           $outDir = Join-Path $env:GITHUB_WORKSPACE "portable"
           New-Item -ItemType Directory -Force -Path $outDir | Out-Null
           $zip = Join-Path $outDir "nekomusic-1.0.1-windows-x64.zip"

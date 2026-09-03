@@ -262,7 +262,7 @@ class SettingsPage extends StatelessWidget {
     // 桌面端无插件时：从 ~/Pictures、~/Downloads 快速选择，或直接输入路径
     final l10n = AppLocalizations.of(context);
     final controller = TextEditingController();
-    final home = Platform.environment['HOME'] ?? '';
+    final home = userHomeDir;
     final path = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -313,8 +313,7 @@ class SettingsPage extends StatelessWidget {
     // 展开 ~ 为用户主目录（输入 ~/Pictures/xx.jpg 这类路径）
     var p = path;
     if (p == '~' || p.startsWith('~/')) {
-      final home = Platform.environment['HOME'];
-      if (home != null && home.isNotEmpty) p = home + p.substring(1);
+      p = userHomeDir + p.substring(1);
     }
     final f = File(p);
     if (!f.existsSync()) {
