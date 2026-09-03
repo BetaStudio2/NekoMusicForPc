@@ -161,102 +161,244 @@ class _VipPageState extends State<VipPage> {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // 左：套餐列表
+                      // 左：hero + 套餐选择条
                       Expanded(
-                        flex: 3,
+                        flex: 5,
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
+                            _heroCard(),
+                            const SizedBox(height: 22),
                             Text(_l10n.choosePlan,
-                                style: TextStyle(
-                                    fontSize: 16, color: kTextSecondary)),
-                            const SizedBox(height: 12),
-                            ..._plans.map(_buildPlanCard),
-                            const SizedBox(height: 24),
-                            Text(_l10n.payMethod,
-                                style: TextStyle(
-                                    fontSize: 16, color: kTextSecondary)),
-                            const SizedBox(height: 12),
-                            Row(
-                              children: [
-                                _buildPayType('alipay', _l10n.alipay),
-                                const SizedBox(width: 12),
-                                _buildPayType('wxpay', _l10n.wechatPay),
-                              ],
+                                style: const TextStyle(
+                                    fontSize: 15, fontWeight: FontWeight.w600)),
+                            const SizedBox(height: 10),
+                            SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: Row(
+                                children: [
+                                  for (final p in _plans) ...[
+                                    _buildPlanMini(p),
+                                    const SizedBox(width: 10),
+                                  ],
+                                ],
+                              ),
                             ),
-                            const SizedBox(height: 24),
-                            FilledButton.icon(
-                              style: FilledButton.styleFrom(
-                                  backgroundColor: kPrimary,
-                                  padding:
-                                      const EdgeInsets.symmetric(vertical: 14)),
-                              onPressed:
-                                  _creating ? null : _createOrder,
-                              icon: _creating
-                                  ? const SizedBox(
-                                      width: 16,
-                                      height: 16,
-                                      child: CircularProgressIndicator(
-                                          strokeWidth: 2))
-                                  : const Icon(NekoIcons.Payment),
-                              label: Text(_creating ? _l10n.creatingOrder : _l10n.activateNow),
-                            ),
-                            if (_error != null) ...[
-                              const SizedBox(height: 12),
-                              Text('$_error',
-                                  style: const TextStyle(
-                                      color: Colors.redAccent, fontSize: 12)),
-                            ],
                           ],
                         ),
                       ),
                       const SizedBox(width: 32),
-                      // 右：扫码支付
-                      Expanded(
-                        flex: 2,
-                        child: Container(
-                          padding: const EdgeInsets.all(24),
-                          decoration: BoxDecoration(
-                            color: kBgMid,
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: _order == null
-                              ? Column(
-                                  children: [
-                                    Icon(NekoIcons.QrCode,
-                                        size: 64, color: kTextMuted),
-                                    const SizedBox(height: 16),
-                                    Text(_l10n.qrHint,
-                                        textAlign: TextAlign.center,
-                                        style: TextStyle(
-                                            color: kTextSecondary,
-                                            fontSize: 13)),
+                      // 右：结账面板（所选套餐/价格 + 支付方式 + 开通 + 扫码）
+                      SizedBox(
+                        width: 360,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(20),
+                              decoration: BoxDecoration(
+                                color: kBgMid,
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  Text(_l10n.payMethod,
+                                      style: const TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600)),
+                                  const SizedBox(height: 10),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                          child: _buildPayType(
+                                              'alipay', _l10n.alipay)),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                          child: _buildPayType(
+                                              'wxpay', _l10n.wechatPay)),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 16),
+                                  FilledButton.icon(
+                                    style: FilledButton.styleFrom(
+                                        backgroundColor: kPrimary,
+                                        foregroundColor: Colors.white,
+                                        minimumSize:
+                                            const Size.fromHeight(46)),
+                                    onPressed:
+                                        _creating ? null : _createOrder,
+                                    icon: _creating
+                                        ? const SizedBox(
+                                            width: 16,
+                                            height: 16,
+                                            child:
+                                                CircularProgressIndicator(
+                                                    strokeWidth: 2))
+                                        : const Icon(NekoIcons.Payment),
+                                    label: Text(_creating
+                                        ? _l10n.creatingOrder
+                                        : _l10n.activateNow),
+                                  ),
+                                  if (_error != null) ...[
+                                    const SizedBox(height: 10),
+                                    Text('$_error',
+                                        style: const TextStyle(
+                                            color: Colors.redAccent,
+                                            fontSize: 12)),
                                   ],
-                                )
-                              : Column(
-                                  children: [
+                                  const SizedBox(height: 14),
+                                  Divider(height: 1, color: kDivider),
+                                  const SizedBox(height: 14),
+                                  _buildCheckoutPlan(),
+                                  if (_order == null)
+                                    Column(
+                                      children: [
+                                        Icon(NekoIcons.QrCode,
+                                            size: 48,
+                                            color: kTextMuted),
+                                        const SizedBox(height: 10),
+                                        Text(_l10n.qrHint,
+                                            textAlign: TextAlign.center,
+                                            style: TextStyle(
+                                                color: kTextSecondary,
+                                                fontSize: 12)),
+                                      ],
+                                    )
+                                  else ...[
                                     Text(
-                                      _l10n.scanPayN(_payType == "alipay"
+                                      _l10n.scanPayN(_payType == 'alipay'
                                           ? _l10n.alipay
                                           : _l10n.wechatPay),
-                                      style:
-                                          TextStyle(fontSize: 13, color: kTextSecondary),
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                          fontSize: 13,
+                                          color: kTextSecondary),
                                     ),
-                                    const SizedBox(height: 16),
-                                    _buildQr(),
                                     const SizedBox(height: 12),
+                                    _buildQr(),
+                                    const SizedBox(height: 8),
                                     Text(
                                       _l10n.scanToPay,
+                                      textAlign: TextAlign.center,
                                       style: TextStyle(
                                           fontSize: 12, color: kTextMuted),
                                     ),
                                   ],
-                                ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
                   ),
                 ),
+    );
+  }
+
+  /// 顶部 VIP hero（克制深色卡片：标题 + 状态副标题）
+  Widget _heroCard() {
+    final t = ThemeController.instance;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+      decoration: BoxDecoration(
+        color: kBgDeep.withValues(alpha: 0.85),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: kDivider),
+      ),
+      child: Row(
+        children: [
+          const Icon(NekoIcons.VipBadge,
+              size: 30, color: Color(0xFFFFB300)),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(_l10n.vipMember,
+                    style: const TextStyle(
+                        fontSize: 18, fontWeight: FontWeight.w700)),
+                const SizedBox(height: 3),
+                Text(
+                  _isVip && _vipExpiresAt.isNotEmpty
+                      ? _l10n.vipUntil(_vipExpiresAt)
+                      : t.t('开通后畅享高品质音乐', 'Unlock high-quality music'),
+                  style: TextStyle(
+                      fontSize: 12, color: kTextSecondary),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 套餐迷你卡（对齐 Qt plan strip）
+  /// 结账面板中的所选套餐摘要
+  Widget _buildCheckoutPlan() {
+    final sel = _plans.where((p) =>
+        (p['id'] as num).toInt() == _selectedPlanId);
+    if (sel.isEmpty) return const SizedBox.shrink();
+    final p = sel.first;
+    final price = (p['priceYuan'] as num?)?.toDouble() ?? 0;
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(_formatPlanLabel(p),
+            style:
+                const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+        Text(
+          '¥${price.toStringAsFixed(price == price.roundToDouble() ? 0 : 2)}',
+          style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFFFF9800)),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPlanMini(Map<String, dynamic> p) {
+    final id = (p['id'] as num).toInt();
+    final price = (p['priceYuan'] as num?)?.toDouble() ?? 0;
+    final selected = _selectedPlanId == id;
+    return InkWell(
+      borderRadius: BorderRadius.circular(10),
+      onTap: () => setState(() => _selectedPlanId = id),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        width: 116,
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
+        decoration: BoxDecoration(
+          color: selected ? kPrimary.withValues(alpha: 0.10) : kBgMid,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+              color: selected ? kPrimary : kDivider, width: 1.2),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              _formatPlanLabel(p),
+              style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: selected ? kPrimary : kTextPrimary),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '¥${price.toStringAsFixed(price == price.roundToDouble() ? 0 : 2)}',
+              style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                  color: const Color(0xFFFF9800)),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
