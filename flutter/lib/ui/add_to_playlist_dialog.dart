@@ -108,7 +108,7 @@ class _AddToPlaylistDialogState extends State<AddToPlaylistDialog> {
                 for (final p in widget.core.myPlaylists)
                   ListTile(
                     dense: true,
-                    leading: Icon(Icons.queue_music_rounded,
+                    leading: Icon(NekoIcons.QueueMusic,
                         size: 20, color: kTextSecondary),
                     title: Text(p.name,
                         maxLines: 1, overflow: TextOverflow.ellipsis),

@@ -1,3 +1,4 @@
+import '../neko_icons.dart';
 import 'package:flutter/material.dart';
 
 import '../../main.dart';
@@ -97,7 +98,7 @@ class _CoverPlaceholder extends StatelessWidget {
     return Container(
       color: kBgMid,
       child: Center(
-        child: Icon(Icons.queue_music_rounded, size: 40, color: kTextFaint),
+        child: Icon(NekoIcons.QueueMusic, size: 40, color: kTextFaint),
       ),
     );
   }

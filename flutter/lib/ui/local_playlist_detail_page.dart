@@ -135,7 +135,7 @@ class _LocalPlaylistDetailPageState extends State<LocalPlaylistDetailPage> {
                 children: [
                   IconButton(
                     tooltip: _l10n.back,
-                    icon: const Icon(Icons.arrow_back),
+                    icon: const Icon(NekoIcons.ArrowBack),
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                   const SizedBox(width: 4),
@@ -242,7 +242,7 @@ class _LocalPlaylistDetailPageState extends State<LocalPlaylistDetailPage> {
                                     index: i + 1,
                                     menuExtra: [
                                       (
-                                        icon: Icons.remove_circle_outline,
+                                        icon: NekoIcons.RemoveCircleOutline,
                                         label: _l10n.removeFromPlaylist,
                                         action: () => _removeSong(_songs[i]),
                                       ),
@@ -267,7 +267,7 @@ class _LocalPlaylistDetailPageState extends State<LocalPlaylistDetailPage> {
     if (coverId <= 0) {
       return Container(
         color: kBgMid,
-        child: Icon(Icons.queue_music_rounded, size: 32, color: kTextFaint),
+        child: Icon(NekoIcons.QueueMusic, size: 32, color: kTextFaint),
       );
     }
     return Image.network(
@@ -275,7 +275,7 @@ class _LocalPlaylistDetailPageState extends State<LocalPlaylistDetailPage> {
       fit: BoxFit.cover,
       errorBuilder: (_, __, ___) => Container(
         color: kBgMid,
-        child: Icon(Icons.queue_music_rounded, size: 32, color: kTextFaint),
+        child: Icon(NekoIcons.QueueMusic, size: 32, color: kTextFaint),
       ),
     );
   }

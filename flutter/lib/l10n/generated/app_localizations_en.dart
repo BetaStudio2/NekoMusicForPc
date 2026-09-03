@@ -192,7 +192,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get homeDailySubtitle => 'Updated daily to your taste';
 
   @override
-  String get appLogoShort => 'Neko';
+  String get appLogoShort => 'NekoMusic';
 
   @override
   String get appFooter => 'Neko歌姬计划';

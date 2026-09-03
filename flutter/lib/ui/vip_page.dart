@@ -126,7 +126,7 @@ class _VipPageState extends State<VipPage> {
               padding: const EdgeInsets.only(right: 16),
               child: Center(
                 child: Chip(
-                  avatar: const Icon(Icons.workspace_premium,
+                  avatar: const Icon(NekoIcons.VipBadge,
                       color: Color(0xFFFFB300), size: 18),
                   label: Text(
                     _vipExpiresAt.isNotEmpty
@@ -198,7 +198,7 @@ class _VipPageState extends State<VipPage> {
                                       height: 16,
                                       child: CircularProgressIndicator(
                                           strokeWidth: 2))
-                                  : const Icon(Icons.payment),
+                                  : const Icon(NekoIcons.Payment),
                               label: Text(_creating ? _l10n.creatingOrder : _l10n.activateNow),
                             ),
                             if (_error != null) ...[
@@ -223,7 +223,7 @@ class _VipPageState extends State<VipPage> {
                           child: _order == null
                               ? Column(
                                   children: [
-                                    Icon(Icons.qr_code_2,
+                                    Icon(NekoIcons.QrCode,
                                         size: 64, color: kTextMuted),
                                     const SizedBox(height: 16),
                                     Text(_l10n.qrHint,
@@ -282,8 +282,8 @@ class _VipPageState extends State<VipPage> {
             children: [
               Icon(
                 selected
-                    ? Icons.radio_button_checked
-                    : Icons.radio_button_unchecked,
+                    ? NekoIcons.Radio
+                    : NekoIcons.RadioBlank,
                 size: 18,
                 color: selected ? kPrimary : kTextMuted,
               ),
@@ -370,7 +370,7 @@ class _VipPageState extends State<VipPage> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.qr_code, size: 48, color: Colors.grey),
+                const Icon(NekoIcons.QrCode, size: 48, color: Colors.grey),
                 const SizedBox(height: 8),
                 Text(_l10n.qrLoadFailed,
                     style: TextStyle(color: kTextMuted, fontSize: 12)),

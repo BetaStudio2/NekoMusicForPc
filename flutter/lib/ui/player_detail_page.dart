@@ -481,7 +481,7 @@ class _PlayerDetailPageState extends State<PlayerDetailPage>
                   padding: const EdgeInsets.fromLTRB(18, 8, 6, 4),
                   child: Row(
                     children: [
-                      Icon(Icons.queue_music,
+                      Icon(NekoIcons.QueueMusic,
                           size: 19, color: scheme.primary),
                       const SizedBox(width: 8),
                       Text(_l10n.queueTitle,
@@ -533,7 +533,7 @@ class _PlayerDetailPageState extends State<PlayerDetailPage>
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.playlist_play,
+                              Icon(NekoIcons.PlaylistPlay,
                                   size: 44,
                                   color: kTextMuted.withValues(alpha: 0.35)),
                               const SizedBox(height: 10),
@@ -659,10 +659,10 @@ class _PlayerDetailPageState extends State<PlayerDetailPage>
       };
 
   IconData _modeIconOf(String mode) => switch (mode) {
-        'single' => Icons.repeat_one,
-        'random' => Icons.shuffle,
-        'loop' => Icons.repeat,
-        _ => Icons.queue_play_next,
+        'single' => NekoIcons.RepeatOne,
+        'random' => NekoIcons.Shuffle,
+        'loop' => NekoIcons.Repeat,
+        _ => NekoIcons.PlaylistPlay,
       };
 
   // ── 底部控制栏：Qt kPlayerControlH=80；左工具/中央/右工具 1:1:1 ─────
@@ -835,7 +835,7 @@ class _PlayerDetailPageState extends State<PlayerDetailPage>
                   ),
                   const SizedBox(width: 8),
                   _toolBtn(
-                      Icons.queue_music_rounded,
+                      NekoIcons.QueueMusic,
                       _showQueue ? _l10n.collapseQueue : _l10n.queueTitle,
                       _toggleQueue,
                       highlight: _showQueue),
@@ -892,7 +892,7 @@ class _PlayerDetailPageState extends State<PlayerDetailPage>
               : null),
           const Spacer(),
           _toolBtn(
-              Icons.queue_music_rounded,
+              NekoIcons.QueueMusic,
               _showQueue ? _l10n.collapseQueue : _l10n.queueTitle,
               () => setState(() => _showQueue = !_showQueue),
               highlight: _showQueue),
@@ -985,10 +985,10 @@ class _PlayerDetailPageState extends State<PlayerDetailPage>
   }
 
   IconData _modeIcon(String mode) => switch (mode) {
-        'single' => Icons.repeat_one_rounded,
-        'random' => Icons.shuffle_rounded,
-        'loop' => Icons.repeat_rounded,
-        _ => Icons.playlist_play_rounded,
+        'single' => NekoIcons.RepeatOne,
+        'random' => NekoIcons.Shuffle,
+        'loop' => NekoIcons.Repeat,
+        _ => NekoIcons.PlaylistPlay,
       };
 
   Widget _coverPlaceholder(double size) => Container(

@@ -207,7 +207,7 @@ class _MainShellState extends State<MainShell>
                           const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
                       child: Row(
                         children: [
-                          const Icon(Icons.error_outline,
+                          const Icon(NekoIcons.ErrorOutline,
                               color: Color(0xFFFF8A80), size: 18),
                           const SizedBox(width: 10),
                           Expanded(
@@ -424,7 +424,7 @@ class _TitleBarState extends State<TitleBar> {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: const [
-              Icon(Icons.workspace_premium_rounded, size: 14, color: Colors.white),
+              Icon(NekoIcons.VipBadge, size: 14, color: Colors.white),
               SizedBox(width: 4),
               Text('VIP',
                   style: TextStyle(

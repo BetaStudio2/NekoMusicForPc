@@ -306,10 +306,10 @@ class _PlayerBarState extends State<PlayerBar> {
   }
 
   IconData _modeIcon(String mode) => switch (mode) {
-        'single' => Icons.repeat_one_rounded,
-        'random' => Icons.shuffle_rounded,
-        'loop' => Icons.repeat_rounded,
-        _ => Icons.playlist_play_rounded,
+        'single' => NekoIcons.RepeatOne,
+        'random' => NekoIcons.Shuffle,
+        'loop' => NekoIcons.Repeat,
+        _ => NekoIcons.PlaylistPlay,
       };
 
   Widget _coverPlaceholder() => Container(

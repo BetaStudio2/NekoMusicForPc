@@ -46,10 +46,11 @@ class Sidebar extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(24, 20, 24, 12),
               child: Row(
                 children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: Image.asset('assets/logo/nekomusic.png',
-                        width: 30, height: 30, fit: BoxFit.cover),
+                  SizedBox(
+                    width: 30,
+                    height: 30,
+                    child: const Icon(NekoIcons.Brand,
+                        size: 30, color: Color(0xFF6C8CF6)),
                   ),
                   const SizedBox(width: 8),
                   Text(l10n.appLogoShort,
@@ -102,10 +103,10 @@ class Sidebar extends StatelessWidget {
                   _actionButton(NekoIcons.Add, l10n.createPlaylist, () {
                     _createPlaylistDialog(context, core);
                   }),
-                  _actionButton(Icons.input_rounded, l10n.importNeteasePlaylist, () {
+                  _actionButton(NekoIcons.Import, l10n.importNeteasePlaylist, () {
                     _importDialog(context, core, true);
                   }),
-                  _actionButton(Icons.input_rounded, l10n.importQqPlaylist, () {
+                  _actionButton(NekoIcons.Import, l10n.importQqPlaylist, () {
                     _importDialog(context, core, false);
                   }),
                   if (core.isLoggedIn) ...[
@@ -134,7 +135,7 @@ class Sidebar extends StatelessWidget {
                       horizontal: 12, vertical: 9),
                   child: Row(
                     children: [
-                      Icon(Icons.devices_other,
+                      Icon(NekoIcons.DevicesOther,
                           size: 16, color: kTextSecondary),
                       const SizedBox(width: 10),
                       Text(l10n.deviceSync,
@@ -462,6 +463,6 @@ class _PlaylistListItem extends StatelessWidget {
 
   Widget _coverPlaceholder() => Container(
         color: kBgMid,
-        child: Icon(Icons.queue_music_rounded, size: 18, color: kTextFaint),
+        child: Icon(NekoIcons.QueueMusic, size: 18, color: kTextFaint),
       );
 }

@@ -10,26 +10,28 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SRC="$ROOT_DIR/src/resources/icons"
+WEB="$ROOT_DIR/src/resources/icons-web"
 FLUTTER="$ROOT_DIR/flutter"
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 
 mkdir -p "$WORK/src"
-python3 - "$SRC" "$WORK/src" <<'PYEOF'
+python3 - "$SRC" "$WEB" "$WORK/src" <<'PYEOF'
 import os, re, shutil, sys
-src, dst = sys.argv[1], sys.argv[2]
+dirs, dst = sys.argv[1:-1], sys.argv[-1]
 inc = exc = 0
-for f in sorted(os.listdir(src)):
-    if not f.endswith('.svg'):
-        continue
-    c = open(os.path.join(src, f)).read()
-    if re.search(r'stroke=|gradient|<stop|url\(#', c):
-        exc += 1
-        continue
-    base = f[:-4]
-    kebab = re.sub(r'(?<=[a-z0-9])(?=[A-Z])', '-', base).lower()
-    shutil.copy(os.path.join(src, f), os.path.join(dst, kebab + '.svg'))
-    inc += 1
+for src in dirs:
+    for f in sorted(os.listdir(src)):
+        if not f.endswith('.svg'):
+            continue
+        c = open(os.path.join(src, f)).read()
+        if re.search(r'stroke=|gradient|<stop|url\(#', c):
+            exc += 1
+            continue
+        base = f[:-4]
+        kebab = re.sub(r'(?<=[a-z0-9])(?=[A-Z])', '-', base).lower()
+        shutil.copy(os.path.join(src, f), os.path.join(dst, kebab + '.svg'))
+        inc += 1
 print(f"include={inc} exclude={exc}")
 PYEOF
 
@@ -47,9 +49,10 @@ cat > "$WORK/.fantasticonrc.json" <<'EOF'
 }
 EOF
 
-mkdir -p "$WORK/node_modules"
-(cd "$WORK" && npm i --no-audit --no-fund --silent fantasticon >/dev/null 2>&1)
-(cd "$WORK" && npx fantasticon >/dev/null)
+rm -rf "$WORK/node_modules"
+mkdir -p "$WORK/out"
+(cd "$WORK" && npm i --no-audit --no-fund --silent fantasticon)
+(cd "$WORK" && npx fantasticon)
 
 mkdir -p "$FLUTTER/assets/fonts"
 cp "$WORK/out/neko_icons.ttf" "$FLUTTER/assets/fonts/neko_icons.ttf"
@@ -67,7 +70,7 @@ lines = [
     "abstract final class NekoIcons {",
 ]
 for k in sorted(m):
-    lines.append(f"  static const IconData {const(k)} = IconData(0x{m[k]:04X}, fontFamily: 'NekoIcons');")
+    lines.append(f"  static const IconData {const(k)} = IconData(0x{m[k]:04X}, fontFamily: 'neko_icons');")
 lines.append("}")
 open(sys.argv[2], 'w').write('\n'.join(lines) + '\n')
 print(f"dart regenerated: {len(m)} icons")

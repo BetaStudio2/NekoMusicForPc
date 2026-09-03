@@ -62,7 +62,7 @@ class _CloudPlaylistDetailPageState extends State<CloudPlaylistDetailPage> {
                 children: [
                   IconButton(
                     tooltip: _l10n.back,
-                    icon: const Icon(Icons.arrow_back),
+                    icon: const Icon(NekoIcons.ArrowBack),
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                   const SizedBox(width: 4),

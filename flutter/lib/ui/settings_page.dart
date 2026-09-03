@@ -65,7 +65,7 @@ class SettingsPage extends StatelessWidget {
                 onChanged: ThemeController.instance.setDark,
               ),
               ListTile(
-                leading: const Icon(Icons.image_outlined),
+                leading: const Icon(NekoIcons.ImageOutlined),
                 title: Text(l10n.settingsBackdropCustomize),
                 subtitle: Text(l10n.settingsBackdropHint),
                 trailing: DropdownButton<String>(
@@ -112,7 +112,7 @@ class SettingsPage extends StatelessWidget {
                 ),
               if (ThemeController.instance.backdropKind == 'image')
                 ListTile(
-                  leading: const Icon(Icons.broken_image_outlined),
+                  leading: const Icon(NekoIcons.ImageBroken),
                   title: Text(l10n.settingsBackdropImageTitle),
                   subtitle: Text(
                     ThemeController.instance.backdropImagePath.isEmpty
@@ -175,7 +175,7 @@ class SettingsPage extends StatelessWidget {
                 leading: const Icon(NekoIcons.Github),
                 title: Text(l10n.settingsGithubRepo),
                 subtitle: const Text('FantasyNetworkCN/NekoMusicForPc'),
-                trailing: const Icon(Icons.open_in_new, size: 16),
+                trailing: const Icon(NekoIcons.OpenInNew, size: 16),
                 onTap: () async {
                   await Clipboard.setData(const ClipboardData(
                       text: 'https://github.com/FantasyNetworkCN/NekoMusicForPc'));

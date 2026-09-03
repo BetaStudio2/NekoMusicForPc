@@ -49,7 +49,7 @@ class LanPanel extends StatelessWidget {
                   padding: const EdgeInsets.fromLTRB(18, 10, 6, 4),
                   child: Row(
                     children: [
-                      Icon(Icons.devices_other, size: 18, color: scheme.primary),
+                      Icon(NekoIcons.DevicesOther, size: 18, color: scheme.primary),
                       const SizedBox(width: 8),
                       Text(l10n.deviceSync,
                           style: TextStyle(
@@ -104,8 +104,8 @@ class LanPanel extends StatelessWidget {
                                   kPrimary.withValues(alpha: 0.10),
                               leading: Icon(
                                 d['platform'] == 'android'
-                                    ? Icons.smartphone
-                                    : Icons.computer,
+                                    ? NekoIcons.Smartphone
+                                    : NekoIcons.Computer,
                                 size: 20,
                                 color: selected
                                     ? kPrimary
@@ -128,8 +128,8 @@ class LanPanel extends StatelessWidget {
                               ),
                               trailing: Icon(
                                 selected
-                                    ? Icons.link
-                                    : Icons.link_off,
+                                    ? NekoIcons.Link
+                                    : NekoIcons.LinkOff,
                                 size: 16,
                                 color: selected ? kPrimary : kTextMuted,
                               ),
@@ -169,7 +169,7 @@ class LanPanel extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(Icons.sync, size: 15,
+              Icon(NekoIcons.Sync, size: 15,
                   color: playing ? kPrimary : kTextMuted),
               const SizedBox(width: 6),
               Text(
