@@ -15,16 +15,17 @@ VERSION="$(grep -E '^version:' "$ROOT_DIR/flutter/pubspec.yaml" | awk '{print $2
 
 APPDIR="$ROOT_DIR/flutter/build/dist/AppDir"
 rm -rf "$APPDIR"
-mkdir -p "$APPDIR/usr/nekomusic" \
-         "$APPDIR/usr/share/applications" \
+mkdir -p "$APPDIR/usr/share/applications" \
          "$APPDIR/usr/share/icons/hicolor/512x512/apps"
 
-# 应用本体（整份 bundle：exe + data + lib 相对路径不变）
-cp -r "$BUNDLE"/. "$APPDIR/usr/nekomusic/"
-chmod +x "$APPDIR/usr/nekomusic/neko_music"
+# 应用本体：整份 bundle 放 usr/bin（exe 相对 data/lib 解析不变；
+# Exec=neko_music 可解析，linuxdeploy 根部署/AppRun 链接正常）
+mkdir -p "$APPDIR/usr/bin"
+cp -r "$BUNDLE"/. "$APPDIR/usr/bin/"
+chmod +x "$APPDIR/usr/bin/neko_music"
 
-# desktop + 图标
-sed "s|^Exec=.*|Exec=nekomusic %F|" \
+# desktop + 图标（Exec 指向 usr/bin 内的 neko_music）
+sed "s|^Exec=.*|Exec=neko_music %F|" \
   "$ROOT_DIR/packaging/com.nekomusic.neko_music.desktop" \
   > "$APPDIR/usr/share/applications/nekomusic.desktop"
 cp "$ROOT_DIR/packaging/icons/hicolor/512x512/apps/nekomusic.png" \
@@ -43,9 +44,9 @@ fi
 # 显式以 --library 引入以便收集 Qt 模块与 mpv/appindicator 依赖
 "$LINUXDEPLOY" \
   --appdir "$APPDIR" \
-  --executable "$APPDIR/usr/nekomusic/neko_music" \
-  --library "$APPDIR/usr/nekomusic/lib/libneko_core.so" \
-  --library "$APPDIR/usr/nekomusic/lib/libneko_engine.so" \
+  --executable "$APPDIR/usr/bin/neko_music" \
+  --library "$APPDIR/usr/bin/lib/libneko_core.so" \
+  --library "$APPDIR/usr/bin/lib/libneko_engine.so" \
   --desktop-file "$APPDIR/usr/share/applications/nekomusic.desktop" \
   --icon-file "$APPDIR/usr/share/icons/hicolor/512x512/apps/nekomusic.png" \
   $PLUGIN_ARGS
