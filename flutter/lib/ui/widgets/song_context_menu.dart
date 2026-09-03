@@ -1,3 +1,4 @@
+import '../neko_icons.dart';
 import 'package:flutter/material.dart';
 
 import '../../main.dart';
@@ -22,30 +23,30 @@ List<PopupMenuEntry<VoidCallback>> buildSongMenuEntries(
   final isFav = music.id > 0 && core.favoriteIds.contains(music.id);
   final entries = <SongMenuEntry>[
     (
-      icon: Icons.play_arrow_rounded,
+      icon: NekoIcons.Play,
       label: l10n.play,
       action: () => core.play(music),
     ),
     if (music.id > 0)
       (
-        icon: isFav ? Icons.favorite : Icons.favorite_border,
+        icon: isFav ? NekoIcons.Favorite : NekoIcons.FavoriteBorder,
         label: isFav ? l10n.removeFavorite : l10n.favorite,
         action: () => core.toggleFavorite(music.id),
       ),
     (
-      icon: Icons.playlist_add_rounded,
+      icon: NekoIcons.PlaylistAdd,
       label: l10n.addToPlaylist,
       action: () => _addToPlaylist(context, core, music),
     ),
     if (music.id > 0)
       (
-        icon: Icons.download_outlined,
+        icon: NekoIcons.Download,
         label: l10n.download,
         action: () => core.download(music),
       ),
     if (music.artist.isNotEmpty)
       (
-        icon: Icons.person_outline_rounded,
+        icon: NekoIcons.Person,
         label: l10n.viewArtist,
         action: () => _viewArtist(context, core, music.artist),
       ),

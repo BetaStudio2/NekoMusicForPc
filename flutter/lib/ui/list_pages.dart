@@ -1,3 +1,4 @@
+import 'neko_icons.dart';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -123,7 +124,7 @@ class _DownloadsPageState extends State<DownloadsPage> {
             const Spacer(),
             TextButton.icon(
               onPressed: core.requestDownloadsStatus,
-              icon: const Icon(Icons.refresh, size: 16),
+              icon: const Icon(NekoIcons.Refresh, size: 16),
               label: Text(_l10n.actionRefresh),
             ),
           ],
@@ -160,7 +161,7 @@ class _DownloadsPageState extends State<DownloadsPage> {
                   core.playAll(core.downloads);
                   if (core.downloads.isNotEmpty) core.play(core.downloads.first);
                 },
-                icon: const Icon(Icons.play_arrow, size: 16),
+                icon: const Icon(NekoIcons.Play, size: 16),
                 label: Text(_l10n.playAll, style: TextStyle(fontSize: 13)),
               ),
           ],
@@ -253,7 +254,7 @@ class _DownloadsPageState extends State<DownloadsPage> {
               IconButton(
                 tooltip: _l10n.cancelDownload,
                 iconSize: 18,
-                icon: const Icon(Icons.close),
+                icon: const Icon(NekoIcons.Close),
                 color: kTextSecondary,
                 onPressed: () => core.cancelDownload(m.id),
               ),
@@ -309,7 +310,7 @@ class _DownloadsPageState extends State<DownloadsPage> {
                 IconButton(
                   tooltip: _l10n.play,
                   iconSize: 20,
-                  icon: const Icon(Icons.play_circle_outline),
+                  icon: const Icon(NekoIcons.PlayCircle),
                   color: kTextSecondary,
                   onPressed: () => core.play(m),
                 ),
@@ -351,6 +352,6 @@ class _DownloadsPageState extends State<DownloadsPage> {
 
   Widget _coverFallback() => Container(
         color: kBgMid,
-        child: Icon(Icons.music_note, color: kTextFaint, size: 20),
+        child: Icon(NekoIcons.Music, color: kTextFaint, size: 20),
       );
 }

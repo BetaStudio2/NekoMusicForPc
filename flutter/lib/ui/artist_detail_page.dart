@@ -1,3 +1,4 @@
+import 'neko_icons.dart';
 import 'package:flutter/material.dart';
 
 import '../main.dart';
@@ -92,7 +93,7 @@ class _ArtistDetailPageState extends State<ArtistDetailPage> {
                   CircleAvatar(
                     radius: 40,
                     backgroundColor: kBgMid,
-                    child: Icon(Icons.person_rounded,
+                    child: Icon(NekoIcons.Person,
                         size: 44, color: kTextFaint),
                   ),
                   const SizedBox(width: 16),
@@ -115,7 +116,7 @@ class _ArtistDetailPageState extends State<ArtistDetailPage> {
                   FilledButton.icon(
                     onPressed:
                         _songs.isEmpty ? null : () => widget.core.playAll(_songs),
-                    icon: const Icon(Icons.play_arrow, size: 18),
+                    icon: const Icon(NekoIcons.Play, size: 18),
                     label: Text(_l10n.playAll),
                     style: FilledButton.styleFrom(backgroundColor: kPrimary),
                   ),

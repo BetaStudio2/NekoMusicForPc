@@ -1,3 +1,4 @@
+import 'neko_icons.dart';
 import 'package:flutter/material.dart';
 
 import '../main.dart';
@@ -91,7 +92,7 @@ class _AddToPlaylistDialogState extends State<AddToPlaylistDialog> {
                   FilledButton.icon(
                     style: FilledButton.styleFrom(backgroundColor: kPrimary),
                     onPressed: _createAndAdd,
-                    icon: const Icon(Icons.add, size: 16),
+                    icon: const Icon(NekoIcons.Add, size: 16),
                     label: Text(_l10n.createAndAdd),
                   ),
                 ],

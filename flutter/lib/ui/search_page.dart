@@ -1,3 +1,4 @@
+import 'neko_icons.dart';
 import 'package:flutter/material.dart';
 
 import '../main.dart';
@@ -253,7 +254,7 @@ class _ArtistCard extends StatelessWidget {
             CircleAvatar(
               radius: 44,
               backgroundColor: kBgMid,
-              child: Icon(Icons.person_rounded,
+              child: Icon(NekoIcons.Person,
                   size: 48, color: kTextFaint),
             ),
             const SizedBox(height: 12),
@@ -271,7 +272,7 @@ class _ArtistCard extends StatelessWidget {
               child: FilledButton.icon(
                 style: FilledButton.styleFrom(backgroundColor: kPrimary),
                 onPressed: onTap,
-                icon: const Icon(Icons.person_rounded, size: 16),
+                icon: const Icon(NekoIcons.Person, size: 16),
                 label: Text(l10n.viewArtist),
               ),
             ),

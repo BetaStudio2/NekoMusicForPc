@@ -1,3 +1,4 @@
+import 'neko_icons.dart';
 import 'package:flutter/material.dart';
 
 import '../main.dart';
@@ -28,9 +29,9 @@ class Sidebar extends StatelessWidget {
     final l10n = AppLocalizations.of(context);
     final _navItems = [
       (Icons.home_outlined, l10n.navHome),
-      (Icons.favorite_outline, l10n.navFavorites),
-      (Icons.history_outlined, l10n.navRecents),
-      (Icons.download_outlined, l10n.navDownloads),
+      (NekoIcons.Favorite, l10n.navFavorites),
+      (NekoIcons.History, l10n.navRecents),
+      (NekoIcons.Download, l10n.navDownloads),
     ];
     // 半透明底色：跟随主题切换，自定义底色（图片/纯色）时透出背景
     return Container(
@@ -84,7 +85,7 @@ class Sidebar extends StatelessWidget {
                       onSecondaryTapDown: (gpos) =>
                           _localPlaylistMenu(context, core, p, gpos),
                     ),
-                  _actionButton(Icons.add_rounded, l10n.newLocalPlaylist, () {
+                  _actionButton(NekoIcons.Add, l10n.newLocalPlaylist, () {
                     _createLocalPlaylistDialog(context, core);
                   }),
                   const SizedBox(height: 6),
@@ -98,7 +99,7 @@ class Sidebar extends StatelessWidget {
                       playlist: p,
                       onTap: () => _openDetail(context, core, p),
                     ),
-                  _actionButton(Icons.add_rounded, l10n.createPlaylist, () {
+                  _actionButton(NekoIcons.Add, l10n.createPlaylist, () {
                     _createPlaylistDialog(context, core);
                   }),
                   _actionButton(Icons.input_rounded, l10n.importNeteasePlaylist, () {
@@ -140,7 +141,7 @@ class Sidebar extends StatelessWidget {
                           style: TextStyle(
                               fontSize: 13, color: kTextSecondary)),
                       const Spacer(),
-                      Icon(Icons.keyboard_arrow_right,
+                      Icon(NekoIcons.Right,
                           size: 16, color: kTextFaint),
                     ],
                   ),
@@ -212,7 +213,7 @@ class Sidebar extends StatelessWidget {
           height: 40,
           child: Row(
             children: [
-              const Icon(Icons.edit_outlined, size: 18),
+              const Icon(NekoIcons.Edit, size: 18),
               const SizedBox(width: 10),
               Text(AppLocalizations.of(context).rename,
                   style: const TextStyle(fontSize: 13)),
@@ -224,7 +225,7 @@ class Sidebar extends StatelessWidget {
           height: 40,
           child: Row(
             children: [
-              const Icon(Icons.delete_outline, size: 18),
+              const Icon(NekoIcons.Delete, size: 18),
               const SizedBox(width: 10),
               Text(AppLocalizations.of(context).deletePlaylist,
                   style: const TextStyle(fontSize: 13)),

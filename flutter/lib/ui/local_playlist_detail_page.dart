@@ -1,3 +1,4 @@
+import 'neko_icons.dart';
 import 'package:flutter/material.dart';
 
 import '../main.dart';
@@ -149,13 +150,13 @@ class _LocalPlaylistDetailPageState extends State<LocalPlaylistDetailPage> {
                   ),
                   IconButton(
                     tooltip: _l10n.rename,
-                    icon: const Icon(Icons.edit_outlined, size: 20),
+                    icon: const Icon(NekoIcons.Edit, size: 20),
                     color: kTextSecondary,
                     onPressed: _rename,
                   ),
                   IconButton(
                     tooltip: _l10n.deletePlaylist,
-                    icon: const Icon(Icons.delete_outline, size: 20),
+                    icon: const Icon(NekoIcons.Delete, size: 20),
                     color: kTextSecondary,
                     onPressed: _delete,
                   ),
@@ -202,7 +203,7 @@ class _LocalPlaylistDetailPageState extends State<LocalPlaylistDetailPage> {
                     onPressed: _songs.isEmpty
                         ? null
                         : () => core.playAll(_songs),
-                    icon: const Icon(Icons.play_arrow, size: 18),
+                    icon: const Icon(NekoIcons.Play, size: 18),
                     label: Text(_l10n.playAll),
                     style: FilledButton.styleFrom(backgroundColor: kPrimary),
                   ),

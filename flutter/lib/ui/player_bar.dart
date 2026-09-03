@@ -1,3 +1,4 @@
+import 'neko_icons.dart';
 import 'package:flutter/material.dart';
 
 import '../main.dart';
@@ -206,7 +207,7 @@ class _PlayerBarState extends State<PlayerBar> {
             GestureDetector(
               onTap: () => core.toggleFavorite(music?.id ?? 0),
               child: Icon(
-                favorited ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                favorited ? NekoIcons.Favorite : NekoIcons.FavoriteBorder,
                 size: 20,
                 color: favorited ? kPrimary : kTextMuted,
               ),
@@ -251,7 +252,7 @@ class _PlayerBarState extends State<PlayerBar> {
         IconButton(
           tooltip: _l10n.prevTrack,
           iconSize: 20,
-          icon: const Icon(Icons.skip_previous_rounded),
+          icon: const Icon(NekoIcons.SkipPrev),
           color: kTextSecondary,
           onPressed: () {
             final m = core.previous();
@@ -263,7 +264,7 @@ class _PlayerBarState extends State<PlayerBar> {
           style: IconButton.styleFrom(
               backgroundColor: kPrimary, foregroundColor: Colors.white),
           icon: Icon(
-              playing ? Icons.pause_rounded : Icons.play_arrow_rounded),
+              playing ? NekoIcons.Pause : NekoIcons.Play),
           onPressed: () {
             if (engine.state == NekoPlayState.stopped) return;
             engine.togglePlayPause();
@@ -272,7 +273,7 @@ class _PlayerBarState extends State<PlayerBar> {
         IconButton(
           tooltip: _l10n.nextTrack,
           iconSize: 20,
-          icon: const Icon(Icons.skip_next_rounded),
+          icon: const Icon(NekoIcons.SkipNext),
           color: kTextSecondary,
           onPressed: () {
             final m = core.next();
@@ -297,7 +298,7 @@ class _PlayerBarState extends State<PlayerBar> {
       behavior: HitTestBehavior.opaque,
       onTap: () => setState(() => _volOpen = !_volOpen),
       child: Icon(
-        Icons.volume_up_rounded,
+        NekoIcons.VolumeUp,
         size: 20,
         color: kTextSecondary,
       ),
@@ -313,7 +314,7 @@ class _PlayerBarState extends State<PlayerBar> {
 
   Widget _coverPlaceholder() => Container(
         color: kBgSurface,
-        child: Icon(Icons.music_note,
+        child: Icon(NekoIcons.Music,
             size: 26, color: kPrimary.withValues(alpha: 0.5)),
       );
 }

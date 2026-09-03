@@ -1,3 +1,4 @@
+import 'neko_icons.dart';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -141,7 +142,7 @@ class _VipPageState extends State<VipPage> {
           else
             IconButton(
               tooltip: _l10n.actionRefresh,
-              icon: const Icon(Icons.refresh),
+              icon: const Icon(NekoIcons.Refresh),
               onPressed: _load,
             ),
         ],
@@ -393,7 +394,7 @@ class _VipPageState extends State<VipPage> {
         ),
         const SizedBox(height: 8),
         TextButton.icon(
-          icon: const Icon(Icons.link, size: 14),
+          icon: const Icon(NekoIcons.Link, size: 14),
           label: Text(_l10n.copyPayLink, style: const TextStyle(fontSize: 12)),
           onPressed: () async {
             await Clipboard.setData(ClipboardData(text: text));

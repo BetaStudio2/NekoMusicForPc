@@ -1,3 +1,4 @@
+import 'neko_icons.dart';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -57,7 +58,7 @@ class SettingsPage extends StatelessWidget {
             // ── 外观：主题 + 背景个性化 ──
             _section(l10n.settingsAppearance, [
               SwitchListTile(
-                secondary: const Icon(Icons.palette_outlined),
+                secondary: const Icon(NekoIcons.Palette),
                 title: Text(l10n.settingsDarkTheme),
                 subtitle: Text(l10n.settingsDarkThemeHint),
                 value: ThemeController.instance.isDark,
@@ -130,17 +131,17 @@ class SettingsPage extends StatelessWidget {
             // ── 快捷键（对齐原版 AppShortcuts 默认值） ──
             _section(l10n.settingsShortcuts, [
               ListTile(
-                leading: const Icon(Icons.play_circle_outline),
+                leading: const Icon(NekoIcons.PlayCircle),
                 title: Text(l10n.settingsShortcutPlayPause),
                 trailing: const _KeyCap('Ctrl+P'),
               ),
               ListTile(
-                leading: const Icon(Icons.skip_next_outlined),
+                leading: const Icon(NekoIcons.SkipNext),
                 title: Text(l10n.settingsShortcutNext),
                 trailing: const _KeyCap('Ctrl+Alt+→'),
               ),
               ListTile(
-                leading: const Icon(Icons.skip_previous_outlined),
+                leading: const Icon(NekoIcons.SkipPrev),
                 title: Text(l10n.settingsShortcutPrev),
                 trailing: const _KeyCap('Ctrl+Alt+←'),
               ),
@@ -155,7 +156,7 @@ class SettingsPage extends StatelessWidget {
             // ── 关于 ──
             _section(l10n.settingsAbout, [
               ListTile(
-                leading: const Icon(Icons.info_outline),
+                leading: const Icon(NekoIcons.Info),
                 title: Text(l10n.appName),
                 subtitle: Text(l10n.settingsAppSubtitle),
               ),
@@ -171,7 +172,7 @@ class SettingsPage extends StatelessWidget {
                 ),
               ),
               ListTile(
-                leading: const Icon(Icons.link),
+                leading: const Icon(NekoIcons.Link),
                 title: Text(l10n.settingsGithubRepo),
                 subtitle: const Text('FantasyNetworkCN/NekoMusicForPc'),
                 trailing: const Icon(Icons.open_in_new, size: 16),
@@ -188,7 +189,7 @@ class SettingsPage extends StatelessWidget {
               ListTile(
                 leading: const Icon(Icons.system_update_alt),
                 title: Text(l10n.settingsCheckUpdate),
-                trailing: const Icon(Icons.chevron_right, size: 18),
+                trailing: const Icon(NekoIcons.Right, size: 18),
                 onTap: () {
                   ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                       content: Text(l10n.settingsUpToDate),

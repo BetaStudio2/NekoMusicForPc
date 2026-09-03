@@ -1,3 +1,4 @@
+import 'neko_icons.dart';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -431,7 +432,7 @@ class _SliderCaptchaFieldState extends State<_SliderCaptchaField> {
                     const SizedBox(height: 8),
                     Row(
                       children: [
-                        Icon(Icons.keyboard_arrow_right_rounded,
+                        Icon(NekoIcons.Right,
                             size: 16, color: kTextMuted),
                         Expanded(
                           child: Slider(
@@ -448,7 +449,7 @@ class _SliderCaptchaFieldState extends State<_SliderCaptchaField> {
                         ),
                         IconButton(
                           tooltip: _l10n.actionRefresh,
-                          icon: Icon(Icons.refresh, size: 16),
+                          icon: Icon(NekoIcons.Refresh, size: 16),
                           onPressed: _verifying ? null : _load,
                         ),
                       ],

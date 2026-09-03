@@ -1,3 +1,4 @@
+import '../neko_icons.dart';
 import 'package:flutter/material.dart';
 
 import '../../main.dart';
@@ -64,7 +65,7 @@ class SongTile extends StatelessWidget {
                   width: 44,
                   height: 44,
                   color: kBgMid,
-                  child: Icon(Icons.music_note, color: kTextFaint),
+                  child: Icon(NekoIcons.Music, color: kTextFaint),
                 ),
               ),
             ),
@@ -94,7 +95,7 @@ class SongTile extends StatelessWidget {
                 children: [
                   IconButton(
                     tooltip: l10n.download,
-                    icon: const Icon(Icons.download_outlined, size: 18),
+                    icon: const Icon(NekoIcons.Download, size: 18),
                     color: kTextMuted,
                     onPressed: music.id > 0
                         ? () => core.download(music, onDone: (ok, id, msg, path) {
@@ -121,7 +122,7 @@ class SongTile extends StatelessWidget {
                   IconButton(
                     tooltip: isFav ? l10n.removeFavorite : l10n.favorite,
                     icon: Icon(
-                      isFav ? Icons.favorite : Icons.favorite_border,
+                      isFav ? NekoIcons.Favorite : NekoIcons.FavoriteBorder,
                       size: 18,
                       color: isFav ? kPrimary : kTextMuted,
                     ),
@@ -130,7 +131,7 @@ class SongTile extends StatelessWidget {
                   ),
                   PopupMenuButton<VoidCallback>(
                     tooltip: l10n.more,
-                    icon: Icon(Icons.more_vert, size: 18, color: kTextMuted),
+                    icon: Icon(NekoIcons.More, size: 18, color: kTextMuted),
                     color: kBgMid,
                     onSelected: (action) => action(),
                     itemBuilder: (_) => buildSongMenuEntries(context,

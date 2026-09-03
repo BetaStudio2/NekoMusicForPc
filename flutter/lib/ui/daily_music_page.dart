@@ -1,3 +1,4 @@
+import 'neko_icons.dart';
 import 'package:flutter/material.dart';
 
 import '../main.dart';
@@ -40,7 +41,7 @@ class DailyMusicPage extends StatelessWidget {
                       const Spacer(),
                       TextButton.icon(
                         onPressed: core.fetchDaily,
-                        icon: const Icon(Icons.refresh, size: 16),
+                        icon: const Icon(NekoIcons.Refresh, size: 16),
                         label: Text(l10n.shuffleAgain),
                       ),
                     ],

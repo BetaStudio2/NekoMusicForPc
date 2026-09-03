@@ -1,3 +1,4 @@
+import 'neko_icons.dart';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
@@ -512,14 +513,14 @@ class _PlayerDetailPageState extends State<PlayerDetailPage>
                         tooltip: _l10n.clearQueue,
                         onPressed: queue.isEmpty ? null : core.clearQueue,
                         visualDensity: VisualDensity.compact,
-                        icon: const Icon(Icons.delete_sweep_outlined,
+                        icon: const Icon(NekoIcons.DeleteSweep,
                             size: 18),
                       ),
                       IconButton(
                         tooltip: _l10n.close,
                         onPressed: onClose,
                         visualDensity: VisualDensity.compact,
-                        icon: const Icon(Icons.close, size: 18),
+                        icon: const Icon(NekoIcons.Close, size: 18),
                       ),
                     ],
                   ),
@@ -567,7 +568,7 @@ class _PlayerDetailPageState extends State<PlayerDetailPage>
                                       ? Icon(
                                           playing
                                               ? Icons.graphic_eq
-                                              : Icons.play_arrow,
+                                              : NekoIcons.Play,
                                           size: 18,
                                           color: kPrimary)
                                       : Text('${i + 1}',
@@ -592,14 +593,14 @@ class _PlayerDetailPageState extends State<PlayerDetailPage>
                                                   Container(
                                                 color: kBgSurface,
                                                 child: Icon(
-                                                    Icons.music_note,
+                                                    NekoIcons.Music,
                                                     size: 16,
                                                     color: kTextMuted),
                                               ),
                                             )
                                           : Container(
                                               color: kBgSurface,
-                                              child: Icon(Icons.music_note,
+                                              child: Icon(NekoIcons.Music,
                                                   size: 16,
                                                   color: kTextMuted),
                                             ),
@@ -698,10 +699,10 @@ class _PlayerDetailPageState extends State<PlayerDetailPage>
               padding: const EdgeInsets.symmetric(horizontal: 30),
               child: Row(
                 children: [
-                  _toolBtn(Icons.keyboard_arrow_down_rounded, _l10n.back,
+                  _toolBtn(NekoIcons.Down, _l10n.back,
                       () => Navigator.of(context).pop()),
                   _toolBtn(
-                      favorited ? Icons.favorite : Icons.favorite_border,
+                      favorited ? NekoIcons.Favorite : NekoIcons.FavoriteBorder,
                       _l10n.favorite,
                       () => core.toggleFavorite(music?.id ?? 0),
                       highlight: favorited),
@@ -722,7 +723,7 @@ class _PlayerDetailPageState extends State<PlayerDetailPage>
                     children: [
                       _modeBtn(core),
                       const SizedBox(width: 12),
-                      _ctrlBtn(Icons.skip_previous_rounded, _l10n.prevTrack, hasMusic
+                      _ctrlBtn(NekoIcons.SkipPrev, _l10n.prevTrack, hasMusic
                           ? () {
                               final m = core.previous();
                               if (m != null) engine.playUrl(m.playUrl());
@@ -738,21 +739,21 @@ class _PlayerDetailPageState extends State<PlayerDetailPage>
                             backgroundColor: kPrimary,
                             foregroundColor: Colors.white),
                         icon: Icon(playing
-                            ? Icons.pause_rounded
-                            : Icons.play_arrow_rounded),
+                            ? NekoIcons.Pause
+                            : NekoIcons.Play),
                         onPressed: engine.state == NekoPlayState.stopped
                             ? null
                             : engine.togglePlayPause,
                       ),
                       const SizedBox(width: 12),
-                      _ctrlBtn(Icons.skip_next_rounded, _l10n.nextTrack, hasMusic
+                      _ctrlBtn(NekoIcons.SkipNext, _l10n.nextTrack, hasMusic
                           ? () {
                               final m = core.next();
                               if (m != null) engine.playUrl(m.playUrl());
                             }
                           : null),
                       const SizedBox(width: 12),
-                      _ctrlBtn(Icons.download_outlined, _l10n.download, hasMusic
+                      _ctrlBtn(NekoIcons.Download, _l10n.download, hasMusic
                           ? () => _download(core, music!)
                           : null),
                     ],
@@ -821,7 +822,7 @@ class _PlayerDetailPageState extends State<PlayerDetailPage>
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  Icon(Icons.volume_up_rounded,
+                  Icon(NekoIcons.VolumeUp,
                       size: 24, color: kTextSecondary),
                   const SizedBox(width: 8),
                   SizedBox(
@@ -860,15 +861,15 @@ class _PlayerDetailPageState extends State<PlayerDetailPage>
       ),
       child: Row(
         children: [
-          _toolBtn(Icons.keyboard_arrow_down_rounded, _l10n.back,
+          _toolBtn(NekoIcons.Down, _l10n.back,
               () => Navigator.of(context).pop()),
           _toolBtn(
-              favorited ? Icons.favorite : Icons.favorite_border,
+              favorited ? NekoIcons.Favorite : NekoIcons.FavoriteBorder,
               _l10n.favorite,
               () => core.toggleFavorite(music?.id ?? 0),
               highlight: favorited),
           const Spacer(),
-          _ctrlBtn(Icons.skip_previous_rounded, _l10n.prevTrack, hasMusic
+          _ctrlBtn(NekoIcons.SkipPrev, _l10n.prevTrack, hasMusic
               ? () {
                   final m = core.previous();
                   if (m != null) engine.playUrl(m.playUrl());
@@ -879,11 +880,11 @@ class _PlayerDetailPageState extends State<PlayerDetailPage>
             constraints: const BoxConstraints.tightFor(width: 44, height: 44),
             style: IconButton.styleFrom(
                 backgroundColor: kPrimary, foregroundColor: Colors.white),
-            icon: Icon(playing ? Icons.pause_rounded : Icons.play_arrow_rounded),
+            icon: Icon(playing ? NekoIcons.Pause : NekoIcons.Play),
             onPressed:
                 engine.state == NekoPlayState.stopped ? null : engine.togglePlayPause,
           ),
-          _ctrlBtn(Icons.skip_next_rounded, _l10n.nextTrack, hasMusic
+          _ctrlBtn(NekoIcons.SkipNext, _l10n.nextTrack, hasMusic
               ? () {
                   final m = core.next();
                   if (m != null) engine.playUrl(m.playUrl());
@@ -932,7 +933,7 @@ class _PlayerDetailPageState extends State<PlayerDetailPage>
     return PopupMenuButton<int>(
       tooltip: _l10n.addToPlaylist,
       iconSize: 24,
-      icon: const Icon(Icons.playlist_add_rounded),
+      icon: const Icon(NekoIcons.PlaylistAdd),
       enabled: hasMusic,
       onSelected: (localId) {
         core.addToPlaylist(localId, music!, onDone: (ok) {
@@ -994,7 +995,7 @@ class _PlayerDetailPageState extends State<PlayerDetailPage>
         width: size,
         height: size,
         color: kBgSurface,
-        child: Icon(Icons.music_note,
+        child: Icon(NekoIcons.Music,
             size: 96, color: kPrimary.withValues(alpha: 0.5)),
       );
 }

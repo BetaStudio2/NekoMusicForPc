@@ -1,3 +1,4 @@
+import 'neko_icons.dart';
 import 'dart:async';
 import 'dart:io';
 
@@ -363,7 +364,7 @@ class _TitleBarState extends State<TitleBar> {
                   contentPadding:
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   prefixIcon:
-                      Icon(Icons.search, size: 18, color: kTextMuted),
+                      Icon(NekoIcons.Search, size: 18, color: kTextMuted),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
                     borderSide: BorderSide.none,
@@ -381,7 +382,7 @@ class _TitleBarState extends State<TitleBar> {
             _vipPill(core),
           const UserMenu(),
           const SizedBox(width: 4),
-          _iconBtn(Icons.settings_outlined, l10n.settingsTooltip,
+          _iconBtn(NekoIcons.Settings, l10n.settingsTooltip,
               widget.onSettings),
           const SizedBox(width: 8),
         ],
@@ -459,7 +460,7 @@ class _HomePage extends StatelessWidget {
                 const Spacer(),
                 TextButton.icon(
                   onPressed: core.refresh,
-                  icon: const Icon(Icons.refresh, size: 16),
+                  icon: const Icon(NekoIcons.Refresh, size: 16),
                   label: Text(l10n.actionRefresh),
                 ),
               ],
@@ -586,7 +587,7 @@ class _DailyEntry extends StatelessWidget {
                 ],
               ),
             ),
-            Icon(Icons.chevron_right, color: kTextMuted),
+            Icon(NekoIcons.Right, color: kTextMuted),
           ],
         ),
       ),
@@ -595,7 +596,7 @@ class _DailyEntry extends StatelessWidget {
 
   Widget _entryCoverPlaceholder() => Container(
         color: kBgMid,
-        child: Icon(Icons.music_note, color: kTextFaint, size: 28),
+        child: Icon(NekoIcons.Music, color: kTextFaint, size: 28),
       );
 }
 

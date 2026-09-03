@@ -1,3 +1,4 @@
+import 'neko_icons.dart';
 import 'package:flutter/material.dart';
 
 import '../main.dart';
@@ -79,7 +80,7 @@ class _CloudPlaylistDetailPageState extends State<CloudPlaylistDetailPage> {
                     builder: (context, _) => IconButton(
                       tooltip: favorited ? _l10n.unfavoritePlaylist : _l10n.favoritePlaylist,
                       icon: Icon(
-                        favorited ? Icons.favorite : Icons.favorite_border,
+                        favorited ? NekoIcons.Favorite : NekoIcons.FavoriteBorder,
                         size: 20,
                         color: favorited ? kPrimary : kTextSecondary,
                       ),
@@ -121,7 +122,7 @@ class _CloudPlaylistDetailPageState extends State<CloudPlaylistDetailPage> {
                     onPressed: _songs.isEmpty
                         ? null
                         : () => core.playAll(_songs),
-                    icon: const Icon(Icons.play_arrow, size: 18),
+                    icon: const Icon(NekoIcons.Play, size: 18),
                     label: Text(_l10n.playAll),
                     style: FilledButton.styleFrom(backgroundColor: kPrimary),
                   ),

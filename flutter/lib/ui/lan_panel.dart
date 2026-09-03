@@ -1,3 +1,4 @@
+import 'neko_icons.dart';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -64,14 +65,14 @@ class LanPanel extends StatelessWidget {
                         visualDensity: VisualDensity.compact,
                         iconSize: 18,
                         onPressed: core.lanPollTick,
-                        icon: const Icon(Icons.refresh),
+                        icon: const Icon(NekoIcons.Refresh),
                       ),
                       IconButton(
                         tooltip: l10n.close,
                         visualDensity: VisualDensity.compact,
                         iconSize: 18,
                         onPressed: onClose,
-                        icon: const Icon(Icons.close),
+                        icon: const Icon(NekoIcons.Close),
                       ),
                     ],
                   ),
