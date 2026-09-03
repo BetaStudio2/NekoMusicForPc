@@ -15,6 +15,7 @@ import 'list_pages.dart';
 import 'login_dialog.dart';
 import 'player_bar.dart';
 import 'widgets/queue_glass.dart';
+import 'widgets/center_dialog.dart';
 import 'lan_panel.dart';
 import 'daily_music_page.dart';
 import 'search_page.dart';
@@ -467,8 +468,11 @@ class _TitleBarState extends State<TitleBar> {
       padding: const EdgeInsets.only(right: 6),
       child: InkWell(
         onTap: () {
-          Navigator.of(context).push(MaterialPageRoute<void>(
-              builder: (_) => const VipPage()));
+          showCenterDialog(
+              context,
+              page: const VipPage(),
+              widthRatio: 0.86,
+              heightRatio: 0.9);
         },
         borderRadius: BorderRadius.circular(12),
         child: Container(
@@ -593,12 +597,12 @@ class _DailyEntry extends StatelessWidget {
     final coverMusicId = core.daily.isNotEmpty ? core.daily.first.id : 0;
     return InkWell(
       onTap: () {
-        Navigator.of(context).push(MaterialPageRoute(
-          builder: (_) => CoreScope(
-            controller: core,
-            child: const DailyMusicPage(),
-          ),
-        ));
+        showCenterDialog(
+          context,
+          page: CoreScope(controller: core, child: const DailyMusicPage()),
+          widthRatio: 0.9,
+          heightRatio: 0.9,
+        );
       },
       borderRadius: BorderRadius.circular(14),
       child: Container(
