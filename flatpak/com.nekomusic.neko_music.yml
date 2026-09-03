@@ -30,5 +30,7 @@ modules:
     sources:
       - type: dir
         path: bundle
-      - type: dir
-        path: share
+      - type: file
+        path: nekomusic.desktop
+      - type: file
+        path: nekomusic.png

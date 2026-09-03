@@ -135,6 +135,7 @@ jobs:
           host: 'windows'
           target: 'desktop'
           arch: 'win64_msvc2022_64'
+          dir: 'C:\Qt'
           cache: true
       - name: Setup Ninja
         run: choco install ninja -y
@@ -186,9 +187,9 @@ jobs:
         run: |
           $rel = "flutter\build\windows\x64\runner\Release"
           # install-qt-action 会设 Qt6_DIR；避免递归 C:\Qt（无权限）
-          $qtBin = if ($env:Qt6_DIR) { Join-Path $env:Qt6_DIR "bin" } else { "C:\Qt" }
-          $deploy = Get-ChildItem $qtBin -Filter windeployqt.exe |
-            Select-Object -First 1
+          $qtBin = "C:\Qt"
+          $deploy = Get-ChildItem $qtBin -Recurse -Filter windeployqt.exe |
+            Where-Object { $_.FullName -notmatch 'mingw' } | Select-Object -First 1
           if (-not $deploy) { throw "windeployqt not found under $qtBin" }
           & $deploy.FullName --release --no-translations $rel
           # mpv/引擎 dll 一并入包（engine dlls 已由 CMake 拷入 Release）
@@ -301,6 +302,7 @@ jobs:
             (cd "dist/tools/extract-$p" && "../$p-x86_64.AppImage" --appimage-extract >/dev/null 2>&1 || true)
             cp "dist/tools/extract-$p/squashfs-root/AppRun" "dist/tools/$p" 2>/dev/null || true
             chmod +x "dist/tools/$p" || true
+            rm -f "dist/tools/$p-x86_64.AppImage"
           done
       - name: Package AppImage
         env:
@@ -333,16 +335,14 @@ jobs:
           flatpak install --user --noninteractive flathub org.kde.Platform//6.7 org.kde.Sdk//6.7
       - uses: actions/download-artifact@v4
         with: { name: nekomusic-linux-portable, path: portable }
-      - name: Prepare bundle + share sources
+      - name: Prepare bundle + desktop/icon sources
         run: |
-          mkdir -p flatpak/bundle flatpak/share/applications \
-                   flatpak/share/icons/hicolor/512x512/apps
+          mkdir -p flatpak/bundle
           (cd portable && unzip -oq *.zip)
           cp -r portable/nekomusic/. flatpak/bundle/
           rm -f flatpak/bundle/README.txt
-          cp packaging/com.nekomusic.neko_music.desktop flatpak/share/applications/
-          cp packaging/icons/hicolor/512x512/apps/nekomusic.png \
-             flatpak/share/icons/hicolor/512x512/apps/
+          cp packaging/com.nekomusic.neko_music.desktop flatpak/nekomusic.desktop
+          cp packaging/icons/hicolor/512x512/apps/nekomusic.png flatpak/nekomusic.png
       - name: Build flatpak
         run: |
           flatpak-builder --user --force-clean --repo=repo build flatpak/com.nekomusic.neko_music.yml
@@ -357,6 +357,7 @@ jobs:
   linux-snap:
     runs-on: ubuntu-24.04
     needs: linux-deb
+    continue-on-error: true   # 工具链受限（snapcraft 容器过旧），尽力而为
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
