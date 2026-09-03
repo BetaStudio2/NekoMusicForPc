@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../main.dart';
 import '../core/core_controller.dart';
+import '../l10n/generated/app_localizations.dart';
 import '../ffi/neko_core.dart' show NekoCoreMusic;
 
 /// LAN 设备同步面板（毛玻璃右缘滑入）。
@@ -16,6 +17,7 @@ class LanPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final core = CoreScope.of(context);
+    final l10n = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
     return Material(
       color: Colors.transparent,
@@ -48,24 +50,24 @@ class LanPanel extends StatelessWidget {
                     children: [
                       Icon(Icons.devices_other, size: 18, color: scheme.primary),
                       const SizedBox(width: 8),
-                      const Text('设备同步',
+                      Text(l10n.deviceSync,
                           style: TextStyle(
                               fontSize: 15, fontWeight: FontWeight.w600)),
                       const SizedBox(width: 8),
                       if (!core.isLoggedIn)
-                        Text('需登录',
+                        Text(l10n.needLogin,
                             style: TextStyle(
                                 fontSize: 11, color: kTextMuted)),
                       const Spacer(),
                       IconButton(
-                        tooltip: '刷新',
+                        tooltip: l10n.actionRefresh,
                         visualDensity: VisualDensity.compact,
                         iconSize: 18,
                         onPressed: core.lanPollTick,
                         icon: const Icon(Icons.refresh),
                       ),
                       IconButton(
-                        tooltip: '关闭',
+                        tooltip: l10n.close,
                         visualDensity: VisualDensity.compact,
                         iconSize: 18,
                         onPressed: onClose,
@@ -79,7 +81,7 @@ class LanPanel extends StatelessWidget {
                   child: devices.isEmpty
                       ? Center(
                           child: Text(
-                            core.isLoggedIn ? '局域网内暂无其他设备' : '登录后自动发现同账号设备',
+                            core.isLoggedIn ? l10n.lanEmpty : l10n.lanLoginHint,
                             style: TextStyle(color: kTextMuted, fontSize: 13),
                           ),
                         )
@@ -117,7 +119,8 @@ class LanPanel extends StatelessWidget {
                                         : kTextPrimary),
                               ),
                               subtitle: Text(
-                                '${d['queueCount'] ?? 0} 首 · ${_curTitle(d)}',
+                                l10n.remoteQueueSubtitle(
+                                    d['queueCount'] ?? 0, _curTitle(d, l10n)),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(fontSize: 11),
@@ -150,6 +153,7 @@ class LanPanel extends StatelessWidget {
       CoreController core,
       Map<String, dynamic>? rq,
       List<Map<String, dynamic>> items) {
+    final l10n = AppLocalizations.of(context);
     final currentMusicId = (rq?['currentMusicId'] as num?)?.toInt() ?? 0;
     final playing = rq?['isPlaying'] == true;
     return Container(
@@ -168,17 +172,17 @@ class LanPanel extends StatelessWidget {
                   color: playing ? kPrimary : kTextMuted),
               const SizedBox(width: 6),
               Text(
-                playing ? '远端播放中' : '远端队列',
+                playing ? l10n.lanRemotePlaying : l10n.lanRemoteQueue,
                 style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
               ),
               const Spacer(),
-              Text('${items.length} 首',
+              Text(l10n.playlistCountSongs(items.length),
                   style: TextStyle(fontSize: 11, color: kTextMuted)),
             ],
           ),
           const SizedBox(height: 6),
           Text(
-            _curRemote(items, currentMusicId),
+            _curRemote(items, currentMusicId, l10n),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(fontSize: 12),
@@ -194,7 +198,7 @@ class LanPanel extends StatelessWidget {
                     visualDensity: VisualDensity.compact,
                   ),
                   onPressed: () => _takeOver(core, items),
-                  child: const Text('接管并播放', style: TextStyle(fontSize: 12)),
+                  child: Text(l10n.lanTakeover, style: const TextStyle(fontSize: 12)),
                 ),
               ),
             ],
@@ -225,18 +229,19 @@ class LanPanel extends StatelessWidget {
     if (songs.isNotEmpty) core.playAll(songs);
   }
 
-  String _curTitle(Map<String, dynamic> d) {
+  String _curTitle(Map<String, dynamic> d, AppLocalizations l10n) {
     final id = (d['currentMusicId'] as num?)?.toInt() ?? 0;
-    if (id == 0) return '未在播放';
-    return '正在播放 #$id';
+    if (id == 0) return l10n.playerIdleTitle;
+    return l10n.lanNowPlaying(id);
   }
 
-  String _curRemote(List<Map<String, dynamic>> items, int currentId) {
+  String _curRemote(List<Map<String, dynamic>> items, int currentId,
+      AppLocalizations l10n) {
     for (final it in items) {
       if (((it['id'] as num?)?.toInt() ?? 0) == currentId) {
         return '${it['title']} - ${it['artist']}';
       }
     }
-    return items.isEmpty ? '空' : '${items.first['title']} …';
+    return items.isEmpty ? l10n.lanEmptyTag : '${items.first['title']} …';
   }
 }

@@ -261,4 +261,74 @@ class AppLocalizationsEn extends AppLocalizations {
   String playlistCountSongs(Object n) {
     return '$n songs';
   }
+
+  @override
+  String get close => 'Close';
+
+  @override
+  String get back => 'Back';
+
+  @override
+  String get favorite => 'Favorite';
+
+  @override
+  String get download => 'Download';
+
+  @override
+  String get addToPlaylist => 'Add to playlist';
+
+  @override
+  String get addToPlaylistFailed => 'Failed to add to playlist';
+
+  @override
+  String get noLyrics => 'No lyrics yet';
+
+  @override
+  String get queueTitle => 'Play queue';
+
+  @override
+  String get collapseQueue => 'Collapse queue';
+
+  @override
+  String get clearQueue => 'Clear queue';
+
+  @override
+  String get queueEmpty => 'Queue is empty';
+
+  @override
+  String get queueEmptyHint => 'Add songs from a list to start playing';
+
+  @override
+  String get playModeColon => 'Play mode: ';
+
+  @override
+  String get needLogin => 'Sign in required';
+
+  @override
+  String get lanEmpty => 'No other devices on this network';
+
+  @override
+  String get lanLoginHint => 'Sign in to auto-discover devices on your account';
+
+  @override
+  String get lanRemotePlaying => 'Playing remotely';
+
+  @override
+  String get lanRemoteQueue => 'Remote queue';
+
+  @override
+  String get lanTakeover => 'Take over & play';
+
+  @override
+  String lanNowPlaying(Object id) {
+    return 'Playing #$id';
+  }
+
+  @override
+  String get lanEmptyTag => 'Empty';
+
+  @override
+  String remoteQueueSubtitle(Object count, Object title) {
+    return '$count songs · $title';
+  }
 }

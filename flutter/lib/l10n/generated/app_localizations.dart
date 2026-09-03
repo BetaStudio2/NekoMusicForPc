@@ -589,6 +589,138 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'{n} 首'**
   String playlistCountSongs(Object n);
+
+  /// No description provided for @close.
+  ///
+  /// In zh, this message translates to:
+  /// **'关闭'**
+  String get close;
+
+  /// No description provided for @back.
+  ///
+  /// In zh, this message translates to:
+  /// **'返回'**
+  String get back;
+
+  /// No description provided for @favorite.
+  ///
+  /// In zh, this message translates to:
+  /// **'收藏'**
+  String get favorite;
+
+  /// No description provided for @download.
+  ///
+  /// In zh, this message translates to:
+  /// **'下载'**
+  String get download;
+
+  /// No description provided for @addToPlaylist.
+  ///
+  /// In zh, this message translates to:
+  /// **'加入歌单'**
+  String get addToPlaylist;
+
+  /// No description provided for @addToPlaylistFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'加入歌单失败'**
+  String get addToPlaylistFailed;
+
+  /// No description provided for @noLyrics.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无歌词'**
+  String get noLyrics;
+
+  /// No description provided for @queueTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'播放队列'**
+  String get queueTitle;
+
+  /// No description provided for @collapseQueue.
+  ///
+  /// In zh, this message translates to:
+  /// **'收起队列'**
+  String get collapseQueue;
+
+  /// No description provided for @clearQueue.
+  ///
+  /// In zh, this message translates to:
+  /// **'清空队列'**
+  String get clearQueue;
+
+  /// No description provided for @queueEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'队列为空'**
+  String get queueEmpty;
+
+  /// No description provided for @queueEmptyHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'从列表中添加歌曲开始播放'**
+  String get queueEmptyHint;
+
+  /// No description provided for @playModeColon.
+  ///
+  /// In zh, this message translates to:
+  /// **'播放模式：'**
+  String get playModeColon;
+
+  /// No description provided for @needLogin.
+  ///
+  /// In zh, this message translates to:
+  /// **'需登录'**
+  String get needLogin;
+
+  /// No description provided for @lanEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'局域网内暂无其他设备'**
+  String get lanEmpty;
+
+  /// No description provided for @lanLoginHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'登录后自动发现同账号设备'**
+  String get lanLoginHint;
+
+  /// No description provided for @lanRemotePlaying.
+  ///
+  /// In zh, this message translates to:
+  /// **'远端播放中'**
+  String get lanRemotePlaying;
+
+  /// No description provided for @lanRemoteQueue.
+  ///
+  /// In zh, this message translates to:
+  /// **'远端队列'**
+  String get lanRemoteQueue;
+
+  /// No description provided for @lanTakeover.
+  ///
+  /// In zh, this message translates to:
+  /// **'接管并播放'**
+  String get lanTakeover;
+
+  /// No description provided for @lanNowPlaying.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在播放 #{id}'**
+  String lanNowPlaying(Object id);
+
+  /// No description provided for @lanEmptyTag.
+  ///
+  /// In zh, this message translates to:
+  /// **'空'**
+  String get lanEmptyTag;
+
+  /// No description provided for @remoteQueueSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'{count} 首 · {title}'**
+  String remoteQueueSubtitle(Object count, Object title);
 }
 
 class _AppLocalizationsDelegate

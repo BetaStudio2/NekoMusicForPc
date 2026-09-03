@@ -257,4 +257,74 @@ class AppLocalizationsZh extends AppLocalizations {
   String playlistCountSongs(Object n) {
     return '$n 首';
   }
+
+  @override
+  String get close => '关闭';
+
+  @override
+  String get back => '返回';
+
+  @override
+  String get favorite => '收藏';
+
+  @override
+  String get download => '下载';
+
+  @override
+  String get addToPlaylist => '加入歌单';
+
+  @override
+  String get addToPlaylistFailed => '加入歌单失败';
+
+  @override
+  String get noLyrics => '暂无歌词';
+
+  @override
+  String get queueTitle => '播放队列';
+
+  @override
+  String get collapseQueue => '收起队列';
+
+  @override
+  String get clearQueue => '清空队列';
+
+  @override
+  String get queueEmpty => '队列为空';
+
+  @override
+  String get queueEmptyHint => '从列表中添加歌曲开始播放';
+
+  @override
+  String get playModeColon => '播放模式：';
+
+  @override
+  String get needLogin => '需登录';
+
+  @override
+  String get lanEmpty => '局域网内暂无其他设备';
+
+  @override
+  String get lanLoginHint => '登录后自动发现同账号设备';
+
+  @override
+  String get lanRemotePlaying => '远端播放中';
+
+  @override
+  String get lanRemoteQueue => '远端队列';
+
+  @override
+  String get lanTakeover => '接管并播放';
+
+  @override
+  String lanNowPlaying(Object id) {
+    return '正在播放 #$id';
+  }
+
+  @override
+  String get lanEmptyTag => '空';
+
+  @override
+  String remoteQueueSubtitle(Object count, Object title) {
+    return '$count 首 · $title';
+  }
 }
