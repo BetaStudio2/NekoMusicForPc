@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../main.dart';
 import '../../core/core_controller.dart';
+import '../../l10n/generated/app_localizations.dart';
 import '../../ffi/neko_core.dart';
 import '../add_to_playlist_dialog.dart';
 import '../artist_detail_page.dart';
@@ -17,34 +18,35 @@ List<PopupMenuEntry<VoidCallback>> buildSongMenuEntries(
   required NekoCoreMusic music,
   List<SongMenuEntry> extra = const [],
 }) {
+  final l10n = AppLocalizations.of(context);
   final isFav = music.id > 0 && core.favoriteIds.contains(music.id);
   final entries = <SongMenuEntry>[
     (
       icon: Icons.play_arrow_rounded,
-      label: '播放',
+      label: l10n.play,
       action: () => core.play(music),
     ),
     if (music.id > 0)
       (
         icon: isFav ? Icons.favorite : Icons.favorite_border,
-        label: isFav ? '取消收藏' : '收藏',
+        label: isFav ? l10n.removeFavorite : l10n.favorite,
         action: () => core.toggleFavorite(music.id),
       ),
     (
       icon: Icons.playlist_add_rounded,
-      label: '添加到歌单',
+      label: l10n.addToPlaylist,
       action: () => _addToPlaylist(context, core, music),
     ),
     if (music.id > 0)
       (
         icon: Icons.download_outlined,
-        label: '下载',
+        label: l10n.download,
         action: () => core.download(music),
       ),
     if (music.artist.isNotEmpty)
       (
         icon: Icons.person_outline_rounded,
-        label: '查看歌手',
+        label: l10n.viewArtist,
         action: () => _viewArtist(context, core, music.artist),
       ),
     ...extra,
@@ -86,16 +88,17 @@ Future<void> showSongContextMenu(
 /// 添加到云端歌单（对齐原版 AddToPlaylistDialog；本地音乐 id<0 时跳过）
 void _addToPlaylist(
     BuildContext context, CoreController core, NekoCoreMusic music) {
+  final l10n = AppLocalizations.of(context);
   if (music.id < 0) {
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-      content: Text('本地音乐暂不支持添加到云端歌单'),
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(l10n.localToCloudUnsupported),
       duration: Duration(seconds: 2),
     ));
     return;
   }
   if (!core.isLoggedIn) {
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-      content: Text('添加到歌单需要先登录'),
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(l10n.needLoginAdd),
       duration: Duration(seconds: 2),
     ));
     return;
@@ -108,11 +111,12 @@ void _addToPlaylist(
 
 /// 按歌手名搜索并跳转歌手详情页
 void _viewArtist(BuildContext context, CoreController core, String artistName) {
+  final l10n = AppLocalizations.of(context);
   core.searchArtists(artistName, onDone: (artist) {
     if (!context.mounted) return;
     if (artist == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('未找到该歌手'),
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(l10n.artistNotFound),
         duration: Duration(seconds: 2),
       ));
       return;

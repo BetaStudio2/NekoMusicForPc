@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../main.dart';
 import '../../core/core_controller.dart';
+import '../../l10n/generated/app_localizations.dart';
 import '../../ffi/neko_core.dart';
 import '../cloud_playlist_detail_page.dart';
 
@@ -23,6 +24,7 @@ class CloudPlaylistCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return InkWell(
       onTap: () {
         Navigator.of(context).push(MaterialPageRoute(
@@ -68,7 +70,7 @@ class CloudPlaylistCard extends StatelessWidget {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          '${playlist.musicCount} 首',
+                          l10n.playlistCountSongs(playlist.musicCount),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(fontSize: 12, color: kTextMuted),

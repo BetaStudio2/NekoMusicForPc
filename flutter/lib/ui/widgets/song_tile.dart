@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../main.dart';
 import '../../core/core_controller.dart';
+import '../../l10n/generated/app_localizations.dart';
 import '../../ffi/neko_core.dart';
 import 'song_context_menu.dart';
 
@@ -28,6 +29,7 @@ class SongTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final durationText = music.duration > 0
         ? '${music.duration ~/ 60}:${(music.duration % 60).toString().padLeft(2, '0')}'
         : '';
@@ -73,7 +75,7 @@ class SongTile extends StatelessWidget {
                 children: [
                   Text(music.title, maxLines: 1, overflow: TextOverflow.ellipsis),
                   Text(
-                    music.artist.isEmpty ? '未知歌手' : music.artist,
+                    music.artist.isEmpty ? l10n.unknownArtist : music.artist,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(fontSize: 12, color: kTextMuted),
@@ -91,7 +93,7 @@ class SongTile extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   IconButton(
-                    tooltip: '下载',
+                    tooltip: l10n.download,
                     icon: const Icon(Icons.download_outlined, size: 18),
                     color: kTextMuted,
                     onPressed: music.id > 0
@@ -100,16 +102,16 @@ class SongTile extends StatelessWidget {
                                 ScaffoldMessenger.of(context)
                                     .showSnackBar(SnackBar(
                                   content: Text(msg == 'cancelled'
-                                      ? '已取消下载'
-                                      : '下载失败：$msg'),
+                                      ? l10n.downloadCancelled
+                                      : l10n.downloadFailedN(msg)),
                                   duration: const Duration(seconds: 2),
                                 ));
                               } else if (ok) {
                                 ScaffoldMessenger.of(context)
                                     .showSnackBar(SnackBar(
                                   content: Text(path.isNotEmpty
-                                      ? '已保存到 $path'
-                                      : '已加入下载队列'),
+                                      ? l10n.downloadSavedToN(path)
+                                      : l10n.downloadQueued),
                                   duration: const Duration(seconds: 2),
                                 ));
                               }
@@ -117,7 +119,7 @@ class SongTile extends StatelessWidget {
                         : null,
                   ),
                   IconButton(
-                    tooltip: isFav ? '取消收藏' : '收藏',
+                    tooltip: isFav ? l10n.removeFavorite : l10n.favorite,
                     icon: Icon(
                       isFav ? Icons.favorite : Icons.favorite_border,
                       size: 18,
@@ -127,7 +129,7 @@ class SongTile extends StatelessWidget {
                         music.id > 0 ? () => core.toggleFavorite(music.id) : null,
                   ),
                   PopupMenuButton<VoidCallback>(
-                    tooltip: '更多',
+                    tooltip: l10n.more,
                     icon: Icon(Icons.more_vert, size: 18, color: kTextMuted),
                     color: kBgMid,
                     onSelected: (action) => action(),
@@ -146,19 +148,25 @@ class SongTile extends StatelessWidget {
 
 /// 歌曲列表容器（圆角卡片 + 逐行渲染）
 class SongList extends StatelessWidget {
-  const SongList({super.key, required this.core, required this.songs, this.emptyText = '暂无数据'});
+  const SongList(
+      {super.key,
+      required this.core,
+      required this.songs,
+      this.emptyText});
 
   final CoreController core;
   final List<NekoCoreMusic> songs;
-  final String emptyText;
+  final String? emptyText;
 
   @override
   Widget build(BuildContext context) {
     if (songs.isEmpty) {
+      final l10n = AppLocalizations.of(context);
       return Container(
         padding: const EdgeInsets.symmetric(vertical: 28),
         alignment: Alignment.center,
-        child: Text(emptyText, style: TextStyle(color: kTextMuted)),
+        child: Text(emptyText ?? l10n.emptyData,
+            style: TextStyle(color: kTextMuted)),
       );
     }
     return Container(

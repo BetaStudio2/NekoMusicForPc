@@ -1501,6 +1501,66 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'暂无歌单，可先新建'**
   String get noPlaylistsCreateHint;
+
+  /// No description provided for @downloadCancelled.
+  ///
+  /// In zh, this message translates to:
+  /// **'已取消下载'**
+  String get downloadCancelled;
+
+  /// No description provided for @downloadFailedN.
+  ///
+  /// In zh, this message translates to:
+  /// **'下载失败：{msg}'**
+  String downloadFailedN(Object msg);
+
+  /// No description provided for @downloadSavedToN.
+  ///
+  /// In zh, this message translates to:
+  /// **'已保存到 {path}'**
+  String downloadSavedToN(Object path);
+
+  /// No description provided for @downloadQueued.
+  ///
+  /// In zh, this message translates to:
+  /// **'已加入下载队列'**
+  String get downloadQueued;
+
+  /// No description provided for @removeFavorite.
+  ///
+  /// In zh, this message translates to:
+  /// **'取消收藏'**
+  String get removeFavorite;
+
+  /// No description provided for @more.
+  ///
+  /// In zh, this message translates to:
+  /// **'更多'**
+  String get more;
+
+  /// No description provided for @emptyData.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无数据'**
+  String get emptyData;
+
+  /// No description provided for @localToCloudUnsupported.
+  ///
+  /// In zh, this message translates to:
+  /// **'本地音乐暂不支持添加到云端歌单'**
+  String get localToCloudUnsupported;
+
+  /// No description provided for @needLoginAdd.
+  ///
+  /// In zh, this message translates to:
+  /// **'添加到歌单需要先登录'**
+  String get needLoginAdd;
+
+  /// No description provided for @artistNotFound.
+  ///
+  /// In zh, this message translates to:
+  /// **'未找到该歌手'**
+  String get artistNotFound;
 }
 
 class _AppLocalizationsDelegate

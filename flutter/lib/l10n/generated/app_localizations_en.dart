@@ -762,4 +762,39 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get noPlaylistsCreateHint => 'No playlists — create one first';
+
+  @override
+  String get downloadCancelled => 'Download cancelled';
+
+  @override
+  String downloadFailedN(Object msg) {
+    return 'Download failed: $msg';
+  }
+
+  @override
+  String downloadSavedToN(Object path) {
+    return 'Saved to $path';
+  }
+
+  @override
+  String get downloadQueued => 'Added to download queue';
+
+  @override
+  String get removeFavorite => 'Remove from favorites';
+
+  @override
+  String get more => 'More';
+
+  @override
+  String get emptyData => 'No data';
+
+  @override
+  String get localToCloudUnsupported =>
+      'Local music can\'t be added to cloud playlists';
+
+  @override
+  String get needLoginAdd => 'Sign in to add to playlists';
+
+  @override
+  String get artistNotFound => 'Artist not found';
 }

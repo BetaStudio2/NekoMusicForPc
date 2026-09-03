@@ -755,4 +755,38 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get noPlaylistsCreateHint => '暂无歌单，可先新建';
+
+  @override
+  String get downloadCancelled => '已取消下载';
+
+  @override
+  String downloadFailedN(Object msg) {
+    return '下载失败：$msg';
+  }
+
+  @override
+  String downloadSavedToN(Object path) {
+    return '已保存到 $path';
+  }
+
+  @override
+  String get downloadQueued => '已加入下载队列';
+
+  @override
+  String get removeFavorite => '取消收藏';
+
+  @override
+  String get more => '更多';
+
+  @override
+  String get emptyData => '暂无数据';
+
+  @override
+  String get localToCloudUnsupported => '本地音乐暂不支持添加到云端歌单';
+
+  @override
+  String get needLoginAdd => '添加到歌单需要先登录';
+
+  @override
+  String get artistNotFound => '未找到该歌手';
 }

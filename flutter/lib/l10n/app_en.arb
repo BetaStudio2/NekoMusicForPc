@@ -233,5 +233,15 @@
   "addFailedDupe": "Add failed (song may already be in the playlist)",
   "enterPlaylistName": "Enter a playlist name",
   "createAndAdd": "Create & add",
-  "noPlaylistsCreateHint": "No playlists — create one first"
+  "noPlaylistsCreateHint": "No playlists — create one first",
+  "downloadCancelled": "Download cancelled",
+  "downloadFailedN": "Download failed: {msg}",
+  "downloadSavedToN": "Saved to {path}",
+  "downloadQueued": "Added to download queue",
+  "removeFavorite": "Remove from favorites",
+  "more": "More",
+  "emptyData": "No data",
+  "localToCloudUnsupported": "Local music can't be added to cloud playlists",
+  "needLoginAdd": "Sign in to add to playlists",
+  "artistNotFound": "Artist not found"
 }

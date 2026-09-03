@@ -233,5 +233,15 @@
   "addFailedDupe": "添加失败（歌曲可能已在歌单中）",
   "enterPlaylistName": "请输入歌单名称",
   "createAndAdd": "新建并添加",
-  "noPlaylistsCreateHint": "暂无歌单，可先新建"
+  "noPlaylistsCreateHint": "暂无歌单，可先新建",
+  "downloadCancelled": "已取消下载",
+  "downloadFailedN": "下载失败：{msg}",
+  "downloadSavedToN": "已保存到 {path}",
+  "downloadQueued": "已加入下载队列",
+  "removeFavorite": "取消收藏",
+  "more": "更多",
+  "emptyData": "暂无数据",
+  "localToCloudUnsupported": "本地音乐暂不支持添加到云端歌单",
+  "needLoginAdd": "添加到歌单需要先登录",
+  "artistNotFound": "未找到该歌手"
 }
