@@ -77,7 +77,8 @@ echo "== 引擎构建完成"
 # ── 2. Flutter 应用构建 ──
 echo "== Flutter 构建 ($FLUTTER_TARGET_PLATFORM, $MODE)..."
 cd "$FLUTTER_DIR"
-"$FLUTTER_BIN" build "$FLUTTER_TARGET_PLATFORM" --"$MODE"
+# 自绘字形用全套字体：关闭 release 图标 tree-shake（否则自定义字形被子集化丢失）
+"$FLUTTER_BIN" build "$FLUTTER_TARGET_PLATFORM" --"$MODE" --no-tree-shake-icons
 
 if [[ $OS == Linux ]]; then
   BUNDLE="$FLUTTER_DIR/build/linux/x64/$MODE/bundle"

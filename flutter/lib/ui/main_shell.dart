@@ -1,3 +1,4 @@
+import 'dart:ui' as ui;
 import 'neko_icons.dart';
 import 'dart:async';
 import 'dart:io';
@@ -37,7 +38,7 @@ class MainShell extends StatefulWidget {
 }
 
 class _MainShellState extends State<MainShell>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   // 核心控制器为应用级单例（main() 创建）：歌词窗开关重建本树时不重建
   EngineController get _engine => widget.engine;
   CoreController get _core => widget.core;
@@ -76,6 +77,14 @@ class _MainShellState extends State<MainShell>
   Timer? _lanTimer;
   bool _lanVisible = false;
   bool _queueOpen = false;
+  late final AnimationController _queueAnim = AnimationController(
+      vsync: this, duration: const Duration(milliseconds: 260));
+  late final Animation<Offset> _queueSlide = Tween<Offset>(
+    begin: const Offset(1.12, 0),
+    end: Offset.zero,
+  ).animate(CurvedAnimation(parent: _queueAnim, curve: Curves.easeOutCubic));
+  late final Animation<double> _queueBarrier =
+      Tween<double>(begin: 0, end: 0.35).animate(_queueAnim);
 
   late final AnimationController _lanAnim = AnimationController(
       vsync: this, duration: const Duration(milliseconds: 260));
@@ -97,6 +106,21 @@ class _MainShellState extends State<MainShell>
     setState(() => _lanVisible = false);
     _lanAnim.reverse();
   }
+
+  void _openQueueDrawer() {
+    if (_queueOpen) return;
+    setState(() => _queueOpen = true);
+    _queueAnim.forward();
+  }
+
+  void _closeQueueDrawer() {
+    if (!_queueOpen) return;
+    setState(() => _queueOpen = false);
+    _queueAnim.reverse();
+  }
+
+  void _toggleQueueDrawer() =>
+      _queueOpen ? _closeQueueDrawer() : _openQueueDrawer();
 
   /// 播放条快速队列面板（对齐 Qt PlaylistPanel）：展示当前队列 + 设备同步子菜单
 
@@ -147,6 +171,7 @@ class _MainShellState extends State<MainShell>
   @override
   void dispose() {
     _lanAnim.dispose();
+    _queueAnim.dispose();
     _lanTimer?.cancel();
     // 核心控制器为应用级单例，不随本树卸载
     super.dispose();
@@ -256,39 +281,9 @@ class _MainShellState extends State<MainShell>
                       ],
                     ),
                   ),
-                  if (_queueOpen)
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(8, 0, 8, 0),
-                      child: Container(
-                        height: 300,
-                        width: double.infinity,
-                        decoration: BoxDecoration(
-                          color: kCardBg.withValues(alpha: 0.96),
-                          borderRadius: const BorderRadius.vertical(
-                              top: Radius.circular(16)),
-                          border: Border.all(
-                              color:
-                                  Colors.white.withValues(alpha: 0.12)),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.16),
-                              blurRadius: 18,
-                              offset: const Offset(0, -4),
-                            ),
-                          ],
-                        ),
-                        clipBehavior: Clip.antiAlias,
-                        child: QueuePanelBody(
-                          onClose: () =>
-                              setState(() => _queueOpen = false),
-                          onLan: _openLan,
-                        ),
-                      ),
-                    ),
                   PlayerBar(
                     // 非 const：主题切换时随 NekoApp 重建刷新配色
-                    onQueueToggle: () =>
-                        setState(() => _queueOpen = !_queueOpen),
+                    onQueueToggle: _toggleQueueDrawer,
                   ),
                 ],
               ),
@@ -315,6 +310,56 @@ class _MainShellState extends State<MainShell>
                 child: SlideTransition(
                   position: _lanSlide,
                   child: LanPanel(onClose: _closeLan),
+                ),
+              ),
+              // 播放队列遮罩（变暗 + 点击关闭，关闭态不拦截）
+              Positioned.fill(
+                child: IgnorePointer(
+                  ignoring: !_queueOpen,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: _closeQueueDrawer,
+                    child: FadeTransition(
+                      opacity: _queueBarrier,
+                      child: const ColoredBox(color: Colors.black),
+                    ),
+                  ),
+                ),
+              ),
+              // 播放队列抽屉：右缘滑入毛玻璃（与播放页同款样式）
+              Positioned(
+                right: 12,
+                top: 12,
+                bottom: PlayerBar.barHeight + 14,
+                width: 384,
+                child: SlideTransition(
+                  position: _queueSlide,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: BackdropFilter(
+                      filter: ui.ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: kBgSurface.withValues(alpha: 0.72),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.1)),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.28),
+                              blurRadius: 28,
+                              offset: const Offset(0, 10),
+                            ),
+                          ],
+                        ),
+                        child: QueuePanelBody(
+                          onClose: _closeQueueDrawer,
+                          onLan: _openLan,
+                          showDevices: true,
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ],

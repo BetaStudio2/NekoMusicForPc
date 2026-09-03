@@ -11,10 +11,17 @@ import '../neko_icons.dart';
 /// 统一「播放队列」面板组件：播放详情页内嵌面板与播放条队列
 /// BottomSheet 共用同一份视图（对齐 Qt PlaylistPanel）。
 class QueuePanelBody extends StatelessWidget {
-  const QueuePanelBody({super.key, required this.onClose, this.onLan});
+  const QueuePanelBody(
+      {super.key,
+      required this.onClose,
+      this.onLan,
+      this.showDevices = false});
 
   final VoidCallback onClose;
   final VoidCallback? onLan;
+
+  /// 是否内嵌「设备同步」设备列表（设备可直接点选切换）
+  final bool showDevices;
 
   String _fmt(double s) {
     if (s.isNaN || s.isInfinite || s <= 0) return '00:00';
@@ -117,6 +124,7 @@ class QueuePanelBody extends StatelessWidget {
               ),
             ),
             Divider(height: 1, color: kDivider),
+            if (showDevices && core.lanDevices.isNotEmpty) _lanStrip(context, core),
             Expanded(
               child: queue.isEmpty
                   ? Center(
@@ -234,6 +242,78 @@ class QueuePanelBody extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+
+  Widget _lanStrip(BuildContext context, CoreController core) {
+    final t = ThemeController.instance;
+    final sel = core.lanSelectedDeviceId;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(18, 8, 18, 2),
+          child: Row(
+            children: [
+              Icon(NekoIcons.DevicesOther, size: 14, color: kTextMuted),
+              const SizedBox(width: 6),
+              Text(t.t('设备同步', 'Device sync'),
+                  style: TextStyle(fontSize: 11, color: kTextMuted)),
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            children: [
+              for (final d in core.lanDevices.take(6))
+                InkWell(
+                  borderRadius: BorderRadius.circular(8),
+                  onTap: () {
+                    final id = (d['id'] ?? d['deviceId'])?.toString();
+                    if (id != null && id.isNotEmpty) {
+                      core.lanSelectDevice(id);
+                    }
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: sel == (d['id'] ?? d['deviceId'])?.toString()
+                          ? kPrimary.withValues(alpha: 0.18)
+                          : kBgMid,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(NekoIcons.DevicesOther,
+                            size: 13,
+                            color: sel ==
+                                    (d['id'] ?? d['deviceId'])?.toString()
+                                ? kPrimary
+                                : kTextSecondary),
+                        const SizedBox(width: 6),
+                        Text(
+                          d['deviceName']?.toString() ?? '?',
+                          style: TextStyle(
+                              fontSize: 12,
+                              color: sel ==
+                                      (d['id'] ?? d['deviceId'])?.toString()
+                                  ? kPrimary
+                                  : kTextPrimary),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        Divider(height: 8, color: kDivider),
+      ],
     );
   }
 }

@@ -50,7 +50,8 @@ if errorlevel 1 exit /b 1
 rem ── 2. Flutter 应用构建 ──
 echo == Flutter 构建 (%MODE%)...
 pushd "%FLUTTER_DIR%"
-flutter build windows --%MODE%
+:: 自绘字形用全套字体：关闭图标 tree-shake（否则自定义字形被子集化丢失）
+flutter build windows --%MODE% --no-tree-shake-icons
 if errorlevel 1 (popd & exit /b 1)
 popd
 
