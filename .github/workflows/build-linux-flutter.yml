@@ -368,49 +368,45 @@ jobs:
   linux-snap:
     runs-on: ubuntu-24.04
     needs: linux-deb
-    continue-on-error: true   # snapcraft 需 snap 运行环境，GitHub runner 受限 → 尽力而为
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with: { name: nekomusic-linux-portable, path: portable }
-      - name: Prepare bundle source
+      - name: Detect snapd
+        id: snapd
         run: |
-          mkdir -p snap/bundle
-          (cd portable && unzip -oq *.zip)
-          cp -r portable/nekomusic/. snap/bundle/
-          rm -f snap/bundle/README.txt
-      # snapcore 官方镜像 2021 年后停更（xenial 工具链）→ 从 snap store
-      # 取最新 snapcraft snap 解出，在宿主（noble）上 destructive 构建，
-      # stage-packages 走 noble 仓库（libqt6*/libmpv2 均存在）
-      - name: Install modern snapcraft (extract to /snap path)
+          if command -v snap >/dev/null 2>&1 && snap version >/dev/null 2>&1; then
+            echo "available=true"
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false"
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Build snap (需 snapd 环境)
+        if: steps.snapd.outputs.available == 'true'
+        env:
+          NEKO_PORTABLE_ZIP: portable/nekomusic-1.0.1-linux-x64.zip
         run: |
-          sudo apt-get update && sudo apt-get install -y squashfs-tools
-          curl -sL 'https://api.snapcraft.io/v2/snaps/info/snapcraft?fields=version,download' \
-            -H 'Snap-Device-Series: 16' -o /tmp/sc.json
-          SC_URL=$(python3 -c "import json;print(json.load(open('/tmp/sc.json'))['channel-map'][0]['download']['url'])")
-          curl -sL "$SC_URL" -o /tmp/snapcraft.snap
-          sudo mkdir -p /snap/snapcraft
-          sudo unsquashfs -q -d /snap/snapcraft/current /tmp/snapcraft.snap
-          find /snap/snapcraft/current -maxdepth 3 -name 'snapcraft*' -o \
-            -maxdepth 3 -name 'python3' | head -20
-      - name: Build snap (destructive)
+          # 托管 runner 通常无 snapd → 本步跳过；在自托管带 snapd 的 runner 上会真正构建
+          bash scripts/build-snap.sh
+      - name: Snap 不可用提示（不影响流水线）
+        if: steps.snapd.outputs.available != 'true'
         run: |
-          cd snap
-          SNAPCRAFT_BUILD_ENVIRONMENT=host \
-            /snap/snapcraft/current/usr/bin/python3 \
-            /snap/snapcraft/current/bin/snapcraft \
-            snap --destructive-mode --output /build/nekomusic-1.0.1.snap
-      - uses: actions/upload-artifact@v4
+          echo "::warning::GitHub 托管 runner 无 snapd，跳过 snap 构建。"
+          echo "本地/自托管构建：cd snap && snapcraft（见 scripts/build-snap.sh）"
+      - name: Upload snap artifact
+        if: steps.snapd.outputs.available == 'true'
+        uses: actions/upload-artifact@v4
         with:
           name: nekomusic-linux-snap
-          path: nekomusic-1.0.1.snap
+          path: flutter/build/dist/*.snap
           if-no-files-found: error
 
   # ── Release：附加全部产物 ────────────────────────────────────
   attach-release:
     if: github.event_name == 'release'
-    needs: [linux-deb, linux-rpm, macos, linux-arch, linux-nix, linux-appimage, linux-flatpak, linux-snap]
+    needs: [linux-deb, linux-rpm, macos, linux-arch, linux-nix, linux-appimage, linux-flatpak]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
