@@ -73,7 +73,7 @@ flutter:
   # 内置可打包字体：Noto Sans CJK SC（SIL OFL 1.1，免费可商用、可随应用再分发）。
   # 全量 CJK 字集（含日文假名、韩文谚文、扩展生僻字），避免音乐标题缺字。
   fonts:
-    - family: NekoIcons
+    - family: neko_icons
       fonts:
         - asset: assets/fonts/neko_icons.ttf
     - family: NotoSansCJKsc
