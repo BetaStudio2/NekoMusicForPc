@@ -249,7 +249,7 @@ class _PlayerBarState extends State<PlayerBar> {
   Widget _queueBtn() {
     return IconButton(
       tooltip: _l10n.queueTitle,
-      icon: const Icon(NekoIcons.QueueMusic, size: 18),
+      icon: const Icon(NekoIcons.PlayList, size: 18),
       constraints: const BoxConstraints.tightFor(width: 34, height: 34),
       visualDensity: VisualDensity.compact,
       color: kTextSecondary,

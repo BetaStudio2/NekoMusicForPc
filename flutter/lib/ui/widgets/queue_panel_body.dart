@@ -69,7 +69,7 @@ class QueuePanelBody extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(18, 8, 6, 4),
               child: Row(
                 children: [
-                  Icon(remote ? NekoIcons.DevicesOther : NekoIcons.QueueMusic,
+                  Icon(remote ? NekoIcons.DevicesOther : NekoIcons.PlayList,
                       size: 19, color: scheme.primary),
                   const SizedBox(width: 8),
                   Text(remote
@@ -92,7 +92,7 @@ class QueuePanelBody extends StatelessWidget {
                         height: 38,
                         child: Row(
                           children: [
-                            Icon(NekoIcons.QueueMusic,
+                            Icon(NekoIcons.PlayList,
                                 size: 16,
                                 color: !remote ? kPrimary : kTextSecondary),
                             const SizedBox(width: 8),
