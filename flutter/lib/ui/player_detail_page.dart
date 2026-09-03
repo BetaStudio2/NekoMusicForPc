@@ -470,7 +470,7 @@ class _PlayerDetailPageState extends State<PlayerDetailPage>
         'single' => NekoIcons.RepeatOne,
         'random' => NekoIcons.Shuffle,
         'loop' => NekoIcons.Repeat,
-        _ => NekoIcons.PlaylistPlay,
+        _ => NekoIcons.MusicList,
       };
 
   // ── 底部控制栏：Qt kPlayerControlH=80；左工具/中央/右工具 1:1:1 ─────
@@ -807,7 +807,7 @@ class _PlayerDetailPageState extends State<PlayerDetailPage>
         'single' => NekoIcons.RepeatOne,
         'random' => NekoIcons.Shuffle,
         'loop' => NekoIcons.Repeat,
-        _ => NekoIcons.PlaylistPlay,
+        _ => NekoIcons.MusicList,
       };
 
   Widget _coverPlaceholder(double size) => Container(

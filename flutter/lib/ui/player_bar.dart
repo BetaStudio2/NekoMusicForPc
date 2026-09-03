@@ -356,7 +356,7 @@ class _PlayerBarState extends State<PlayerBar> {
         'single' => NekoIcons.RepeatOne,
         'random' => NekoIcons.Shuffle,
         'loop' => NekoIcons.Repeat,
-        _ => NekoIcons.PlaylistPlay,
+        _ => NekoIcons.MusicList,
       };
 
   Widget _coverPlaceholder() => Container(

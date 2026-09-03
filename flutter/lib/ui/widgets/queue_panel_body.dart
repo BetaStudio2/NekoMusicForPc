@@ -28,7 +28,7 @@ class QueuePanelBody extends StatelessWidget {
         'single' => NekoIcons.RepeatOne,
         'random' => NekoIcons.Shuffle,
         'loop' => NekoIcons.Repeat,
-        _ => NekoIcons.PlaylistPlay,
+        _ => NekoIcons.MusicList,
       };
 
   @override
