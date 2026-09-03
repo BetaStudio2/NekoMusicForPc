@@ -365,44 +365,6 @@ jobs:
           if-no-files-found: error
 
   # ── Snap（尽力而为；snapcraft 容器构建）──────────────────────
-  linux-snap:
-    runs-on: ubuntu-24.04
-    needs: linux-deb
-    timeout-minutes: 40
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
-        with: { name: nekomusic-linux-portable, path: portable }
-      - name: Detect snapd
-        id: snapd
-        run: |
-          if command -v snap >/dev/null 2>&1 && snap version >/dev/null 2>&1; then
-            echo "available=true"
-            echo "available=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "available=false"
-            echo "available=false" >> "$GITHUB_OUTPUT"
-          fi
-      - name: Build snap (需 snapd 环境)
-        if: steps.snapd.outputs.available == 'true'
-        env:
-          NEKO_PORTABLE_ZIP: portable/nekomusic-1.0.1-linux-x64.zip
-        run: |
-          # 托管 runner 通常无 snapd → 本步跳过；在自托管带 snapd 的 runner 上会真正构建
-          bash scripts/build-snap.sh
-      - name: Snap 不可用提示（不影响流水线）
-        if: steps.snapd.outputs.available != 'true'
-        run: |
-          echo "::warning::GitHub 托管 runner 无 snapd，跳过 snap 构建。"
-          echo "本地/自托管构建：cd snap && snapcraft（见 scripts/build-snap.sh）"
-      - name: Upload snap artifact
-        if: steps.snapd.outputs.available == 'true'
-        uses: actions/upload-artifact@v4
-        with:
-          name: nekomusic-linux-snap
-          path: flutter/build/dist/*.snap
-          if-no-files-found: error
-
   # ── Release：附加全部产物 ────────────────────────────────────
   attach-release:
     if: github.event_name == 'release'
