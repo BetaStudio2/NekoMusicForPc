@@ -186,4 +186,75 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get homeDailySubtitle => '根据你的音乐口味 · 每日更新';
+
+  @override
+  String get appLogoShort => 'Neko歌姬';
+
+  @override
+  String get appFooter => 'Neko歌姬计划';
+
+  @override
+  String get localPlaylists => '本地歌单';
+
+  @override
+  String get emptyLocalPlaylists => '暂无本地歌单';
+
+  @override
+  String get newLocalPlaylist => '新建本地歌单';
+
+  @override
+  String get myPlaylists => '我的歌单';
+
+  @override
+  String get emptyMyPlaylists => '暂无歌单，点下方创建';
+
+  @override
+  String get createPlaylist => '创建歌单';
+
+  @override
+  String get importNeteasePlaylist => '导入网易云歌单';
+
+  @override
+  String get importQqPlaylist => '导入 QQ 歌单';
+
+  @override
+  String get favPlaylists => '收藏的歌单';
+
+  @override
+  String get emptyFavPlaylists => '暂无收藏的歌单';
+
+  @override
+  String get deviceSync => '设备同步';
+
+  @override
+  String get rename => '重命名';
+
+  @override
+  String get deletePlaylist => '删除歌单';
+
+  @override
+  String get renamePlaylistTitle => '重命名歌单';
+
+  @override
+  String get inputName => '歌单名称';
+
+  @override
+  String get cancel => '取消';
+
+  @override
+  String get confirm => '确定';
+
+  @override
+  String get create => '创建';
+
+  @override
+  String get needLoginImport => '导入歌单需要先登录';
+
+  @override
+  String get needLoginCreateCloud => '创建云端歌单需要先登录';
+
+  @override
+  String playlistCountSongs(Object n) {
+    return '$n 首';
+  }
 }

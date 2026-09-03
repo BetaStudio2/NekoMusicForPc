@@ -451,6 +451,144 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'根据你的音乐口味 · 每日更新'**
   String get homeDailySubtitle;
+
+  /// No description provided for @appLogoShort.
+  ///
+  /// In zh, this message translates to:
+  /// **'Neko歌姬'**
+  String get appLogoShort;
+
+  /// No description provided for @appFooter.
+  ///
+  /// In zh, this message translates to:
+  /// **'Neko歌姬计划'**
+  String get appFooter;
+
+  /// No description provided for @localPlaylists.
+  ///
+  /// In zh, this message translates to:
+  /// **'本地歌单'**
+  String get localPlaylists;
+
+  /// No description provided for @emptyLocalPlaylists.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无本地歌单'**
+  String get emptyLocalPlaylists;
+
+  /// No description provided for @newLocalPlaylist.
+  ///
+  /// In zh, this message translates to:
+  /// **'新建本地歌单'**
+  String get newLocalPlaylist;
+
+  /// No description provided for @myPlaylists.
+  ///
+  /// In zh, this message translates to:
+  /// **'我的歌单'**
+  String get myPlaylists;
+
+  /// No description provided for @emptyMyPlaylists.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无歌单，点下方创建'**
+  String get emptyMyPlaylists;
+
+  /// No description provided for @createPlaylist.
+  ///
+  /// In zh, this message translates to:
+  /// **'创建歌单'**
+  String get createPlaylist;
+
+  /// No description provided for @importNeteasePlaylist.
+  ///
+  /// In zh, this message translates to:
+  /// **'导入网易云歌单'**
+  String get importNeteasePlaylist;
+
+  /// No description provided for @importQqPlaylist.
+  ///
+  /// In zh, this message translates to:
+  /// **'导入 QQ 歌单'**
+  String get importQqPlaylist;
+
+  /// No description provided for @favPlaylists.
+  ///
+  /// In zh, this message translates to:
+  /// **'收藏的歌单'**
+  String get favPlaylists;
+
+  /// No description provided for @emptyFavPlaylists.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无收藏的歌单'**
+  String get emptyFavPlaylists;
+
+  /// No description provided for @deviceSync.
+  ///
+  /// In zh, this message translates to:
+  /// **'设备同步'**
+  String get deviceSync;
+
+  /// No description provided for @rename.
+  ///
+  /// In zh, this message translates to:
+  /// **'重命名'**
+  String get rename;
+
+  /// No description provided for @deletePlaylist.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除歌单'**
+  String get deletePlaylist;
+
+  /// No description provided for @renamePlaylistTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'重命名歌单'**
+  String get renamePlaylistTitle;
+
+  /// No description provided for @inputName.
+  ///
+  /// In zh, this message translates to:
+  /// **'歌单名称'**
+  String get inputName;
+
+  /// No description provided for @cancel.
+  ///
+  /// In zh, this message translates to:
+  /// **'取消'**
+  String get cancel;
+
+  /// No description provided for @confirm.
+  ///
+  /// In zh, this message translates to:
+  /// **'确定'**
+  String get confirm;
+
+  /// No description provided for @create.
+  ///
+  /// In zh, this message translates to:
+  /// **'创建'**
+  String get create;
+
+  /// No description provided for @needLoginImport.
+  ///
+  /// In zh, this message translates to:
+  /// **'导入歌单需要先登录'**
+  String get needLoginImport;
+
+  /// No description provided for @needLoginCreateCloud.
+  ///
+  /// In zh, this message translates to:
+  /// **'创建云端歌单需要先登录'**
+  String get needLoginCreateCloud;
+
+  /// No description provided for @playlistCountSongs.
+  ///
+  /// In zh, this message translates to:
+  /// **'{n} 首'**
+  String playlistCountSongs(Object n);
 }
 
 class _AppLocalizationsDelegate

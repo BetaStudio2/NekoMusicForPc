@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../main.dart';
 import '../core/core_controller.dart';
+import '../l10n/generated/app_localizations.dart';
 import '../ffi/neko_core.dart';
 import 'cloud_playlist_detail_page.dart';
 import 'import_dialog.dart';
@@ -21,16 +22,16 @@ class Sidebar extends StatelessWidget {
   final ValueChanged<int> onSelect;
   final VoidCallback? onLan;
 
-  static const _items = [
-    (Icons.home_outlined, '首页'),
-    (Icons.favorite_outline, '我喜欢的'),
-    (Icons.history_outlined, '最近播放'),
-    (Icons.download_outlined, '下载管理'),
-  ];
-
   @override
   Widget build(BuildContext context) {
     final core = CoreScope.of(context);
+    final l10n = AppLocalizations.of(context);
+    final _navItems = [
+      (Icons.home_outlined, l10n.navHome),
+      (Icons.favorite_outline, l10n.navFavorites),
+      (Icons.history_outlined, l10n.navRecents),
+      (Icons.download_outlined, l10n.navDownloads),
+    ];
     // 半透明底色：跟随主题切换，自定义底色（图片/纯色）时透出背景
     return Container(
       width: 240,
@@ -50,7 +51,7 @@ class Sidebar extends StatelessWidget {
                         width: 30, height: 30, fit: BoxFit.cover),
                   ),
                   const SizedBox(width: 8),
-                  Text('Neko歌姬',
+                  Text(l10n.appLogoShort,
                       style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.bold,
@@ -60,10 +61,10 @@ class Sidebar extends StatelessWidget {
             ),
             Divider(height: 1, color: kDivider),
             const SizedBox(height: 8),
-            for (var i = 0; i < _items.length; i++)
+            for (var i = 0; i < _navItems.length; i++)
               _SidebarItem(
-                icon: _items[i].$1,
-                label: _items[i].$2,
+                icon: _navItems[i].$1,
+                label: _navItems[i].$2,
                 selected: selected == i,
                 onTap: () => onSelect(i),
               ),
@@ -74,8 +75,8 @@ class Sidebar extends StatelessWidget {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(8, 10, 8, 12),
                 children: [
-                  _listHeader('本地歌单'),
-                  if (core.playlists.isEmpty) _emptyHint('暂无本地歌单'),
+                  _listHeader(l10n.localPlaylists),
+                  if (core.playlists.isEmpty) _emptyHint(l10n.emptyLocalPlaylists),
                   for (final p in core.playlists)
                     _PlaylistListItem(
                       playlist: p,
@@ -83,36 +84,36 @@ class Sidebar extends StatelessWidget {
                       onSecondaryTapDown: (gpos) =>
                           _localPlaylistMenu(context, core, p, gpos),
                     ),
-                  _actionButton(Icons.add_rounded, '新建本地歌单', () {
+                  _actionButton(Icons.add_rounded, l10n.newLocalPlaylist, () {
                     _createLocalPlaylistDialog(context, core);
                   }),
                   const SizedBox(height: 6),
                   Divider(height: 1, color: kDivider),
                   const SizedBox(height: 6),
-                  _listHeader('我的歌单'),
+                  _listHeader(l10n.myPlaylists),
                   if (core.isLoggedIn && core.myPlaylists.isEmpty)
-                    _emptyHint('暂无歌单，点下方创建'),
+                    _emptyHint(l10n.emptyMyPlaylists),
                   for (final p in core.myPlaylists)
                     _PlaylistListItem(
                       playlist: p,
                       onTap: () => _openDetail(context, core, p),
                     ),
-                  _actionButton(Icons.add_rounded, '创建歌单', () {
+                  _actionButton(Icons.add_rounded, l10n.createPlaylist, () {
                     _createPlaylistDialog(context, core);
                   }),
-                  _actionButton(Icons.input_rounded, '导入网易云歌单', () {
+                  _actionButton(Icons.input_rounded, l10n.importNeteasePlaylist, () {
                     _importDialog(context, core, true);
                   }),
-                  _actionButton(Icons.input_rounded, '导入 QQ 歌单', () {
+                  _actionButton(Icons.input_rounded, l10n.importQqPlaylist, () {
                     _importDialog(context, core, false);
                   }),
                   if (core.isLoggedIn) ...[
                     const SizedBox(height: 6),
                     Divider(height: 1, color: kDivider),
                     const SizedBox(height: 6),
-                    _listHeader('收藏的歌单'),
+                    _listHeader(l10n.favPlaylists),
                     if (core.favPlaylists.isEmpty)
-                      _emptyHint('暂无收藏的歌单'),
+                      _emptyHint(l10n.emptyFavPlaylists),
                     for (final p in core.favPlaylists)
                       _PlaylistListItem(
                         playlist: p,
@@ -135,7 +136,7 @@ class Sidebar extends StatelessWidget {
                       Icon(Icons.devices_other,
                           size: 16, color: kTextSecondary),
                       const SizedBox(width: 10),
-                      Text('设备同步',
+                      Text(l10n.deviceSync,
                           style: TextStyle(
                               fontSize: 13, color: kTextSecondary)),
                       const Spacer(),
@@ -147,7 +148,7 @@ class Sidebar extends StatelessWidget {
               ),
             Padding(
               padding: const EdgeInsets.all(24),
-              child: Text('Neko歌姬计划',
+              child: Text(l10n.appFooter,
                   style: TextStyle(color: kTextFaint, fontSize: 11)),
             ),
           ],
@@ -209,22 +210,24 @@ class Sidebar extends StatelessWidget {
         PopupMenuItem<VoidCallback>(
           value: () => _renameLocalPlaylist(context, core, p),
           height: 40,
-          child: const Row(
+          child: Row(
             children: [
-              Icon(Icons.edit_outlined, size: 18),
-              SizedBox(width: 10),
-              Text('重命名', style: TextStyle(fontSize: 13)),
+              const Icon(Icons.edit_outlined, size: 18),
+              const SizedBox(width: 10),
+              Text(AppLocalizations.of(context).rename,
+                  style: const TextStyle(fontSize: 13)),
             ],
           ),
         ),
         PopupMenuItem<VoidCallback>(
           value: () => core.deletePlaylist(p.localId),
           height: 40,
-          child: const Row(
+          child: Row(
             children: [
-              Icon(Icons.delete_outline, size: 18),
-              SizedBox(width: 10),
-              Text('删除歌单', style: TextStyle(fontSize: 13)),
+              const Icon(Icons.delete_outline, size: 18),
+              const SizedBox(width: 10),
+              Text(AppLocalizations.of(context).deletePlaylist,
+                  style: const TextStyle(fontSize: 13)),
             ],
           ),
         ),
@@ -238,26 +241,29 @@ class Sidebar extends StatelessWidget {
     final ctrl = TextEditingController(text: p.name);
     final name = await showDialog<String>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: kBgSurface,
-        title: const Text('重命名歌单'),
-        content: TextField(
-          controller: ctrl,
-          autofocus: true,
-          decoration: const InputDecoration(labelText: '歌单名称'),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('取消'),
+      builder: (ctx) {
+        final l10n = AppLocalizations.of(ctx);
+        return AlertDialog(
+          backgroundColor: kBgSurface,
+          title: Text(l10n.renamePlaylistTitle),
+          content: TextField(
+            controller: ctrl,
+            autofocus: true,
+            decoration: InputDecoration(labelText: l10n.inputName),
           ),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: kPrimary),
-            onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
-            child: const Text('确定'),
-          ),
-        ],
-      ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(l10n.cancel),
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(backgroundColor: kPrimary),
+              onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
+              child: Text(l10n.confirm),
+            ),
+          ],
+        );
+      },
     );
     if (name != null && name.isNotEmpty && name != p.name) {
       core.renamePlaylist(p.localId, name);
@@ -269,35 +275,38 @@ class Sidebar extends StatelessWidget {
     final ctrl = TextEditingController();
     final name = await showDialog<String>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: kBgSurface,
-        title: const Text('新建本地歌单'),
-        content: TextField(
-          controller: ctrl,
-          autofocus: true,
-          decoration: const InputDecoration(labelText: '歌单名称'),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('取消'),
+      builder: (ctx) {
+        final l10n = AppLocalizations.of(ctx);
+        return AlertDialog(
+          backgroundColor: kBgSurface,
+          title: Text(l10n.newLocalPlaylist),
+          content: TextField(
+            controller: ctrl,
+            autofocus: true,
+            decoration: InputDecoration(labelText: l10n.inputName),
           ),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: kPrimary),
-            onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
-            child: const Text('创建'),
-          ),
-        ],
-      ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(l10n.cancel),
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(backgroundColor: kPrimary),
+              onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
+              child: Text(l10n.create),
+            ),
+          ],
+        );
+      },
     );
     if (name != null && name.isNotEmpty) core.createPlaylist(name);
   }
 
   void _importDialog(BuildContext context, CoreController core, bool netease) {
     if (!core.isLoggedIn) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('导入歌单需要先登录'),
-        duration: Duration(seconds: 2),
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(AppLocalizations.of(context).needLoginImport),
+        duration: const Duration(seconds: 2),
       ));
       return;
     }
@@ -310,35 +319,38 @@ class Sidebar extends StatelessWidget {
   Future<void> _createPlaylistDialog(
       BuildContext context, CoreController core) async {
     if (!core.isLoggedIn) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('创建云端歌单需要先登录'),
-        duration: Duration(seconds: 2),
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(AppLocalizations.of(context).needLoginCreateCloud),
+        duration: const Duration(seconds: 2),
       ));
       return;
     }
     final ctrl = TextEditingController();
     final name = await showDialog<String>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: kBgSurface,
-        title: const Text('创建歌单'),
-        content: TextField(
-          controller: ctrl,
-          autofocus: true,
-          decoration: const InputDecoration(labelText: '歌单名称'),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('取消'),
+      builder: (ctx) {
+        final l10n = AppLocalizations.of(ctx);
+        return AlertDialog(
+          backgroundColor: kBgSurface,
+          title: Text(l10n.createPlaylist),
+          content: TextField(
+            controller: ctrl,
+            autofocus: true,
+            decoration: InputDecoration(labelText: l10n.inputName),
           ),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: kPrimary),
-            onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
-            child: const Text('创建'),
-          ),
-        ],
-      ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(l10n.cancel),
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(backgroundColor: kPrimary),
+              onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
+              child: Text(l10n.create),
+            ),
+          ],
+        );
+      },
     );
     if (name != null && name.isNotEmpty) core.createCloudPlaylist(name);
   }
@@ -396,6 +408,7 @@ class _PlaylistListItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return GestureDetector(
       onSecondaryTapDown: onSecondaryTapDown == null
           ? null
@@ -433,7 +446,7 @@ class _PlaylistListItem extends StatelessWidget {
                       style: const TextStyle(fontSize: 13),
                     ),
                     Text(
-                      '${playlist.musicCount} 首',
+                      l10n.playlistCountSongs(playlist.musicCount),
                       style: TextStyle(fontSize: 11, color: kTextFaint),
                     ),
                   ],

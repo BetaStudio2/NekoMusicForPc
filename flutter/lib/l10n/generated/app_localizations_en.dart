@@ -190,4 +190,75 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get homeDailySubtitle => 'Updated daily to your taste';
+
+  @override
+  String get appLogoShort => 'Neko';
+
+  @override
+  String get appFooter => 'Neko歌姬计划';
+
+  @override
+  String get localPlaylists => 'Local playlists';
+
+  @override
+  String get emptyLocalPlaylists => 'No local playlists';
+
+  @override
+  String get newLocalPlaylist => 'New local playlist';
+
+  @override
+  String get myPlaylists => 'My playlists';
+
+  @override
+  String get emptyMyPlaylists => 'No playlists — create one below';
+
+  @override
+  String get createPlaylist => 'Create playlist';
+
+  @override
+  String get importNeteasePlaylist => 'Import NetEase playlist';
+
+  @override
+  String get importQqPlaylist => 'Import QQ playlist';
+
+  @override
+  String get favPlaylists => 'Favorite playlists';
+
+  @override
+  String get emptyFavPlaylists => 'No favorite playlists';
+
+  @override
+  String get deviceSync => 'Device sync';
+
+  @override
+  String get rename => 'Rename';
+
+  @override
+  String get deletePlaylist => 'Delete playlist';
+
+  @override
+  String get renamePlaylistTitle => 'Rename playlist';
+
+  @override
+  String get inputName => 'Playlist name';
+
+  @override
+  String get cancel => 'Cancel';
+
+  @override
+  String get confirm => 'OK';
+
+  @override
+  String get create => 'Create';
+
+  @override
+  String get needLoginImport => 'Sign in to import playlists';
+
+  @override
+  String get needLoginCreateCloud => 'Sign in to create cloud playlists';
+
+  @override
+  String playlistCountSongs(Object n) {
+    return '$n songs';
+  }
 }
