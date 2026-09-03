@@ -796,19 +796,30 @@ class _PlayerDetailPageState extends State<PlayerDetailPage>
   }
 
   Widget _modeBtn(CoreController core) {
-    return PopupMenuButton<String>(
-      tooltip: _l10n.playModeTooltip,
-      initialValue: core.playMode,
-      // Qt kPpCtrlBtn=38
-      constraints: const BoxConstraints.tightFor(width: 38, height: 38),
-      icon: Icon(_modeIcon(core.playMode), size: 20, color: kTextSecondary),
-      onSelected: (v) => core.setPlayMode(v),
-      itemBuilder: (context) => [
-        PopupMenuItem(value: 'list', child: Text(_l10n.playModeList)),
-        PopupMenuItem(value: 'loop', child: Text(_l10n.playModeLoop)),
-        PopupMenuItem(value: 'single', child: Text(_l10n.playModeSingle)),
-        PopupMenuItem(value: 'random', child: Text(_l10n.playModeRandom)),
-      ],
+    const order = ['list', 'loop', 'single', 'random'];
+    return ListenableBuilder(
+      listenable: core,
+      builder: (_, __) {
+        final mode = core.playMode;
+        final label = switch (mode) {
+          'loop' => _l10n.playModeLoop,
+          'single' => _l10n.playModeSingle,
+          'random' => _l10n.playModeRandom,
+          _ => _l10n.playModeList,
+        };
+        return Tooltip(
+          message: label,
+          child: IconButton(
+            constraints: const BoxConstraints.tightFor(width: 38, height: 38),
+            visualDensity: VisualDensity.compact,
+            icon: Icon(_modeIcon(mode), size: 20, color: kTextSecondary),
+            onPressed: () {
+              final i = order.indexOf(mode);
+              core.setPlayMode(order[(i + 1) % order.length]);
+            },
+          ),
+        );
+      },
     );
   }
 

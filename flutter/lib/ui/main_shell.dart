@@ -263,11 +263,19 @@ class _MainShellState extends State<MainShell>
                         height: 300,
                         width: double.infinity,
                         decoration: BoxDecoration(
-                          color: kCardBg,
+                          color: kCardBg.withValues(alpha: 0.96),
                           borderRadius: const BorderRadius.vertical(
-                              top: Radius.circular(14)),
-                          border:
-                              Border(top: BorderSide(color: kDivider)),
+                              top: Radius.circular(16)),
+                          border: Border.all(
+                              color:
+                                  Colors.white.withValues(alpha: 0.12)),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.16),
+                              blurRadius: 18,
+                              offset: const Offset(0, -4),
+                            ),
+                          ],
                         ),
                         clipBehavior: Clip.antiAlias,
                         child: QueuePanelBody(
