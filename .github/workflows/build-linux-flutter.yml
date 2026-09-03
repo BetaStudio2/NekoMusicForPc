@@ -364,7 +364,6 @@ jobs:
   linux-snap:
     runs-on: ubuntu-24.04
     needs: linux-deb
-    continue-on-error: true   # 工具链受限（snapcraft 容器过旧），尽力而为
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
@@ -376,13 +375,27 @@ jobs:
           (cd portable && unzip -oq *.zip)
           cp -r portable/nekomusic/. snap/bundle/
           rm -f snap/bundle/README.txt
-      # 旧 snapcore 容器缺新 glibc 跑不动 runner node → 在宿主编排，
-      # 仅 snapcraft 在容器内执行（宿主自带 docker）
-      - name: Build snap (docker)
+      # snapcore 官方镜像 2021 年后停更（xenial 工具链）→ 从 snap store
+      # 取最新 snapcraft snap 解出，在宿主（noble）上 destructive 构建，
+      # stage-packages 走 noble 仓库（libqt6*/libmpv2 均存在）
+      - name: Install modern snapcraft (extract to /snap path)
         run: |
-          docker run --rm -v "$PWD":/build -w /build/snap \
-            snapcore/snapcraft:stable snapcraft snap \
-            --output /build/nekomusic-1.0.1.snap
+          sudo apt-get update && sudo apt-get install -y squashfs-tools
+          curl -sL 'https://api.snapcraft.io/v2/snaps/info/snapcraft?fields=version,download' \
+            -H 'Snap-Device-Series: 16' -o /tmp/sc.json
+          SC_URL=$(python3 -c "import json;print(json.load(open('/tmp/sc.json'))['channel-map'][0]['download']['url'])")
+          curl -sL "$SC_URL" -o /tmp/snapcraft.snap
+          sudo mkdir -p /snap/snapcraft
+          sudo unsquashfs -q -d /snap/snapcraft/current /tmp/snapcraft.snap
+          sudo ln -sfn current /snap/snapcraft/current/../current
+          /snap/snapcraft/current/usr/bin/snapcraft --version
+      - name: Build snap (destructive)
+        run: |
+          cd snap
+          SNAPCRAFT_BUILD_ENVIRONMENT=host \
+            /snap/snapcraft/current/usr/bin/python3 \
+            /snap/snapcraft/current/bin/snapcraft \
+            snap --destructive-mode --output /build/nekomusic-1.0.1.snap
       - uses: actions/upload-artifact@v4
         with:
           name: nekomusic-linux-snap
