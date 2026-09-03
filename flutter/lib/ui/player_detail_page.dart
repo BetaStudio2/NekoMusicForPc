@@ -1,4 +1,5 @@
 import 'neko_icons.dart';
+import 'widgets/queue_panel_body.dart';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
@@ -451,8 +452,7 @@ class _PlayerDetailPageState extends State<PlayerDetailPage>
   ///（当前曲高亮 + 均衡器动效图标 + 封面 + 副标题）。
   Widget _queuePanel(CoreController core, EngineController engine,
       bool playing, VoidCallback onClose) {
-    final queue = core.queue;
-    final scheme = Theme.of(context).colorScheme;
+    // 统一队列面板组件（与播放条队列共用同一视图）
     return Padding(
       padding: const EdgeInsets.only(top: 12, bottom: 12, right: 12),
       child: ClipRRect(
@@ -463,8 +463,7 @@ class _PlayerDetailPageState extends State<PlayerDetailPage>
             decoration: BoxDecoration(
               color: kBgSurface.withValues(alpha: 0.66),
               borderRadius: BorderRadius.circular(16),
-              border:
-                  Border.all(color: Colors.white.withValues(alpha: 0.1)),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.28),
@@ -473,178 +472,7 @@ class _PlayerDetailPageState extends State<PlayerDetailPage>
                 ),
               ],
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // ── 头部：图标 + 标题 + 计数 + 模式循环/清空/关闭 ──
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(18, 8, 6, 4),
-                  child: Row(
-                    children: [
-                      Icon(NekoIcons.QueueMusic,
-                          size: 19, color: scheme.primary),
-                      const SizedBox(width: 8),
-                      Text(_l10n.queueTitle,
-                          style: TextStyle(
-                              fontSize: 15, fontWeight: FontWeight.w600)),
-                      const SizedBox(width: 8),
-                      if (queue.isNotEmpty)
-                        Text(_l10n.playlistCountSongs(queue.length),
-                            style: TextStyle(
-                                fontSize: 12, color: kTextMuted)),
-                      const Spacer(),
-                      IconButton(
-                        tooltip: _l10n.playModeColon + _playModeLabel(core.playMode),
-                        onPressed: () => core.setPlayMode(switch (
-                            core.playMode) {
-                          'list' => 'loop',
-                          'loop' => 'single',
-                          'single' => 'random',
-                          _ => 'list',
-                        }),
-                        visualDensity: VisualDensity.compact,
-                        icon: Icon(_modeIconOf(core.playMode),
-                            size: 19,
-                            color: core.playMode == 'list'
-                                ? kTextSecondary
-                                : scheme.primary),
-                      ),
-                      IconButton(
-                        tooltip: _l10n.clearQueue,
-                        onPressed: queue.isEmpty ? null : core.clearQueue,
-                        visualDensity: VisualDensity.compact,
-                        icon: const Icon(NekoIcons.DeleteSweep,
-                            size: 18),
-                      ),
-                      IconButton(
-                        tooltip: _l10n.close,
-                        onPressed: onClose,
-                        visualDensity: VisualDensity.compact,
-                        icon: const Icon(NekoIcons.Close, size: 18),
-                      ),
-                    ],
-                  ),
-                ),
-                Divider(height: 1, color: kDivider),
-                // ── 队列列表 ──
-                Expanded(
-                  child: queue.isEmpty
-                      ? Center(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(NekoIcons.PlaylistPlay,
-                                  size: 44,
-                                  color: kTextMuted.withValues(alpha: 0.35)),
-                              const SizedBox(height: 10),
-                              Text(_l10n.queueEmpty,
-                                  style: TextStyle(
-                                      color: kTextMuted, fontSize: 13)),
-                              const SizedBox(height: 4),
-                              Text(_l10n.queueEmptyHint,
-                                  style: TextStyle(
-                                      color: kTextMuted
-                                          .withValues(alpha: 0.6),
-                                      fontSize: 12)),
-                            ],
-                          ),
-                        )
-                      : ListView.builder(
-                          padding: const EdgeInsets.symmetric(vertical: 4),
-                          itemCount: queue.length,
-                          itemBuilder: (context, i) {
-                            final m = queue[i];
-                            final active = i == core.currentIndex;
-                            return ListTile(
-                              dense: true,
-                              onTap: () {
-                                core.playAt(i);
-                                engine.playUrl(m.playUrl());
-                              },
-                              leading: SizedBox(
-                                width: 36,
-                                child: Center(
-                                  child: active
-                                      ? Icon(
-                                          playing
-                                              ? NekoIcons.Eq
-                                              : NekoIcons.Play,
-                                          size: 18,
-                                          color: kPrimary)
-                                      : Text('${i + 1}',
-                                          style: TextStyle(
-                                              fontSize: 12,
-                                              color: kTextMuted)),
-                                ),
-                              ),
-                              title: Row(
-                                children: [
-                                  ClipRRect(
-                                    borderRadius: BorderRadius.circular(6),
-                                    child: SizedBox(
-                                      width: 30,
-                                      height: 30,
-                                      child: m.coverUrl.isNotEmpty
-                                          ? Image.network(
-                                              m.fullCoverUrl,
-                                              fit: BoxFit.cover,
-                                              cacheWidth: 60,
-                                              errorBuilder: (_, __, ___) =>
-                                                  Container(
-                                                color: kBgSurface,
-                                                child: Icon(
-                                                    NekoIcons.Music,
-                                                    size: 16,
-                                                    color: kTextMuted),
-                                              ),
-                                            )
-                                          : Container(
-                                              color: kBgSurface,
-                                              child: Icon(NekoIcons.Music,
-                                                  size: 16,
-                                                  color: kTextMuted),
-                                            ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(m.title,
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: TextStyle(
-                                                fontSize: 13,
-                                                fontWeight: active
-                                                    ? FontWeight.w600
-                                                    : FontWeight.w400,
-                                                color: active
-                                                    ? kPrimary
-                                                    : kTextPrimary)),
-                                        if (m.artist.isNotEmpty)
-                                          Text(m.artist,
-                                              maxLines: 1,
-                                              overflow:
-                                                  TextOverflow.ellipsis,
-                                              style: TextStyle(
-                                                  fontSize: 11,
-                                                  color: kTextMuted)),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              trailing: Text(_fmt(m.duration.toDouble()),
-                                  style: TextStyle(
-                                      fontSize: 11, color: kTextMuted)),
-                            );
-                          },
-                        ),
-                ),
-              ],
-            ),
+            child: QueuePanelBody(onClose: onClose),
           ),
         ),
       ),

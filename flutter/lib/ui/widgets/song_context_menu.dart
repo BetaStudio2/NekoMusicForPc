@@ -6,6 +6,7 @@ import '../../core/core_controller.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../ffi/neko_core.dart';
 import '../add_to_playlist_dialog.dart';
+import '../share.dart';
 import '../artist_detail_page.dart';
 
 /// 右键菜单条目（图标 + 文案 + 动作），对齐原版 SongContextMenuPopup::Entry
@@ -38,6 +39,12 @@ List<PopupMenuEntry<VoidCallback>> buildSongMenuEntries(
       label: l10n.addToPlaylist,
       action: () => _addToPlaylist(context, core, music),
     ),
+    if (music.id > 0)
+      (
+        icon: NekoIcons.Share,
+        label: ThemeController.instance.t('分享', 'Share'),
+        action: () => shareMusic(context, music),
+      ),
     if (music.id > 0)
       (
         icon: NekoIcons.Download,

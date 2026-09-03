@@ -13,6 +13,7 @@ import '../l10n/generated/app_localizations.dart';
 import 'list_pages.dart';
 import 'login_dialog.dart';
 import 'player_bar.dart';
+import 'widgets/queue_sheet.dart';
 import 'lan_panel.dart';
 import 'daily_music_page.dart';
 import 'search_page.dart';
@@ -74,6 +75,7 @@ class _MainShellState extends State<MainShell>
   /// 当前播放的在线 URL（断流重试用）与播放序号（用于丢弃过期的重试 Timer）
   Timer? _lanTimer;
   bool _lanVisible = false;
+
   late final AnimationController _lanAnim = AnimationController(
       vsync: this, duration: const Duration(milliseconds: 260));
   late final Animation<Offset> _lanSlide = Tween<Offset>(
@@ -94,6 +96,19 @@ class _MainShellState extends State<MainShell>
     setState(() => _lanVisible = false);
     _lanAnim.reverse();
   }
+
+  /// 播放列表（队列）：BottomSheet 弹出（含「设备同步」子菜单）
+  void _openQueueSheet() {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: kCardBg,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(14))),
+      builder: (_) => QueueSheet(onLan: _openLan),
+    );
+  }
+
+  /// 播放条快速队列面板（对齐 Qt PlaylistPanel）：展示当前队列 + 设备同步子菜单
 
   String? _currentUrl;
   int _streamSeq = 0;
@@ -251,7 +266,10 @@ class _MainShellState extends State<MainShell>
                       ],
                     ),
                   ),
-                  PlayerBar(), // 非 const：主题切换时随 NekoApp 重建刷新配色
+                  PlayerBar(
+                    // 非 const：主题切换时随 NekoApp 重建刷新配色
+                    onQueueToggle: _openQueueSheet,
+                  ),
                 ],
               ),
               // LAN 设备面板遮罩（变暗 + 点击关闭，关闭态不拦截）

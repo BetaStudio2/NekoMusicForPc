@@ -128,28 +128,6 @@ class Sidebar extends StatelessWidget {
                 ],
               ),
             ),
-            if (onLan != null)
-              InkWell(
-                onTap: onLan,
-                borderRadius: BorderRadius.circular(8),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 12, vertical: 9),
-                  child: Row(
-                    children: [
-                      Icon(NekoIcons.DevicesOther,
-                          size: 16, color: kTextSecondary),
-                      const SizedBox(width: 10),
-                      Text(l10n.deviceSync,
-                          style: TextStyle(
-                              fontSize: 13, color: kTextSecondary)),
-                      const Spacer(),
-                      Icon(NekoIcons.Right,
-                          size: 16, color: kTextFaint),
-                    ],
-                  ),
-                ),
-              ),
             Padding(
               padding: const EdgeInsets.all(24),
               child: Text(l10n.appFooter,

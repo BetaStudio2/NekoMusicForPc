@@ -34,6 +34,10 @@ const _cases = <(String, IconData)>[
   ('history', NekoIcons.History),
   ('music', NekoIcons.Music),
   ('play', NekoIcons.Play),
+  ('share', NekoIcons.Share),
+  ('queuemusic', NekoIcons.QueueMusic),
+  ('more', NekoIcons.More),
+  ('devices', NekoIcons.DevicesOther),
 ];
 
 void main() {

@@ -1,5 +1,6 @@
 import 'neko_icons.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 
 import '../main.dart';
 import '../core/core_controller.dart';
@@ -7,6 +8,7 @@ import '../core/engine_controller.dart';
 import '../ffi/neko_core.dart';
 import '../ffi/neko_engine.dart';
 import 'player_detail_page.dart';
+import 'share.dart';
 import '../l10n/generated/app_localizations.dart';
 
 /// 底部播放栏（对齐原版 PlayerBar 的信息结构，布局约定对齐
@@ -16,7 +18,10 @@ import '../l10n/generated/app_localizations.dart';
 ///    └─ 主行（60px）：左信息（弹性）｜ 三键（居中要素）｜ 右时间音量（弹性）
 /// 左右两侧均为等宽弹性栏 → 播放控件严格居中；播放模式按钮在居中要素之外。
 class PlayerBar extends StatefulWidget {
-  const PlayerBar({super.key});
+  const PlayerBar({super.key, this.onQueueToggle});
+
+  /// 播放列表按钮（宿主打开队列 BottomSheet，见 Qt PlaylistPanel）
+  final VoidCallback? onQueueToggle;
 
   /// 播放条总高（对齐 Qt kPlayerBarBodyH=80 + 进度行余量）
   static const double barHeight = 82;
@@ -130,7 +135,10 @@ class _PlayerBarState extends State<PlayerBar> {
                             const SizedBox(width: 4),
                           ],
                           _volumeToggle(),
-                          const SizedBox(width: 16),
+                          const SizedBox(width: 2),
+                          _shareBtn(core),
+                          _queueBtn(),
+                          const SizedBox(width: 14),
                         ],
                       ),
                     ),
@@ -225,21 +233,60 @@ class _PlayerBarState extends State<PlayerBar> {
     );
   }
 
+  /// 分享当前曲目
+  Widget _shareBtn(CoreController core) {
+    return IconButton(
+      tooltip: ThemeController.instance.t('分享', 'Share'),
+      icon: const Icon(NekoIcons.Share, size: 18),
+      constraints: const BoxConstraints.tightFor(width: 34, height: 34),
+      visualDensity: VisualDensity.compact,
+      color: kTextSecondary,
+      onPressed: () => shareMusic(context, core.current),
+    );
+  }
+
+  /// 播放列表（队列）按钮：通知宿主弹出队列面板
+  Widget _queueBtn() {
+    return IconButton(
+      tooltip: _l10n.queueTitle,
+      icon: const Icon(NekoIcons.QueueMusic, size: 18),
+      constraints: const BoxConstraints.tightFor(width: 34, height: 34),
+      visualDensity: VisualDensity.compact,
+      color: kTextSecondary,
+      onPressed: widget.onQueueToggle,
+    );
+  }
+
   // ── 中部：播放模式按钮（居中要素之外）+ 三键（居中要素）─────────────
 
-  /// 播放模式（顺序/循环/单曲/随机）按钮：位于左弹性栏末尾，不参与居中
+  /// 播放模式（顺序/循环/单曲/随机）：对齐 Qt——点击按钮直接循环切换
+  /// 下一模式（顺序→列表循环→单曲→随机），图标/提示随模式即时变化
   Widget _modeButton(CoreController core) {
-    return PopupMenuButton<String>(
-      tooltip: _l10n.playModeTooltip,
-      initialValue: core.playMode,
-      icon: Icon(_modeIcon(core.playMode), size: 20, color: kTextSecondary),
-      onSelected: core.setPlayMode,
-      itemBuilder: (context) => [
-        PopupMenuItem(value: 'list', child: Text(_l10n.playModeList)),
-        PopupMenuItem(value: 'loop', child: Text(_l10n.playModeLoop)),
-        PopupMenuItem(value: 'single', child: Text(_l10n.playModeSingle)),
-        PopupMenuItem(value: 'random', child: Text(_l10n.playModeRandom)),
-      ],
+    const order = ['list', 'loop', 'single', 'random'];
+    return ListenableBuilder(
+      listenable: core,
+      builder: (_, __) {
+        final mode = core.playMode;
+        final label = switch (mode) {
+          'loop' => _l10n.playModeLoop,
+          'single' => _l10n.playModeSingle,
+          'random' => _l10n.playModeRandom,
+          _ => _l10n.playModeList,
+        };
+        return Tooltip(
+          message: label,
+          child: IconButton(
+            iconSize: 20,
+            constraints: const BoxConstraints.tightFor(width: 40, height: 40),
+            visualDensity: VisualDensity.compact,
+            icon: Icon(_modeIcon(mode), size: 20, color: kTextSecondary),
+            onPressed: () {
+              final i = order.indexOf(mode);
+              core.setPlayMode(order[(i + 1) % order.length]);
+            },
+          ),
+        );
+      },
     );
   }
 
