@@ -419,4 +419,287 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get openContainingFolder => '打开所在文件夹';
+
+  @override
+  String get login => '登录';
+
+  @override
+  String get register => '注册';
+
+  @override
+  String get username => '用户名';
+
+  @override
+  String get email => '邮箱';
+
+  @override
+  String get password => '密码';
+
+  @override
+  String get emailCode => '邮箱验证码';
+
+  @override
+  String get sendCode => '发送验证码';
+
+  @override
+  String get verifyCode => '验证码';
+
+  @override
+  String get forgotPasswordQ => '忘记密码？';
+
+  @override
+  String get loggingIn => '登录中…';
+
+  @override
+  String get registering => '注册中…';
+
+  @override
+  String get sliderFirst => '请先完成滑块验证';
+
+  @override
+  String get needUsernameEmail => '请先填写用户名和邮箱';
+
+  @override
+  String get codeSent => '验证码已发送，请查收邮箱';
+
+  @override
+  String get codeSendFailed => '验证码发送失败';
+
+  @override
+  String get registerFailed => '注册失败';
+
+  @override
+  String get sliderLoadFailed => '滑块验证加载失败';
+
+  @override
+  String get sliderVerifyFailed => '滑块验证失败，请重试';
+
+  @override
+  String get sliderPassed => '✓ 滑块验证通过';
+
+  @override
+  String get sliderHint => '请拖动滑块完成验证';
+
+  @override
+  String get captchaLoadFailed => '验证码图片加载失败，请点击右侧刷新重试';
+
+  @override
+  String get emailInvalid => '请输入有效邮箱';
+
+  @override
+  String get sendFailed => '发送失败';
+
+  @override
+  String get resetFormHint => '请填写邮箱、验证码和新密码（至少 6 位）';
+
+  @override
+  String get passwordReset => '密码已重置，请使用新密码登录';
+
+  @override
+  String get resetFailed => '重置失败';
+
+  @override
+  String get forgotPwdTitle => '忘记密码';
+
+  @override
+  String get newPassword => '新密码';
+
+  @override
+  String get submitting => '提交中…';
+
+  @override
+  String get resetPassword => '重置密码';
+
+  @override
+  String get changePwdHint => '请填写旧密码与新密码（至少 6 位）';
+
+  @override
+  String get pwdMismatch => '两次输入的新密码不一致';
+
+  @override
+  String get pwdChanged => '密码修改成功';
+
+  @override
+  String get changeFailed => '修改失败';
+
+  @override
+  String get changePassword => '修改密码';
+
+  @override
+  String get oldPassword => '旧密码';
+
+  @override
+  String get confirmNewPassword => '确认新密码';
+
+  @override
+  String get confirmChange => '确认修改';
+
+  @override
+  String get account => '账户';
+
+  @override
+  String get signedIn => '已登录';
+
+  @override
+  String get signOut => '退出登录';
+
+  @override
+  String get enterPlaylistId => '请输入歌单 ID';
+
+  @override
+  String get noImportableTracks => '歌单里没有可导入的曲目';
+
+  @override
+  String get enterNewPlaylistName => '请输入新建歌单名称';
+
+  @override
+  String get importSearching => '正在批量搜索匹配歌曲…';
+
+  @override
+  String importSearchFailed(Object error) {
+    return '批量搜索失败：$error';
+  }
+
+  @override
+  String get noMatchSongs => '没有匹配到可导入的歌曲';
+
+  @override
+  String get creatingPlaylist => '正在创建歌单…';
+
+  @override
+  String get createPlaylistFailed => '新建歌单失败';
+
+  @override
+  String importingToFavoritesN(Object n) {
+    return '正在加入收藏（$n 首）…';
+  }
+
+  @override
+  String importingToPlaylistN(Object n) {
+    return '正在加入歌单（$n 首）…';
+  }
+
+  @override
+  String favoritedDoneN(Object done, Object success) {
+    return '已收藏 $done 首（匹配 $success 首）';
+  }
+
+  @override
+  String addFailed(Object error) {
+    return '添加失败：$error';
+  }
+
+  @override
+  String addedDoneN(Object added, Object success) {
+    return '成功添加 $added 首（匹配 $success 首）';
+  }
+
+  @override
+  String get importPlaylist => '导入歌单';
+
+  @override
+  String get neteaseName => '网易云';
+
+  @override
+  String get qqName => 'QQ 音乐';
+
+  @override
+  String get neteasePlaylistId => '网易云歌单 ID';
+
+  @override
+  String get qqDisstid => 'QQ 歌单 disstid';
+
+  @override
+  String get fetch => '获取';
+
+  @override
+  String playlistPrefix(Object name) {
+    return '歌单：$name';
+  }
+
+  @override
+  String importCountN(Object n) {
+    return '共 $n 首（最多导入前 60 首）';
+  }
+
+  @override
+  String get importTo => '导入到：';
+
+  @override
+  String get newPlaylist => '新建歌单';
+
+  @override
+  String get newPlaylistName => '新建歌单名称';
+
+  @override
+  String get startImport => '开始导入';
+
+  @override
+  String get loadFailed => '加载失败';
+
+  @override
+  String monthsN(Object months) {
+    return '$months 个月';
+  }
+
+  @override
+  String daysN(Object days) {
+    return '$days 天';
+  }
+
+  @override
+  String get createOrderFailed => '创建订单失败';
+
+  @override
+  String get vipCenter => '会员中心';
+
+  @override
+  String vipUntil(Object date) {
+    return '会员至 $date';
+  }
+
+  @override
+  String get vipMember => 'VIP 会员';
+
+  @override
+  String get noPlans => '暂无可用套餐';
+
+  @override
+  String get choosePlan => '选择套餐';
+
+  @override
+  String get payMethod => '支付方式';
+
+  @override
+  String get alipay => '支付宝';
+
+  @override
+  String get wechatPay => '微信支付';
+
+  @override
+  String get creatingOrder => '创建订单中…';
+
+  @override
+  String get activateNow => '立即开通';
+
+  @override
+  String get qrHint => '选择套餐并创建订单后展示付款二维码';
+
+  @override
+  String get scanToPay => '请使用手机扫码完成支付';
+
+  @override
+  String get payInfoMissing => '支付信息缺失';
+
+  @override
+  String get qrLoadFailed => '二维码加载失败';
+
+  @override
+  String get copyLinkHint => '请点击复制链接';
+
+  @override
+  String get copyPayLink => '复制支付链接';
+
+  @override
+  String get payLinkCopied => '支付链接已复制';
 }

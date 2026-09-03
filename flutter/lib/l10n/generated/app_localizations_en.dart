@@ -423,4 +423,289 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get openContainingFolder => 'Open containing folder';
+
+  @override
+  String get login => 'Sign in';
+
+  @override
+  String get register => 'Sign up';
+
+  @override
+  String get username => 'Username';
+
+  @override
+  String get email => 'Email';
+
+  @override
+  String get password => 'Password';
+
+  @override
+  String get emailCode => 'Email code';
+
+  @override
+  String get sendCode => 'Send code';
+
+  @override
+  String get verifyCode => 'Verification code';
+
+  @override
+  String get forgotPasswordQ => 'Forgot password?';
+
+  @override
+  String get loggingIn => 'Signing in…';
+
+  @override
+  String get registering => 'Signing up…';
+
+  @override
+  String get sliderFirst => 'Complete the slider captcha first';
+
+  @override
+  String get needUsernameEmail => 'Enter username and email first';
+
+  @override
+  String get codeSent => 'Verification code sent — check your email';
+
+  @override
+  String get codeSendFailed => 'Failed to send code';
+
+  @override
+  String get registerFailed => 'Sign-up failed';
+
+  @override
+  String get sliderLoadFailed => 'Failed to load slider captcha';
+
+  @override
+  String get sliderVerifyFailed => 'Slider captcha failed, try again';
+
+  @override
+  String get sliderPassed => 'Slider captcha passed';
+
+  @override
+  String get sliderHint => 'Drag the slider to verify';
+
+  @override
+  String get captchaLoadFailed =>
+      'Failed to load captcha image — click refresh to retry';
+
+  @override
+  String get emailInvalid => 'Enter a valid email';
+
+  @override
+  String get sendFailed => 'Send failed';
+
+  @override
+  String get resetFormHint =>
+      'Enter email, code and new password (min 6 characters)';
+
+  @override
+  String get passwordReset => 'Password reset — sign in with the new one';
+
+  @override
+  String get resetFailed => 'Reset failed';
+
+  @override
+  String get forgotPwdTitle => 'Forgot password';
+
+  @override
+  String get newPassword => 'New password';
+
+  @override
+  String get submitting => 'Submitting…';
+
+  @override
+  String get resetPassword => 'Reset password';
+
+  @override
+  String get changePwdHint => 'Enter old and new password (min 6 characters)';
+
+  @override
+  String get pwdMismatch => 'New passwords do not match';
+
+  @override
+  String get pwdChanged => 'Password changed';
+
+  @override
+  String get changeFailed => 'Change failed';
+
+  @override
+  String get changePassword => 'Change password';
+
+  @override
+  String get oldPassword => 'Old password';
+
+  @override
+  String get confirmNewPassword => 'Confirm new password';
+
+  @override
+  String get confirmChange => 'Confirm change';
+
+  @override
+  String get account => 'Account';
+
+  @override
+  String get signedIn => 'Signed in';
+
+  @override
+  String get signOut => 'Sign out';
+
+  @override
+  String get enterPlaylistId => 'Enter playlist ID';
+
+  @override
+  String get noImportableTracks => 'No importable tracks in this playlist';
+
+  @override
+  String get enterNewPlaylistName => 'Enter a name for the new playlist';
+
+  @override
+  String get importSearching => 'Matching songs…';
+
+  @override
+  String importSearchFailed(Object error) {
+    return 'Search failed: $error';
+  }
+
+  @override
+  String get noMatchSongs => 'No matching songs to import';
+
+  @override
+  String get creatingPlaylist => 'Creating playlist…';
+
+  @override
+  String get createPlaylistFailed => 'Failed to create playlist';
+
+  @override
+  String importingToFavoritesN(Object n) {
+    return 'Adding to favorites ($n songs)…';
+  }
+
+  @override
+  String importingToPlaylistN(Object n) {
+    return 'Adding to playlist ($n songs)…';
+  }
+
+  @override
+  String favoritedDoneN(Object done, Object success) {
+    return 'Favorited $done songs (matched $success)';
+  }
+
+  @override
+  String addFailed(Object error) {
+    return 'Add failed: $error';
+  }
+
+  @override
+  String addedDoneN(Object added, Object success) {
+    return 'Added $added songs (matched $success)';
+  }
+
+  @override
+  String get importPlaylist => 'Import playlist';
+
+  @override
+  String get neteaseName => 'NetEase';
+
+  @override
+  String get qqName => 'QQ Music';
+
+  @override
+  String get neteasePlaylistId => 'NetEase playlist ID';
+
+  @override
+  String get qqDisstid => 'QQ playlist disstid';
+
+  @override
+  String get fetch => 'Fetch';
+
+  @override
+  String playlistPrefix(Object name) {
+    return 'Playlist: $name';
+  }
+
+  @override
+  String importCountN(Object n) {
+    return '$n songs (imports the first 60)';
+  }
+
+  @override
+  String get importTo => 'Import to:';
+
+  @override
+  String get newPlaylist => 'New playlist';
+
+  @override
+  String get newPlaylistName => 'New playlist name';
+
+  @override
+  String get startImport => 'Start import';
+
+  @override
+  String get loadFailed => 'Load failed';
+
+  @override
+  String monthsN(Object months) {
+    return '$months months';
+  }
+
+  @override
+  String daysN(Object days) {
+    return '$days days';
+  }
+
+  @override
+  String get createOrderFailed => 'Failed to create order';
+
+  @override
+  String get vipCenter => 'VIP center';
+
+  @override
+  String vipUntil(Object date) {
+    return 'VIP until $date';
+  }
+
+  @override
+  String get vipMember => 'VIP member';
+
+  @override
+  String get noPlans => 'No plans available';
+
+  @override
+  String get choosePlan => 'Choose a plan';
+
+  @override
+  String get payMethod => 'Payment method';
+
+  @override
+  String get alipay => 'Alipay';
+
+  @override
+  String get wechatPay => 'WeChat Pay';
+
+  @override
+  String get creatingOrder => 'Creating order…';
+
+  @override
+  String get activateNow => 'Activate now';
+
+  @override
+  String get qrHint => 'Pick a plan and create an order to view the QR code';
+
+  @override
+  String get scanToPay => 'Scan with your phone to complete payment';
+
+  @override
+  String get payInfoMissing => 'Payment info missing';
+
+  @override
+  String get qrLoadFailed => 'Failed to load QR code';
+
+  @override
+  String get copyLinkHint => 'Click to copy the link';
+
+  @override
+  String get copyPayLink => 'Copy payment link';
+
+  @override
+  String get payLinkCopied => 'Payment link copied';
 }

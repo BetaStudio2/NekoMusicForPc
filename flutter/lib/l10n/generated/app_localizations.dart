@@ -889,6 +889,528 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'打开所在文件夹'**
   String get openContainingFolder;
+
+  /// No description provided for @login.
+  ///
+  /// In zh, this message translates to:
+  /// **'登录'**
+  String get login;
+
+  /// No description provided for @register.
+  ///
+  /// In zh, this message translates to:
+  /// **'注册'**
+  String get register;
+
+  /// No description provided for @username.
+  ///
+  /// In zh, this message translates to:
+  /// **'用户名'**
+  String get username;
+
+  /// No description provided for @email.
+  ///
+  /// In zh, this message translates to:
+  /// **'邮箱'**
+  String get email;
+
+  /// No description provided for @password.
+  ///
+  /// In zh, this message translates to:
+  /// **'密码'**
+  String get password;
+
+  /// No description provided for @emailCode.
+  ///
+  /// In zh, this message translates to:
+  /// **'邮箱验证码'**
+  String get emailCode;
+
+  /// No description provided for @sendCode.
+  ///
+  /// In zh, this message translates to:
+  /// **'发送验证码'**
+  String get sendCode;
+
+  /// No description provided for @verifyCode.
+  ///
+  /// In zh, this message translates to:
+  /// **'验证码'**
+  String get verifyCode;
+
+  /// No description provided for @forgotPasswordQ.
+  ///
+  /// In zh, this message translates to:
+  /// **'忘记密码？'**
+  String get forgotPasswordQ;
+
+  /// No description provided for @loggingIn.
+  ///
+  /// In zh, this message translates to:
+  /// **'登录中…'**
+  String get loggingIn;
+
+  /// No description provided for @registering.
+  ///
+  /// In zh, this message translates to:
+  /// **'注册中…'**
+  String get registering;
+
+  /// No description provided for @sliderFirst.
+  ///
+  /// In zh, this message translates to:
+  /// **'请先完成滑块验证'**
+  String get sliderFirst;
+
+  /// No description provided for @needUsernameEmail.
+  ///
+  /// In zh, this message translates to:
+  /// **'请先填写用户名和邮箱'**
+  String get needUsernameEmail;
+
+  /// No description provided for @codeSent.
+  ///
+  /// In zh, this message translates to:
+  /// **'验证码已发送，请查收邮箱'**
+  String get codeSent;
+
+  /// No description provided for @codeSendFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'验证码发送失败'**
+  String get codeSendFailed;
+
+  /// No description provided for @registerFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'注册失败'**
+  String get registerFailed;
+
+  /// No description provided for @sliderLoadFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'滑块验证加载失败'**
+  String get sliderLoadFailed;
+
+  /// No description provided for @sliderVerifyFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'滑块验证失败，请重试'**
+  String get sliderVerifyFailed;
+
+  /// No description provided for @sliderPassed.
+  ///
+  /// In zh, this message translates to:
+  /// **'✓ 滑块验证通过'**
+  String get sliderPassed;
+
+  /// No description provided for @sliderHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'请拖动滑块完成验证'**
+  String get sliderHint;
+
+  /// No description provided for @captchaLoadFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'验证码图片加载失败，请点击右侧刷新重试'**
+  String get captchaLoadFailed;
+
+  /// No description provided for @emailInvalid.
+  ///
+  /// In zh, this message translates to:
+  /// **'请输入有效邮箱'**
+  String get emailInvalid;
+
+  /// No description provided for @sendFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'发送失败'**
+  String get sendFailed;
+
+  /// No description provided for @resetFormHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'请填写邮箱、验证码和新密码（至少 6 位）'**
+  String get resetFormHint;
+
+  /// No description provided for @passwordReset.
+  ///
+  /// In zh, this message translates to:
+  /// **'密码已重置，请使用新密码登录'**
+  String get passwordReset;
+
+  /// No description provided for @resetFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'重置失败'**
+  String get resetFailed;
+
+  /// No description provided for @forgotPwdTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'忘记密码'**
+  String get forgotPwdTitle;
+
+  /// No description provided for @newPassword.
+  ///
+  /// In zh, this message translates to:
+  /// **'新密码'**
+  String get newPassword;
+
+  /// No description provided for @submitting.
+  ///
+  /// In zh, this message translates to:
+  /// **'提交中…'**
+  String get submitting;
+
+  /// No description provided for @resetPassword.
+  ///
+  /// In zh, this message translates to:
+  /// **'重置密码'**
+  String get resetPassword;
+
+  /// No description provided for @changePwdHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'请填写旧密码与新密码（至少 6 位）'**
+  String get changePwdHint;
+
+  /// No description provided for @pwdMismatch.
+  ///
+  /// In zh, this message translates to:
+  /// **'两次输入的新密码不一致'**
+  String get pwdMismatch;
+
+  /// No description provided for @pwdChanged.
+  ///
+  /// In zh, this message translates to:
+  /// **'密码修改成功'**
+  String get pwdChanged;
+
+  /// No description provided for @changeFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'修改失败'**
+  String get changeFailed;
+
+  /// No description provided for @changePassword.
+  ///
+  /// In zh, this message translates to:
+  /// **'修改密码'**
+  String get changePassword;
+
+  /// No description provided for @oldPassword.
+  ///
+  /// In zh, this message translates to:
+  /// **'旧密码'**
+  String get oldPassword;
+
+  /// No description provided for @confirmNewPassword.
+  ///
+  /// In zh, this message translates to:
+  /// **'确认新密码'**
+  String get confirmNewPassword;
+
+  /// No description provided for @confirmChange.
+  ///
+  /// In zh, this message translates to:
+  /// **'确认修改'**
+  String get confirmChange;
+
+  /// No description provided for @account.
+  ///
+  /// In zh, this message translates to:
+  /// **'账户'**
+  String get account;
+
+  /// No description provided for @signedIn.
+  ///
+  /// In zh, this message translates to:
+  /// **'已登录'**
+  String get signedIn;
+
+  /// No description provided for @signOut.
+  ///
+  /// In zh, this message translates to:
+  /// **'退出登录'**
+  String get signOut;
+
+  /// No description provided for @enterPlaylistId.
+  ///
+  /// In zh, this message translates to:
+  /// **'请输入歌单 ID'**
+  String get enterPlaylistId;
+
+  /// No description provided for @noImportableTracks.
+  ///
+  /// In zh, this message translates to:
+  /// **'歌单里没有可导入的曲目'**
+  String get noImportableTracks;
+
+  /// No description provided for @enterNewPlaylistName.
+  ///
+  /// In zh, this message translates to:
+  /// **'请输入新建歌单名称'**
+  String get enterNewPlaylistName;
+
+  /// No description provided for @importSearching.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在批量搜索匹配歌曲…'**
+  String get importSearching;
+
+  /// No description provided for @importSearchFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'批量搜索失败：{error}'**
+  String importSearchFailed(Object error);
+
+  /// No description provided for @noMatchSongs.
+  ///
+  /// In zh, this message translates to:
+  /// **'没有匹配到可导入的歌曲'**
+  String get noMatchSongs;
+
+  /// No description provided for @creatingPlaylist.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在创建歌单…'**
+  String get creatingPlaylist;
+
+  /// No description provided for @createPlaylistFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'新建歌单失败'**
+  String get createPlaylistFailed;
+
+  /// No description provided for @importingToFavoritesN.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在加入收藏（{n} 首）…'**
+  String importingToFavoritesN(Object n);
+
+  /// No description provided for @importingToPlaylistN.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在加入歌单（{n} 首）…'**
+  String importingToPlaylistN(Object n);
+
+  /// No description provided for @favoritedDoneN.
+  ///
+  /// In zh, this message translates to:
+  /// **'已收藏 {done} 首（匹配 {success} 首）'**
+  String favoritedDoneN(Object done, Object success);
+
+  /// No description provided for @addFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'添加失败：{error}'**
+  String addFailed(Object error);
+
+  /// No description provided for @addedDoneN.
+  ///
+  /// In zh, this message translates to:
+  /// **'成功添加 {added} 首（匹配 {success} 首）'**
+  String addedDoneN(Object added, Object success);
+
+  /// No description provided for @importPlaylist.
+  ///
+  /// In zh, this message translates to:
+  /// **'导入歌单'**
+  String get importPlaylist;
+
+  /// No description provided for @neteaseName.
+  ///
+  /// In zh, this message translates to:
+  /// **'网易云'**
+  String get neteaseName;
+
+  /// No description provided for @qqName.
+  ///
+  /// In zh, this message translates to:
+  /// **'QQ 音乐'**
+  String get qqName;
+
+  /// No description provided for @neteasePlaylistId.
+  ///
+  /// In zh, this message translates to:
+  /// **'网易云歌单 ID'**
+  String get neteasePlaylistId;
+
+  /// No description provided for @qqDisstid.
+  ///
+  /// In zh, this message translates to:
+  /// **'QQ 歌单 disstid'**
+  String get qqDisstid;
+
+  /// No description provided for @fetch.
+  ///
+  /// In zh, this message translates to:
+  /// **'获取'**
+  String get fetch;
+
+  /// No description provided for @playlistPrefix.
+  ///
+  /// In zh, this message translates to:
+  /// **'歌单：{name}'**
+  String playlistPrefix(Object name);
+
+  /// No description provided for @importCountN.
+  ///
+  /// In zh, this message translates to:
+  /// **'共 {n} 首（最多导入前 60 首）'**
+  String importCountN(Object n);
+
+  /// No description provided for @importTo.
+  ///
+  /// In zh, this message translates to:
+  /// **'导入到：'**
+  String get importTo;
+
+  /// No description provided for @newPlaylist.
+  ///
+  /// In zh, this message translates to:
+  /// **'新建歌单'**
+  String get newPlaylist;
+
+  /// No description provided for @newPlaylistName.
+  ///
+  /// In zh, this message translates to:
+  /// **'新建歌单名称'**
+  String get newPlaylistName;
+
+  /// No description provided for @startImport.
+  ///
+  /// In zh, this message translates to:
+  /// **'开始导入'**
+  String get startImport;
+
+  /// No description provided for @loadFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'加载失败'**
+  String get loadFailed;
+
+  /// No description provided for @monthsN.
+  ///
+  /// In zh, this message translates to:
+  /// **'{months} 个月'**
+  String monthsN(Object months);
+
+  /// No description provided for @daysN.
+  ///
+  /// In zh, this message translates to:
+  /// **'{days} 天'**
+  String daysN(Object days);
+
+  /// No description provided for @createOrderFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'创建订单失败'**
+  String get createOrderFailed;
+
+  /// No description provided for @vipCenter.
+  ///
+  /// In zh, this message translates to:
+  /// **'会员中心'**
+  String get vipCenter;
+
+  /// No description provided for @vipUntil.
+  ///
+  /// In zh, this message translates to:
+  /// **'会员至 {date}'**
+  String vipUntil(Object date);
+
+  /// No description provided for @vipMember.
+  ///
+  /// In zh, this message translates to:
+  /// **'VIP 会员'**
+  String get vipMember;
+
+  /// No description provided for @noPlans.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无可用套餐'**
+  String get noPlans;
+
+  /// No description provided for @choosePlan.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择套餐'**
+  String get choosePlan;
+
+  /// No description provided for @payMethod.
+  ///
+  /// In zh, this message translates to:
+  /// **'支付方式'**
+  String get payMethod;
+
+  /// No description provided for @alipay.
+  ///
+  /// In zh, this message translates to:
+  /// **'支付宝'**
+  String get alipay;
+
+  /// No description provided for @wechatPay.
+  ///
+  /// In zh, this message translates to:
+  /// **'微信支付'**
+  String get wechatPay;
+
+  /// No description provided for @creatingOrder.
+  ///
+  /// In zh, this message translates to:
+  /// **'创建订单中…'**
+  String get creatingOrder;
+
+  /// No description provided for @activateNow.
+  ///
+  /// In zh, this message translates to:
+  /// **'立即开通'**
+  String get activateNow;
+
+  /// No description provided for @qrHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择套餐并创建订单后展示付款二维码'**
+  String get qrHint;
+
+  /// No description provided for @scanToPay.
+  ///
+  /// In zh, this message translates to:
+  /// **'请使用手机扫码完成支付'**
+  String get scanToPay;
+
+  /// No description provided for @payInfoMissing.
+  ///
+  /// In zh, this message translates to:
+  /// **'支付信息缺失'**
+  String get payInfoMissing;
+
+  /// No description provided for @qrLoadFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'二维码加载失败'**
+  String get qrLoadFailed;
+
+  /// No description provided for @copyLinkHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'请点击复制链接'**
+  String get copyLinkHint;
+
+  /// No description provided for @copyPayLink.
+  ///
+  /// In zh, this message translates to:
+  /// **'复制支付链接'**
+  String get copyPayLink;
+
+  /// No description provided for @payLinkCopied.
+  ///
+  /// In zh, this message translates to:
+  /// **'支付链接已复制'**
+  String get payLinkCopied;
 }
 
 class _AppLocalizationsDelegate

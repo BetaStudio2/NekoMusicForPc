@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../main.dart';
 import '../core/core_controller.dart';
+import '../l10n/generated/app_localizations.dart';
 
 /// 登录对话框：登录 / 注册 两个 Tab。
 /// 注册流程对齐原版：滑块验证 → 发送邮箱验证码 → 注册。
@@ -47,6 +48,7 @@ class _LoginDialog extends StatefulWidget {
 }
 
 class _LoginDialogState extends State<_LoginDialog> {
+  AppLocalizations get _l10n => AppLocalizations.of(context);
   bool _registerMode = false;
   String? _error;
   bool _busy = false;
@@ -91,11 +93,11 @@ class _LoginDialogState extends State<_LoginDialog> {
     final email = _email.text.trim();
     final username = _username.text.trim();
     if (pass == null || pass.isEmpty) {
-      setState(() => _error = '请先完成滑块验证');
+      setState(() => _error = _l10n.sliderFirst);
       return;
     }
     if (email.isEmpty || !email.contains('@') || username.isEmpty) {
-      setState(() => _error = '请先填写用户名和邮箱');
+      setState(() => _error = _l10n.needUsernameEmail);
       return;
     }
     setState(() {
@@ -108,12 +110,12 @@ class _LoginDialogState extends State<_LoginDialog> {
         _busy = false;
         if (ok) {
           _error = null;
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('验证码已发送，请查收邮箱'),
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(_l10n.codeSent),
             duration: Duration(seconds: 2),
           ));
         } else {
-          _error = msg.isEmpty ? '验证码发送失败' : msg;
+          _error = msg.isEmpty ? _l10n.codeSendFailed : msg;
         }
       });
     });
@@ -137,7 +139,7 @@ class _LoginDialogState extends State<_LoginDialog> {
         if (ok) {
           Navigator.of(context).pop();
         } else {
-          _error = msg.isEmpty ? '注册失败' : msg;
+          _error = msg.isEmpty ? _l10n.registerFailed : msg;
         }
       });
     });
@@ -147,7 +149,7 @@ class _LoginDialogState extends State<_LoginDialog> {
   Widget build(BuildContext context) {
     return AlertDialog(
       backgroundColor: kBgSurface,
-      title: Text(_registerMode ? '注册' : '登录'),
+      title: Text(_registerMode ? _l10n.register : _l10n.login),
       content: SizedBox(
         width: 380,
         child: SingleChildScrollView(
@@ -157,9 +159,9 @@ class _LoginDialogState extends State<_LoginDialog> {
             children: [
               // Tab 切换
               SegmentedButton<bool>(
-                segments: const [
-                  ButtonSegment(value: false, label: Text('登录')),
-                  ButtonSegment(value: true, label: Text('注册')),
+                segments: [
+                  ButtonSegment(value: false, label: Text(_l10n.login)),
+                  ButtonSegment(value: true, label: Text(_l10n.register)),
                 ],
                 selected: {_registerMode},
                 onSelectionChanged: _busy
@@ -169,11 +171,11 @@ class _LoginDialogState extends State<_LoginDialog> {
                           _error = null;
                         }),
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: 16),
               TextField(
                 controller: _username,
-                decoration: const InputDecoration(
-                  labelText: '用户名',
+                decoration: InputDecoration(
+                  labelText: _l10n.username,
                   isDense: true,
                   filled: true,
                   border: OutlineInputBorder(),
@@ -181,13 +183,13 @@ class _LoginDialogState extends State<_LoginDialog> {
                 onSubmitted: (_) =>
                     _registerMode ? _sendCode() : _login(),
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: 12),
               if (_registerMode) ...[
                 TextField(
                   controller: _email,
                   keyboardType: TextInputType.emailAddress,
-                  decoration: const InputDecoration(
-                    labelText: '邮箱',
+                  decoration: InputDecoration(
+                    labelText: _l10n.email,
                     isDense: true,
                     filled: true,
                     border: OutlineInputBorder(),
@@ -199,14 +201,14 @@ class _LoginDialogState extends State<_LoginDialog> {
                 controller: _password,
                 obscureText: true,
                 decoration: InputDecoration(
-                  labelText: _registerMode ? '密码' : '密码',
+                  labelText: _registerMode ? _l10n.password : _l10n.password,
                   isDense: true,
                   filled: true,
-                  border: const OutlineInputBorder(),
+                  border: OutlineInputBorder(),
                 ),
                 onSubmitted: (_) => _registerMode ? null : _login(),
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: 12),
               if (_registerMode) ...[
                 _SliderCaptchaField(
                   core: widget.core,
@@ -216,36 +218,36 @@ class _LoginDialogState extends State<_LoginDialog> {
                   },
                   onError: (msg) => setState(() => _error = msg),
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: 12),
                 Row(
                   children: [
                     Expanded(
                       child: TextField(
                         controller: _code,
-                        decoration: const InputDecoration(
-                          labelText: '邮箱验证码',
+                        decoration: InputDecoration(
+                          labelText: _l10n.emailCode,
                           isDense: true,
                           filled: true,
                           border: OutlineInputBorder(),
                         ),
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    SizedBox(width: 8),
                     FilledButton(
                       style: FilledButton.styleFrom(
                         backgroundColor: kPrimary.withValues(alpha: 0.15),
                         foregroundColor: kPrimary,
                       ),
                       onPressed: _busy ? null : _sendCode,
-                      child: const Text('发送验证码'),
+                      child: Text(_l10n.sendCode),
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: 12),
                 FilledButton(
                   style: FilledButton.styleFrom(backgroundColor: kPrimary),
                   onPressed: _busy ? null : _register,
-                  child: Text(_busy ? '注册中…' : '注册'),
+                  child: Text(_busy ? _l10n.registering : _l10n.register),
                 ),
               ] else ...[
                 Row(
@@ -253,7 +255,7 @@ class _LoginDialogState extends State<_LoginDialog> {
                   children: [
                     TextButton(
                       onPressed: () => showForgotPasswordDialog(context),
-                      child: const Text('忘记密码？',
+                      child: Text(_l10n.forgotPasswordQ,
                           style: TextStyle(fontSize: 12)),
                     ),
                   ],
@@ -262,7 +264,7 @@ class _LoginDialogState extends State<_LoginDialog> {
               if (_error != null) ...[
                 const SizedBox(height: 8),
                 Text('$_error',
-                    style: const TextStyle(color: Colors.redAccent, fontSize: 12)),
+                    style: TextStyle(color: Colors.redAccent, fontSize: 12)),
               ],
             ],
           ),
@@ -271,13 +273,13 @@ class _LoginDialogState extends State<_LoginDialog> {
       actions: [
         TextButton(
           onPressed: _busy ? null : () => Navigator.of(context).pop(),
-          child: const Text('取消'),
+          child: Text(_l10n.cancel),
         ),
         if (!_registerMode)
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: kPrimary),
             onPressed: _busy ? null : _login,
-            child: Text(_busy ? '登录中…' : '登录'),
+            child: Text(_busy ? _l10n.loggingIn : _l10n.login),
           ),
       ],
     );
@@ -302,6 +304,7 @@ class _SliderCaptchaField extends StatefulWidget {
 }
 
 class _SliderCaptchaFieldState extends State<_SliderCaptchaField> {
+  AppLocalizations get _l10n => AppLocalizations.of(context);
   Map<String, dynamic>? _data;
   double _offset = 0;
   bool _verifying = false;
@@ -322,7 +325,7 @@ class _SliderCaptchaFieldState extends State<_SliderCaptchaField> {
     widget.core.sliderChallenge(onDone: (ok, data, msg) {
       if (!mounted) return;
       if (!ok || data == null) {
-        widget.onError(msg.isEmpty ? '滑块验证加载失败' : msg);
+        widget.onError(msg.isEmpty ? _l10n.sliderLoadFailed : msg);
         return;
       }
       setState(() => _data = data);
@@ -342,7 +345,7 @@ class _SliderCaptchaFieldState extends State<_SliderCaptchaField> {
         setState(() => _passed = true);
         widget.onPassed(pass);
       } else {
-        widget.onError(msg.isEmpty ? '滑块验证失败，请重试' : msg);
+        widget.onError(msg.isEmpty ? _l10n.sliderVerifyFailed : msg);
         _load();
       }
     });
@@ -365,7 +368,7 @@ class _SliderCaptchaFieldState extends State<_SliderCaptchaField> {
     }
 
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: kBgMid,
         borderRadius: BorderRadius.circular(12),
@@ -374,7 +377,7 @@ class _SliderCaptchaFieldState extends State<_SliderCaptchaField> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            _passed ? '✓ 滑块验证通过' : '请拖动滑块完成验证',
+            _passed ? _l10n.sliderPassed : _l10n.sliderHint,
             style: TextStyle(
                 fontSize: 12,
                 color: _passed ? const Color(0xFF4CAF50) : kTextSecondary),
@@ -385,9 +388,9 @@ class _SliderCaptchaFieldState extends State<_SliderCaptchaField> {
             Row(
               children: [
                 Expanded(
-                  child: Text('验证码图片加载失败，请点击右侧刷新重试',
+                  child: Text(_l10n.captchaLoadFailed,
                       style: TextStyle(
-                          fontSize: 12, color: const Color(0xFFFF8A80))),
+                          fontSize: 12, color: Color(0xFFFF8A80))),
                 ),
               ],
             ),
@@ -444,8 +447,8 @@ class _SliderCaptchaFieldState extends State<_SliderCaptchaField> {
                           ),
                         ),
                         IconButton(
-                          tooltip: '刷新',
-                          icon: const Icon(Icons.refresh, size: 16),
+                          tooltip: _l10n.actionRefresh,
+                          icon: Icon(Icons.refresh, size: 16),
                           onPressed: _verifying ? null : _load,
                         ),
                       ],
@@ -492,6 +495,7 @@ class _ForgotPasswordDialog extends StatefulWidget {
 }
 
 class _ForgotPasswordDialogState extends State<_ForgotPasswordDialog> {
+  AppLocalizations get _l10n => AppLocalizations.of(context);
   final _email = TextEditingController();
   final _code = TextEditingController();
   final _newPassword = TextEditingController();
@@ -510,7 +514,7 @@ class _ForgotPasswordDialogState extends State<_ForgotPasswordDialog> {
   void _sendCode() {
     final email = _email.text.trim();
     if (email.isEmpty || !email.contains('@')) {
-      setState(() => _error = '请输入有效邮箱');
+      setState(() => _error = _l10n.emailInvalid);
       return;
     }
     setState(() {
@@ -524,7 +528,7 @@ class _ForgotPasswordDialogState extends State<_ForgotPasswordDialog> {
         if (ok) {
           _startCountdown();
         } else {
-          _error = msg.isEmpty ? '发送失败' : msg;
+          _error = msg.isEmpty ? _l10n.sendFailed : msg;
         }
       });
     });
@@ -544,7 +548,7 @@ class _ForgotPasswordDialogState extends State<_ForgotPasswordDialog> {
     if (_email.text.trim().isEmpty ||
         _code.text.trim().isEmpty ||
         _newPassword.text.length < 6) {
-      setState(() => _error = '请填写邮箱、验证码和新密码（至少 6 位）');
+      setState(() => _error = _l10n.resetFormHint);
       return;
     }
     setState(() {
@@ -559,12 +563,12 @@ class _ForgotPasswordDialogState extends State<_ForgotPasswordDialog> {
         _busy = false;
         if (ok) {
           Navigator.of(context).pop();
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('密码已重置，请使用新密码登录'),
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(_l10n.passwordReset),
             duration: Duration(seconds: 2),
           ));
         } else {
-          _error = msg.isEmpty ? '重置失败' : msg;
+          _error = msg.isEmpty ? _l10n.resetFailed : msg;
         }
       });
     });
@@ -574,7 +578,7 @@ class _ForgotPasswordDialogState extends State<_ForgotPasswordDialog> {
   Widget build(BuildContext context) {
     return AlertDialog(
       backgroundColor: kBgSurface,
-      title: const Text('忘记密码'),
+      title: Text(_l10n.forgotPwdTitle),
       content: SizedBox(
         width: 340,
         child: Column(
@@ -583,44 +587,44 @@ class _ForgotPasswordDialogState extends State<_ForgotPasswordDialog> {
             TextField(
               controller: _email,
               keyboardType: TextInputType.emailAddress,
-              decoration: const InputDecoration(
-                labelText: '邮箱',
+              decoration: InputDecoration(
+                labelText: _l10n.email,
                 isDense: true,
                 filled: true,
                 border: OutlineInputBorder(),
               ),
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             Row(
               children: [
                 Expanded(
                   child: TextField(
                     controller: _code,
-                    decoration: const InputDecoration(
-                      labelText: '验证码',
+                    decoration: InputDecoration(
+                      labelText: _l10n.verifyCode,
                       isDense: true,
                       filled: true,
                       border: OutlineInputBorder(),
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
+                SizedBox(width: 8),
                 FilledButton(
                   style: FilledButton.styleFrom(
                     backgroundColor: kPrimary.withValues(alpha: 0.15),
                     foregroundColor: kPrimary,
                   ),
                   onPressed: _busy || _countdown > 0 ? null : _sendCode,
-                  child: Text(_countdown > 0 ? '$_countdown s' : '发送验证码'),
+                  child: Text(_countdown > 0 ? '$_countdown s' : _l10n.sendCode),
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             TextField(
               controller: _newPassword,
               obscureText: true,
-              decoration: const InputDecoration(
-                labelText: '新密码',
+              decoration: InputDecoration(
+                labelText: _l10n.newPassword,
                 isDense: true,
                 filled: true,
                 border: OutlineInputBorder(),
@@ -631,7 +635,7 @@ class _ForgotPasswordDialogState extends State<_ForgotPasswordDialog> {
               Align(
                 alignment: Alignment.centerLeft,
                 child: Text('$_error',
-                    style: const TextStyle(
+                    style: TextStyle(
                         color: Colors.redAccent, fontSize: 12)),
               ),
             ],
@@ -641,12 +645,12 @@ class _ForgotPasswordDialogState extends State<_ForgotPasswordDialog> {
       actions: [
         TextButton(
           onPressed: _busy ? null : () => Navigator.of(context).pop(),
-          child: const Text('取消'),
+          child: Text(_l10n.cancel),
         ),
         FilledButton(
           style: FilledButton.styleFrom(backgroundColor: kPrimary),
           onPressed: _busy ? null : _reset,
-          child: Text(_busy ? '提交中…' : '重置密码'),
+          child: Text(_busy ? _l10n.submitting : _l10n.resetPassword),
         ),
       ],
     );
@@ -665,6 +669,7 @@ class _ChangePasswordDialog extends StatefulWidget {
 }
 
 class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
+  AppLocalizations get _l10n => AppLocalizations.of(context);
   final _old = TextEditingController();
   final _new = TextEditingController();
   final _confirm = TextEditingController();
@@ -681,11 +686,11 @@ class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
 
   void _submit() {
     if (_old.text.isEmpty || _new.text.length < 6) {
-      setState(() => _error = '请填写旧密码与新密码（至少 6 位）');
+      setState(() => _error = _l10n.changePwdHint);
       return;
     }
     if (_new.text != _confirm.text) {
-      setState(() => _error = '两次输入的新密码不一致');
+      setState(() => _error = _l10n.pwdMismatch);
       return;
     }
     setState(() {
@@ -698,12 +703,12 @@ class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
         _busy = false;
         if (ok) {
           Navigator.of(context).pop();
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('密码修改成功'),
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(_l10n.pwdChanged),
             duration: Duration(seconds: 2),
           ));
         } else {
-          _error = msg.isEmpty ? '修改失败' : msg;
+          _error = msg.isEmpty ? _l10n.changeFailed : msg;
         }
       });
     });
@@ -713,7 +718,7 @@ class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
   Widget build(BuildContext context) {
     return AlertDialog(
       backgroundColor: kBgSurface,
-      title: const Text('修改密码'),
+      title: Text(_l10n.changePassword),
       content: SizedBox(
         width: 320,
         child: Column(
@@ -722,30 +727,30 @@ class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
             TextField(
               controller: _old,
               obscureText: true,
-              decoration: const InputDecoration(
-                labelText: '旧密码',
+              decoration: InputDecoration(
+                labelText: _l10n.oldPassword,
                 isDense: true,
                 filled: true,
                 border: OutlineInputBorder(),
               ),
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             TextField(
               controller: _new,
               obscureText: true,
-              decoration: const InputDecoration(
-                labelText: '新密码',
+              decoration: InputDecoration(
+                labelText: _l10n.newPassword,
                 isDense: true,
                 filled: true,
                 border: OutlineInputBorder(),
               ),
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             TextField(
               controller: _confirm,
               obscureText: true,
-              decoration: const InputDecoration(
-                labelText: '确认新密码',
+              decoration: InputDecoration(
+                labelText: _l10n.confirmNewPassword,
                 isDense: true,
                 filled: true,
                 border: OutlineInputBorder(),
@@ -756,7 +761,7 @@ class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
               Align(
                 alignment: Alignment.centerLeft,
                 child: Text('$_error',
-                    style: const TextStyle(
+                    style: TextStyle(
                         color: Colors.redAccent, fontSize: 12)),
               ),
             ],
@@ -766,12 +771,12 @@ class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
       actions: [
         TextButton(
           onPressed: _busy ? null : () => Navigator.of(context).pop(),
-          child: const Text('取消'),
+          child: Text(_l10n.cancel),
         ),
         FilledButton(
           style: FilledButton.styleFrom(backgroundColor: kPrimary),
           onPressed: _busy ? null : _submit,
-          child: Text(_busy ? '提交中…' : '确认修改'),
+          child: Text(_busy ? _l10n.submitting : _l10n.confirmChange),
         ),
       ],
     );
@@ -785,8 +790,9 @@ class UserMenu extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final core = CoreScope.of(context);
+    final l10n = AppLocalizations.of(context);
     return PopupMenuButton<String>(
-      tooltip: '账户',
+      tooltip: l10n.account,
       icon: Icon(
         core.isLoggedIn ? Icons.account_circle : Icons.account_circle_outlined,
         color: core.isLoggedIn ? kPrimary : kTextSecondary,
@@ -804,19 +810,19 @@ class UserMenu extends StatelessWidget {
               PopupMenuItem(
                 enabled: false,
                 child: Text(
-                  (core.userInfo?['username'] ?? core.userInfo?['nickname'] ?? '已登录')
+                  (core.userInfo?['username'] ?? core.userInfo?['nickname'] ?? l10n.signedIn)
                       .toString(),
                   style: TextStyle(color: kTextSecondary),
                 ),
               ),
-              const PopupMenuItem(
-                  value: 'changePassword', child: Text('修改密码')),
-              const PopupMenuItem(value: 'logout', child: Text('退出登录')),
+              PopupMenuItem(
+                  value: 'changePassword', child: Text(l10n.changePassword)),
+              PopupMenuItem(value: 'logout', child: Text(l10n.signOut)),
             ]
           : [
               PopupMenuItem(
                 value: 'login',
-                child: const Text('登录'),
+                child: Text(l10n.login),
                 onTap: () => showLoginDialog(context),
               ),
             ],
