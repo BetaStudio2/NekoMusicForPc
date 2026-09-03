@@ -228,7 +228,10 @@ jobs:
           $crt = $null
           if ($redist -and (Test-Path $redist)) {
             $crt = Get-ChildItem $redist -Recurse -Directory -Filter 'Microsoft.VC*.CRT' |
-              Where-Object { Test-Path (Join-Path $_.FullName 'x64\msvcp140.dll') } |
+              Where-Object {
+                $_.FullName -match '\\x64\\' -and
+                (Test-Path (Join-Path $_.FullName 'msvcp140.dll'))
+              } |
               Select-Object -First 1
           }
           if ($crt) {
