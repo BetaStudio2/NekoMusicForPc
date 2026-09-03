@@ -28,10 +28,9 @@ const QHostAddress kDiscoveryGroup(QStringLiteral("239.255.77.77"));
 constexpr int kProtocol = 1;
 constexpr int kDeviceTimeoutMs = 15'000;
 
-QNetworkInterface multicastInterface()
+QList<QNetworkInterface> multicastInterfaces()
 {
-    QNetworkInterface fallback;
-    int fallbackScore = -1;
+    QList<QNetworkInterface> interfaces;
     for (const QNetworkInterface &interfaceInfo : QNetworkInterface::allInterfaces()) {
         const auto flags = interfaceInfo.flags();
         if (!flags.testFlag(QNetworkInterface::IsUp) ||
@@ -51,26 +50,9 @@ QNetworkInterface multicastInterface()
         if (!hasIpv4)
             continue;
 
-        const QString name = interfaceInfo.humanReadableName().toLower();
-        int score = 1;
-        if (name.contains(QStringLiteral("wlan")) ||
-            name.contains(QStringLiteral("wifi")) ||
-            name.startsWith(QStringLiteral("en")) ||
-            name.startsWith(QStringLiteral("eth"))) {
-            score += 4;
-        }
-        if (name.contains(QStringLiteral("docker")) ||
-            name.contains(QStringLiteral("virbr")) ||
-            name.contains(QStringLiteral("veth")) ||
-            name.contains(QStringLiteral("tailscale"))) {
-            score -= 4;
-        }
-        if (score > fallbackScore) {
-            fallback = interfaceInfo;
-            fallbackScore = score;
-        }
+        interfaces.append(interfaceInfo);
     }
-    return fallback;
+    return interfaces;
 }
 }
 
@@ -171,11 +153,18 @@ void LanDeviceManager::start()
         m_server->close();
         return;
     }
-    const QNetworkInterface interfaceInfo = multicastInterface();
-    if (interfaceInfo.isValid()) {
-        m_udp->setMulticastInterface(interfaceInfo);
-        m_udp->joinMulticastGroup(kDiscoveryGroup, interfaceInfo);
-    } else {
+    m_multicastInterfaces = multicastInterfaces();
+    bool joinedAny = false;
+    for (const QNetworkInterface &interfaceInfo : std::as_const(m_multicastInterfaces)) {
+        if (!m_udp->joinMulticastGroup(kDiscoveryGroup, interfaceInfo)) {
+            qWarning("LAN multicast join failed on %s: %s",
+                     qPrintable(interfaceInfo.humanReadableName()),
+                     qPrintable(m_udp->errorString()));
+        } else {
+            joinedAny = true;
+        }
+    }
+    if (!joinedAny) {
         m_udp->joinMulticastGroup(kDiscoveryGroup);
     }
     m_running = true;
@@ -199,8 +188,15 @@ void LanDeviceManager::stop()
         socket->deleteLater();
     }
     m_subscribers.clear();
-    if (m_udp->state() == QAbstractSocket::BoundState)
+    if (m_udp->state() == QAbstractSocket::BoundState) {
+        for (const QNetworkInterface &interfaceInfo : std::as_const(m_multicastInterfaces))
+            m_udp->leaveMulticastGroup(kDiscoveryGroup, interfaceInfo);
+        // Also leave the default membership used when no interface-specific
+        // join succeeded.
         m_udp->leaveMulticastGroup(kDiscoveryGroup);
+    }
+    m_multicastInterfaces.clear();
+    m_lastDiscoveryHandshake.clear();
     m_udp->close();
     m_server->close();
     m_announceTimer->stop();
@@ -221,6 +217,76 @@ void LanDeviceManager::sendAnnouncement()
     if (!m_running || !m_udp->isOpen())
         return;
 
+    const QByteArray data = announcementJson();
+    if (m_multicastInterfaces.isEmpty()) {
+        m_udp->writeDatagram(data, kDiscoveryGroup, kDiscoveryPort);
+        m_udp->writeDatagram(data, QHostAddress::Broadcast, kDiscoveryPort);
+        return;
+    }
+
+    // Send on every active IPv4 interface. A single preferred interface is
+    // unreliable on machines with Wi-Fi, Ethernet, VPN, or virtual adapters.
+    for (const QNetworkInterface &interfaceInfo : std::as_const(m_multicastInterfaces)) {
+        m_udp->setMulticastInterface(interfaceInfo);
+        m_udp->writeDatagram(data, kDiscoveryGroup, kDiscoveryPort);
+        for (const QNetworkAddressEntry &entry : interfaceInfo.addressEntries()) {
+            const QHostAddress broadcast = entry.broadcast();
+            if (entry.ip().protocol() == QAbstractSocket::IPv4Protocol &&
+                !broadcast.isNull()) {
+                m_udp->writeDatagram(data, broadcast, kDiscoveryPort);
+            }
+        }
+    }
+}
+
+void LanDeviceManager::sendAnnouncementTo(const QString &host)
+{
+    if (!m_running || !m_udp->isOpen())
+        return;
+    const QHostAddress address(host);
+    if (address.isNull() || address.protocol() != QAbstractSocket::IPv4Protocol)
+        return;
+    // A unicast response works on networks that suppress multicast/broadcast
+    // traffic while still allowing normal LAN TCP connections.
+    m_udp->writeDatagram(announcementJson(), address, kDiscoveryPort);
+}
+
+void LanDeviceManager::sendDiscoveryHandshake(const LanDeviceInfo &device)
+{
+    if (!m_running || device.host.isEmpty() || device.port == 0)
+        return;
+    const qint64 now = QDateTime::currentMSecsSinceEpoch();
+    if (now - m_lastDiscoveryHandshake.value(device.deviceId, 0) < 10'000)
+        return;
+    m_lastDiscoveryHandshake.insert(device.deviceId, now);
+
+    // This short-lived TCP hello is a fallback for APs that block all UDP
+    // discovery traffic. The Android peer registers us as soon as it reads
+    // the subscribe line, which is the same registration used by selection.
+    auto *socket = new QTcpSocket(this);
+    connect(socket, &QTcpSocket::connected, this, [this, socket]() {
+        const QJsonObject object{
+            {QStringLiteral("protocol"), kProtocol},
+            {QStringLiteral("type"), QStringLiteral("subscribe")},
+            {QStringLiteral("accountTag"), accountTag()},
+            {QStringLiteral("deviceId"), deviceId()},
+            {QStringLiteral("deviceName"), deviceName()},
+            {QStringLiteral("platform"), QStringLiteral("pc")},
+            {QStringLiteral("port"), static_cast<int>(m_server->serverPort())}
+        };
+        socket->write(QJsonDocument(object).toJson(QJsonDocument::Compact) + '\n');
+        socket->flush();
+        socket->disconnectFromHost();
+    });
+    connect(socket, &QTcpSocket::disconnected, socket, &QObject::deleteLater);
+    connect(socket, &QTcpSocket::errorOccurred, socket, [socket](QAbstractSocket::SocketError) {
+        socket->abort();
+    });
+    socket->connectToHost(device.host, device.port);
+}
+
+QByteArray LanDeviceManager::announcementJson() const
+{
     const LanQueueSnapshotInfo snapshot = buildSnapshot();
     QJsonObject object{
         {QStringLiteral("protocol"), kProtocol},
@@ -235,11 +301,7 @@ void LanDeviceManager::sendAnnouncement()
         {QStringLiteral("currentMusicId"), snapshot.currentMusicId},
         {QStringLiteral("timestamp"), QDateTime::currentMSecsSinceEpoch()}
     };
-    const QByteArray data = QJsonDocument(object).toJson(QJsonDocument::Compact);
-    m_udp->writeDatagram(data, kDiscoveryGroup, kDiscoveryPort);
-    // Some access points isolate multicast in one direction. Broadcast is a
-    // fallback for peers on the same IPv4 LAN.
-    m_udp->writeDatagram(data, QHostAddress::Broadcast, kDiscoveryPort);
+    return QJsonDocument(object).toJson(QJsonDocument::Compact);
 }
 
 void LanDeviceManager::receiveAnnouncement(const QByteArray &payload, const QString &host)
@@ -267,6 +329,11 @@ void LanDeviceManager::receiveAnnouncement(const QByteArray &payload, const QStr
 
     if (device.deviceId.isEmpty() || device.deviceId == deviceId() || device.port == 0)
         return;
+
+    // The PC can hear this peer, so answer directly to its source address.
+    // This makes discovery work even when the access point drops multicast.
+    sendAnnouncementTo(host);
+    sendDiscoveryHandshake(device);
 
     bool changed = false;
     for (LanDeviceInfo &existing : m_devices) {

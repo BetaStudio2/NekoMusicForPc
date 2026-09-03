@@ -2,7 +2,9 @@
 #define LANDEVICEMANAGER_H
 
 #include <QObject>
+#include <QHash>
 #include <QList>
+#include <QNetworkInterface>
 #include <QString>
 #include "core/musicinfo.h"
 
@@ -65,6 +67,8 @@ private:
 
     void bindSockets();
     void sendAnnouncement();
+    void sendAnnouncementTo(const QString &host);
+    void sendDiscoveryHandshake(const LanDeviceInfo &device);
     void receiveAnnouncement(const QByteArray &payload, const QString &host);
     void expireDevices();
     void handleServerConnection();
@@ -83,6 +87,7 @@ private:
     QString deviceId() const;
     QString deviceName() const;
     void publishDevices();
+    QByteArray announcementJson() const;
 
     bool m_running = false;
     QTcpServer *m_server = nullptr;
@@ -101,6 +106,8 @@ private:
     bool m_closingRemote = false;
     QString m_runningAccountTag;
     PlayerEngine *m_playerEngine = nullptr;
+    QList<QNetworkInterface> m_multicastInterfaces;
+    QHash<QString, qint64> m_lastDiscoveryHandshake;
 };
 
 #endif // LANDEVICEMANAGER_H
