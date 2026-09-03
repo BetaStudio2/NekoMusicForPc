@@ -969,6 +969,6 @@ class NekoCore {
       } catch (_) {}
     }
     throw StateError(
-        'libneko_core 未找到。请先构建 engine/，或设置 NEKO_CORE_PATH。');
+        'libneko_core not found. Build engine/ first, or set NEKO_CORE_PATH.');
   }
 }

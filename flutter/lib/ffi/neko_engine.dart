@@ -333,6 +333,6 @@ class NekoEngine {
       } catch (_) {}
     }
     throw StateError(
-        'libneko_engine 未找到。请先构建 engine/，或设置 NEKO_ENGINE_PATH。');
+        'libneko_engine not found. Build engine/ first, or set NEKO_ENGINE_PATH.');
   }
 }

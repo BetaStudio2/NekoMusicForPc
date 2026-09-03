@@ -55,7 +55,7 @@ class BackgroundService with WindowListener, TrayListener {
             const Duration(seconds: 30), (_) => _refreshWindowsTray());
       }
     } catch (e) {
-      debugPrint('[tray] 初始化失败，降级为正常关闭: $e');
+      debugPrint('[tray] init failed, falling back to normal close: $e');
       _ready = false;
       _winRefreshTimer?.cancel();
       try {
@@ -66,11 +66,11 @@ class BackgroundService with WindowListener, TrayListener {
 
   Menu _buildMenu() {
     return Menu(items: [
-      MenuItem(key: 'show', label: '显示主界面', onClick: (_) => _showWindow()),
+      MenuItem(key: 'show', label: ThemeController.instance.t('显示主界面','Show main window'), onClick: (_) => _showWindow()),
       MenuItem.separator(),
       MenuItem(
           key: 'toggle',
-          label: '播放 / 暂停',
+          label: ThemeController.instance.t('播放 / 暂停','Play / Pause'),
           onClick: (_) {
             final (_, engine) = appControllers;
             if (engine.state != NekoPlayState.stopped) {
@@ -79,7 +79,7 @@ class BackgroundService with WindowListener, TrayListener {
           }),
       MenuItem(
           key: 'prev',
-          label: '上一首',
+          label: ThemeController.instance.t('上一首','Previous'),
           onClick: (_) {
             final (core, engine) = appControllers;
             final m = core.previous();
@@ -87,14 +87,14 @@ class BackgroundService with WindowListener, TrayListener {
           }),
       MenuItem(
           key: 'next',
-          label: '下一首',
+          label: ThemeController.instance.t('下一首','Next'),
           onClick: (_) {
             final (core, engine) = appControllers;
             final m = core.next();
             if (m != null) engine.playUrl(m.playUrl());
           }),
       MenuItem.separator(),
-      MenuItem(key: 'quit', label: '退出', onClick: (_) => quit()),
+      MenuItem(key: 'quit', label: ThemeController.instance.t('退出','Quit'), onClick: (_) => quit()),
     ]);
   }
 

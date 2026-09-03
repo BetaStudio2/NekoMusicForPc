@@ -50,6 +50,9 @@ class ThemeController extends ChangeNotifier {
   String _language = 'zh';
   String get language => _language;
 
+  /// 双语直取（用于无 BuildContext 的核心层/托盘文案）
+  String t(String zh, String en) => _language == 'en' ? en : zh;
+
   // 背景个性化：default（跟随主题）| solid（纯色）| image（自定义图片）
   String _backdropKind = 'default';
   String get backdropKind => _backdropKind;

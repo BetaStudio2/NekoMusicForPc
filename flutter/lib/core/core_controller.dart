@@ -6,6 +6,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 
 import '../ffi/neko_core.dart';
+import '../main.dart';
 
 /// Qt 核心桥控制器：封装 neko_core FFI + 结果推送，向 UI 暴露响应式状态。
 ///
@@ -337,13 +338,13 @@ class CoreController extends ChangeNotifier {
       {void Function(Map<String, dynamic>? info, String? error)? onDone}) {
     _post(() => _core.fetchNeteasePlaylist(playlistId), (r) {
       if (!r.ok) {
-        onDone?.call(null, r.message.isEmpty ? '拉取失败' : r.message);
+        onDone?.call(null, r.message.isEmpty ? ThemeController.instance.t('拉取失败','Fetch failed') : r.message);
         return;
       }
       try {
         onDone?.call(jsonDecode(r.str) as Map<String, dynamic>, null);
       } catch (_) {
-        onDone?.call(null, '数据解析失败');
+        onDone?.call(null, ThemeController.instance.t('数据解析失败','Failed to parse data'));
       }
     });
   }
@@ -353,13 +354,13 @@ class CoreController extends ChangeNotifier {
       {void Function(Map<String, dynamic>? info, String? error)? onDone}) {
     _post(() => _core.fetchQqPlaylist(disstid), (r) {
       if (!r.ok) {
-        onDone?.call(null, r.message.isEmpty ? '拉取失败' : r.message);
+        onDone?.call(null, r.message.isEmpty ? ThemeController.instance.t('拉取失败','Fetch failed') : r.message);
         return;
       }
       try {
         onDone?.call(jsonDecode(r.str) as Map<String, dynamic>, null);
       } catch (_) {
-        onDone?.call(null, '数据解析失败');
+        onDone?.call(null, ThemeController.instance.t('数据解析失败','Failed to parse data'));
       }
     });
   }
@@ -369,13 +370,13 @@ class CoreController extends ChangeNotifier {
       {void Function(Map<String, dynamic>? result, String? error)? onDone}) {
     _post(() => _core.batchSearchMusic(jsonEncode(items)), (r) {
       if (!r.ok) {
-        onDone?.call(null, r.message.isEmpty ? '搜索失败' : r.message);
+        onDone?.call(null, r.message.isEmpty ? ThemeController.instance.t('搜索失败','Search failed') : r.message);
         return;
       }
       try {
         onDone?.call(jsonDecode(r.str) as Map<String, dynamic>, null);
       } catch (_) {
-        onDone?.call(null, '数据解析失败');
+        onDone?.call(null, ThemeController.instance.t('数据解析失败','Failed to parse data'));
       }
     });
   }
@@ -386,13 +387,13 @@ class CoreController extends ChangeNotifier {
     _post(() => _core.batchAddMusicToPlaylist(playlistId, jsonEncode(musicIds)),
         (r) {
       if (!r.ok) {
-        onDone?.call(null, r.message.isEmpty ? '添加失败' : r.message);
+        onDone?.call(null, r.message.isEmpty ? ThemeController.instance.t('添加失败','Add failed') : r.message);
         return;
       }
       try {
         onDone?.call(jsonDecode(r.str) as Map<String, dynamic>, null);
       } catch (_) {
-        onDone?.call(null, '数据解析失败');
+        onDone?.call(null, ThemeController.instance.t('数据解析失败','Failed to parse data'));
       }
     });
   }
@@ -440,7 +441,7 @@ class CoreController extends ChangeNotifier {
           ok,
           data is Map<String, dynamic> ? data : null,
           (d['message'] as String?) ??
-              (ok ? '' : '验证码加载失败'));
+              (ok ? '' : ThemeController.instance.t('验证码加载失败','Failed to load captcha')));
     } catch (e) {
       onDone?.call(false, null, '验证码加载失败：$e');
     }
@@ -502,7 +503,7 @@ class CoreController extends ChangeNotifier {
         onDone?.call(true,
             arr.map((e) => e as Map<String, dynamic>).toList(), '');
       } catch (_) {
-        onDone?.call(false, const [], '数据解析失败');
+        onDone?.call(false, const [], ThemeController.instance.t('数据解析失败','Failed to parse data'));
       }
     });
   }
@@ -520,7 +521,7 @@ class CoreController extends ChangeNotifier {
       try {
         onDone?.call(true, jsonDecode(r.str) as Map<String, dynamic>, '');
       } catch (_) {
-        onDone?.call(false, null, '数据解析失败');
+        onDone?.call(false, null, ThemeController.instance.t('数据解析失败','Failed to parse data'));
       }
     });
   }
