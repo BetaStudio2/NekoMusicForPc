@@ -177,7 +177,12 @@ MusicInfo musicFromRow(const neko_core_music *row)
 MusicInfo musicFromMap(const QVariantMap &map)
 {
     MusicInfo info;
-    info.id = map.value(QStringLiteral("id")).toInt();
+    int rid = map.value(QStringLiteral("id")).toInt();
+    if (rid <= 0)
+        rid = map.value(QStringLiteral("musicId")).toInt();   // 每日推荐等用 musicId
+    if (rid <= 0)
+        rid = map.value(QStringLiteral("songId")).toInt();
+    info.id = rid;
     info.title = map.value(QStringLiteral("title")).toString();
     info.artist = map.value(QStringLiteral("artist")).toString();
     info.album = map.value(QStringLiteral("album")).toString();

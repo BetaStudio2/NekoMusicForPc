@@ -137,10 +137,16 @@ class CoreController extends ChangeNotifier {
   /// 拉取每日推荐（需登录）
   void fetchDaily() {
     _post(_core.fetchDaily, (r) {
-      if (r.ok) {
-        daily = r.rows;
-      } else {
+      if (!r.ok) {
+        debugPrint('[daily] fail: ${r.message}');
         error = r.message;
+      } else {
+        daily = r.rows;
+        if (r.rows.isNotEmpty) {
+          final m = r.rows.first;
+          debugPrint('[daily] row0 id=${m.id} title=${m.title} '
+              'coverUrl=${m.coverUrl} local=${m.localPath}');
+        }
       }
       notifyListeners();
     });
