@@ -135,7 +135,6 @@ jobs:
           host: 'windows'
           target: 'desktop'
           arch: 'win64_msvc2022_64'
-          dir: 'C:\Qt'
           cache: true
       - name: Setup Ninja
         run: choco install ninja -y
@@ -186,11 +185,12 @@ jobs:
         shell: pwsh
         run: |
           $rel = "flutter\build\windows\x64\runner\Release"
-          # install-qt-action 会设 Qt6_DIR；避免递归 C:\Qt（无权限）
-          $qtBin = "C:\Qt"
-          $deploy = Get-ChildItem $qtBin -Recurse -Filter windeployqt.exe |
-            Where-Object { $_.FullName -notmatch 'mingw' } | Select-Object -First 1
-          if (-not $deploy) { throw "windeployqt not found under $qtBin" }
+          # install-qt-action 会设 QT_ROOT_DIR（Qt 实际安装根）；不依赖未设置/无权限的 C:\Qt
+          $qtRoot = if ($env:QT_ROOT_DIR) { $env:QT_ROOT_DIR } else { $env:Qt6_DIR }
+          if (-not $qtRoot) { throw 'QT_ROOT_DIR/Qt6_DIR 未由 install-qt-action 设置' }
+          $deploy = Get-ChildItem (Join-Path $qtRoot 'bin') -Filter windeployqt.exe |
+            Select-Object -First 1
+          if (-not $deploy) { throw "windeployqt not found under $qtRoot\bin" }
           & $deploy.FullName --release --no-translations $rel
           # mpv/引擎 dll 一并入包（engine dlls 已由 CMake 拷入 Release）
           $mpv = Get-ChildItem "$env:MPV_DIR" -Recurse -Filter mpv-2.dll |
@@ -292,24 +292,24 @@ jobs:
           mkdir -p dist/tools
           curl -sL -o dist/tools/linuxdeploy-x86_64.AppImage             https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
           curl -sL -o dist/tools/appimagetool-x86_64.AppImage             https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
-          chmod +x dist/tools/linuxdeploy-x86_64.AppImage dist/tools/appimagetool-x86_64.AppImage
-          # 插件 AppImage 需 FUSE，CI 无 FUSE → 各自解包为可执行插件文件
-          for p in linuxdeploy-plugin-qt linuxdeploy-plugin-gtk; do
-            curl -sL -o "dist/tools/$p-x86_64.AppImage" \
-              "https://github.com/linuxdeploy/$p/releases/download/continuous/$p-x86_64.AppImage"
-            chmod +x "dist/tools/$p-x86_64.AppImage"
-            mkdir -p "dist/tools/extract-$p"
-            (cd "dist/tools/extract-$p" && "../$p-x86_64.AppImage" --appimage-extract >/dev/null 2>&1 || true)
-            cp "dist/tools/extract-$p/squashfs-root/AppRun" "dist/tools/$p" 2>/dev/null || true
-            chmod +x "dist/tools/$p" || true
-            rm -f "dist/tools/$p-x86_64.AppImage"
-          done
+          # linuxdeploy-plugin-qt 官方 continuous AppImage；linuxdeploy 会按文件名
+          # linuxdeploy-plugin-* 发现插件。CI 无 FUSE 时由 APPIMAGE_EXTRACT_AND_RUN 解包执行。
+          curl -sL -o dist/tools/linuxdeploy-plugin-qt \
+            "https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-x86_64.AppImage"
+          # 注意：linuxdeploy-plugin-gtk 上游已不再发布 AppImage（仅提供依赖 dev 包的
+          # bash 脚本，且 AppRun 解包法已被上游废弃），故 AppImage 不启用 gtk 插件；
+          # GTK/Qt 运行库仍会由 linuxdeploy 按可执行文件动态依赖自动收拢进 usr/lib。
+          chmod +x dist/tools/linuxdeploy-x86_64.AppImage dist/tools/appimagetool-x86_64.AppImage dist/tools/linuxdeploy-plugin-qt
+          ls -la dist/tools
       - name: Package AppImage
         env:
           LINUXDEPLOY: dist/tools/linuxdeploy-x86_64.AppImage
           APPIMAGETOOL: dist/tools/appimagetool-x86_64.AppImage
           LINUXDEPLOY_PLUGIN_PATH: dist/tools
+          APPIMAGE_EXTRACT_AND_RUN: '1'
         run: |
+          # qt 插件需 qmake 探测已安装的 Qt 模块（Ubuntu 的 qmake6 不在默认 PATH）
+          export PATH="/usr/lib/qt6/bin:/usr/bin:$PATH"
           # 脚本期望 bundle 在 flutter/build/linux/x64/release/bundle
           mkdir -p flutter/build/linux/x64/release
           rm -rf flutter/build/linux/x64/release/bundle
