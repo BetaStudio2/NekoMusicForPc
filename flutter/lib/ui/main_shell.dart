@@ -350,13 +350,22 @@ class _MainShellState extends State<MainShell>
   /// 背景个性化层（共享实现见 main.dart appBackdropLayers）
   List<Widget> _buildBackdrop() => appBackdropLayers();
 
+  void _openDaily() {
+    setState(() {
+      _page = 5;
+      AppUiState.instance
+        ..page = 5
+        ..searchInitial = null;
+    });
+  }
+
   Widget _buildPage() {
     if (_page == -1) {
       return SearchPage(initialQuery: _searchInitial);
     }
     switch (_page) {
       case 0:
-        return const _HomePage();
+        return _HomePage(onOpenDaily: _openDaily);
       case 1:
         return const FavoritesPage();
       case 2:
@@ -365,6 +374,17 @@ class _MainShellState extends State<MainShell>
         return const DownloadsPage();
       case 4:
         return const SettingsPage();
+      case 5:
+        return DailyMusicPage(
+          onBack: () {
+            setState(() {
+              _page = 0;
+              AppUiState.instance
+                ..page = 0
+                ..searchInitial = null;
+            });
+          },
+        );
       default:
         return const _HomePage();
     }
@@ -503,7 +523,9 @@ class _TitleBarState extends State<TitleBar> {
 
 /// 首页：每日推荐入口 + 推荐歌单网格 + 热门榜 + 最新音乐（对齐原版 HomePage）
 class _HomePage extends StatelessWidget {
-  const _HomePage();
+  const _HomePage({this.onOpenDaily});
+
+  final VoidCallback? onOpenDaily;
 
   @override
   Widget build(BuildContext context) {
@@ -529,7 +551,7 @@ class _HomePage extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             // 每日推荐入口（原版首页顶部入口卡片）
-            _DailyEntry(core: core),
+            _DailyEntry(core: core, onOpen: onOpenDaily),
             const SizedBox(height: 24),
             _sectionHeader(l10n, l10n.homeRecPlaylists, core.homePlaylists.length),
             const SizedBox(height: 8),
@@ -587,9 +609,10 @@ class _HomePage extends StatelessWidget {
 
 /// 每日推荐入口卡片：封面 + 「每日推荐」+ 描述，点击进入每日推荐列表页
 class _DailyEntry extends StatelessWidget {
-  const _DailyEntry({required this.core});
+  const _DailyEntry({required this.core, this.onOpen});
 
   final CoreController core;
+  final VoidCallback? onOpen;
 
   @override
   Widget build(BuildContext context) {
@@ -597,11 +620,12 @@ class _DailyEntry extends StatelessWidget {
     final coverMusicId = core.daily.isNotEmpty ? core.daily.first.id : 0;
     return InkWell(
       onTap: () {
-        showCenterDialog(
-          context,
-          page: CoreScope(controller: core, child: const DailyMusicPage()),
-          widthRatio: 0.9,
-          heightRatio: 0.9,
+        if (onOpen != null) {
+          onOpen!();
+          return;
+        }
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const DailyMusicPage()),
         );
       },
       borderRadius: BorderRadius.circular(14),

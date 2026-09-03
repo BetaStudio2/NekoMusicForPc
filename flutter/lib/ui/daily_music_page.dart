@@ -8,7 +8,10 @@ import 'widgets/song_tile.dart';
 
 /// 每日推荐列表页（由首页入口卡片 push 进入，对齐原版 Daily 音乐列表页）。
 class DailyMusicPage extends StatelessWidget {
-  const DailyMusicPage({super.key});
+  const DailyMusicPage({super.key, this.onBack});
+
+  /// 页内嵌入时由宿主返回上一页（null=路由模式自行 pop）
+  final VoidCallback? onBack;
 
   @override
   Widget build(BuildContext context) {
@@ -32,7 +35,13 @@ class DailyMusicPage extends StatelessWidget {
                       IconButton(
                         tooltip: l10n.back,
                         icon: const Icon(NekoIcons.ArrowBack),
-                        onPressed: () => Navigator.of(context).pop(),
+                        onPressed: () {
+                          if (onBack != null) {
+                            onBack!();
+                          } else {
+                            Navigator.of(context).pop();
+                          }
+                        },
                       ),
                       const SizedBox(width: 4),
                       Text(l10n.homeDailyTitle,
