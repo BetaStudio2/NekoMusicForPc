@@ -4,9 +4,9 @@ import 'app_localizations.dart';
 
 // ignore_for_file: type=lint
 
-/// The translations for Chinese (`zh`).
-class AppLocalizationsZh extends AppLocalizations {
-  AppLocalizationsZh([String locale = 'zh']) : super(locale);
+/// The translations for Japanese (`ja`).
+class AppLocalizationsJa extends AppLocalizations {
+  AppLocalizationsJa([String locale = 'ja']) : super(locale);
 
   @override
   String get appName => 'Neko歌姬计划';
@@ -15,10 +15,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsTitle => '设置';
 
   @override
-  String get settingsGeneral => '通用';
+  String get settingsGeneral => '通用喵';
 
   @override
-  String get settingsLanguage => '语言 / Language';
+  String get settingsLanguage => '交流语言喵~';
 
   @override
   String get settingsLanguageZh => '简体中文';
@@ -126,7 +126,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get engineErrorPrefix => '播放引擎异常：';
 
   @override
-  String get playerIdleTitle => '未在播放';
+  String get playerIdleTitle => '耳朵好寂寞喵，还没在唱歌呢...';
 
   @override
   String get playModeTooltip => '播放模式';
@@ -144,37 +144,37 @@ class AppLocalizationsZh extends AppLocalizations {
   String get playModeRandom => '随机播放';
 
   @override
-  String get prevTrack => '上一首';
+  String get prevTrack => '前一首的说~';
 
   @override
-  String get nextTrack => '下一首';
+  String get nextTrack => '下一首的说~';
 
   @override
-  String get navHome => '首页';
+  String get navHome => '温暖的家喵~';
 
   @override
-  String get navFavorites => '我喜欢的';
+  String get navFavorites => '最最最喜欢的喵！';
 
   @override
-  String get navRecents => '最近播放';
+  String get navRecents => '刚才路过的声音喵~';
 
   @override
-  String get navDownloads => '下载管理';
+  String get navDownloads => '下载小仓库喵~';
 
   @override
-  String get actionRefresh => '刷新';
+  String get actionRefresh => '让世界焕然一新喵~';
 
   @override
-  String get homeRecPlaylists => '推荐歌单';
+  String get homeRecPlaylists => '为您挑选的礼物喵~';
 
   @override
   String get homeEmptyPlaylists => '暂无推荐歌单';
 
   @override
-  String get homeHot => '热门音乐';
+  String get homeHot => '火热音乐喵~';
 
   @override
-  String get homeLatest => '最新音乐';
+  String get homeLatest => '新鲜出炉喵~';
 
   @override
   String homeCountSongs(Object count) {
@@ -182,10 +182,10 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get homeDailyTitle => '每日推荐';
+  String get homeDailyTitle => '今日推荐喵~';
 
   @override
-  String get homeDailySubtitle => '根据你的音乐口味 · 每日更新';
+  String get homeDailySubtitle => '按你的收藏口味挑出来的喵~';
 
   @override
   String get appLogoShort => 'Neko歌姬';
@@ -194,7 +194,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get appFooter => 'Neko歌姬计划';
 
   @override
-  String get localPlaylists => '本地歌单';
+  String get localPlaylists => '咱的私藏歌单喵~';
 
   @override
   String get emptyLocalPlaylists => '暂无本地歌单';
@@ -203,7 +203,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get newLocalPlaylist => '新建本地歌单';
 
   @override
-  String get myPlaylists => '我的歌单';
+  String get myPlaylists => '咱的私人领地喵~';
 
   @override
   String get emptyMyPlaylists => '暂无歌单，点下方创建';
@@ -227,22 +227,22 @@ class AppLocalizationsZh extends AppLocalizations {
   String get deviceSync => '设备同步';
 
   @override
-  String get rename => '重命名';
+  String get rename => '换个称呼喵~';
 
   @override
-  String get deletePlaylist => '删除歌单';
+  String get deletePlaylist => '悄悄丢掉喵~';
 
   @override
-  String get renamePlaylistTitle => '重命名歌单';
+  String get renamePlaylistTitle => '变身改名术喵！';
 
   @override
   String get inputName => '歌单名称';
 
   @override
-  String get cancel => '取消';
+  String get cancel => '才、才不要了喵~';
 
   @override
-  String get confirm => '确定';
+  String get confirm => '决定就是你啦喵！';
 
   @override
   String get create => '创建';
@@ -259,16 +259,16 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get close => '关闭';
+  String get close => '消失掉喵~';
 
   @override
-  String get back => '返回';
+  String get back => '退回刚才的地方喵~';
 
   @override
-  String get favorite => '收藏';
+  String get favorite => '心动收藏喵！';
 
   @override
-  String get download => '下载';
+  String get download => '下载喵';
 
   @override
   String get addToPlaylist => '加入歌单';
@@ -280,7 +280,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get noLyrics => '暂无歌词';
 
   @override
-  String get queueTitle => '播放队列';
+  String get queueTitle => '播放队列喵~';
 
   @override
   String get collapseQueue => '收起队列';
@@ -289,10 +289,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get clearQueue => '清空队列';
 
   @override
-  String get queueEmpty => '队列为空';
+  String get queueEmpty => '队列空空的，快去加歌喵~';
 
   @override
-  String get queueEmptyHint => '从列表中添加歌曲开始播放';
+  String get queueEmptyHint => '队列空空的，快去加歌喵~';
 
   @override
   String get playModeColon => '播放模式：';
@@ -329,7 +329,7 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get search => '搜索';
+  String get search => '搜寻宝藏喵~';
 
   @override
   String searchTotalSongs(Object total) {
@@ -346,7 +346,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get tabArtists => '歌手';
 
   @override
-  String get searchStartHint => '输入关键字开始搜索';
+  String get searchStartHint => '想听什么歌呢？跟人家说嘛喵~...';
 
   @override
   String get searchNoSongs => '未找到相关歌曲';
@@ -375,7 +375,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get dailyShuffleHint => '点击「换一批」获取每日推荐';
 
   @override
-  String get myFavorites => '我的收藏';
+  String get myFavorites => '我最喜欢的音乐喵~';
 
   @override
   String get loginHintFavorites => '登录后显示云端收藏';
@@ -384,7 +384,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get emptyFavorites => '暂无收藏';
 
   @override
-  String get emptyRecents => '暂无播放记录';
+  String get emptyRecents => '这里还没有留下过声音喵~';
 
   @override
   String downloadsActiveN(Object n) {
@@ -400,40 +400,40 @@ class AppLocalizationsZh extends AppLocalizations {
   String get cancelAllDownloads => '全部取消';
 
   @override
-  String get playAll => '播放全部';
+  String get playAll => '全员集合，开始合唱喵！';
 
   @override
-  String get noActiveDownloads => '没有进行中的下载';
+  String get noActiveDownloads => '现在没有在搬的歌喵~';
 
   @override
-  String get queuing => '排队中…';
+  String get queuing => '排队中喵';
 
   @override
-  String get cancelDownload => '取消下载';
+  String get cancelDownload => '取消下载喵';
 
   @override
-  String get emptyDownloads => '暂无已下载的音乐';
+  String get emptyDownloads => '还没有搬完的歌喵~ 去歌曲列表里点下载吧喵~';
 
   @override
-  String get play => '播放';
+  String get play => '让节奏响起来喵~';
 
   @override
   String get openContainingFolder => '打开所在文件夹';
 
   @override
-  String get login => '登录';
+  String get login => '指挥官，欢迎回来喵！';
 
   @override
-  String get register => '注册';
+  String get register => '加入 Neko 家族喵~';
 
   @override
   String get username => '用户名';
 
   @override
-  String get email => '邮箱';
+  String get email => '联络暗号(邮箱)喵~';
 
   @override
-  String get password => '密码';
+  String get password => '秘密护盾(密码)喵~';
 
   @override
   String get emailCode => '邮箱验证码';
@@ -541,7 +541,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get signedIn => '已登录';
 
   @override
-  String get signOut => '退出登录';
+  String get signOut => '要离开了喵？人家会想你的喵...';
 
   @override
   String get enterPlaylistId => '请输入歌单 ID';
@@ -717,10 +717,10 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get deleteAction => '删除';
+  String get deleteAction => '悄悄丢掉喵~';
 
   @override
-  String get playlistEmpty => '歌单暂无内容';
+  String get playlistEmpty => '播放列表空空的，快去加歌喵~';
 
   @override
   String get removeFromPlaylist => '从歌单移除';
@@ -731,10 +731,10 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get unfavoritePlaylist => '取消收藏歌单';
+  String get unfavoritePlaylist => '不喜欢收藏了喵...';
 
   @override
-  String get favoritePlaylist => '收藏歌单';
+  String get favoritePlaylist => '心动收藏喵！';
 
   @override
   String get artistNoSongs => '暂无该歌手歌曲';
@@ -757,7 +757,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get noPlaylistsCreateHint => '暂无歌单，可先新建';
 
   @override
-  String get downloadCancelled => '已取消下载';
+  String get downloadCancelled => '下载取消啦喵~';
 
   @override
   String downloadFailedN(Object msg) {
@@ -770,16 +770,16 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get downloadQueued => '已加入下载队列';
+  String get downloadQueued => '开始帮你搬歌啦喵~';
 
   @override
-  String get removeFavorite => '取消收藏';
+  String get removeFavorite => '不喜欢了喵...';
 
   @override
   String get more => '更多';
 
   @override
-  String get emptyData => '暂无数据';
+  String get emptyData => '空荡荡的，什么都没有喵... 呜喵...';
 
   @override
   String get localToCloudUnsupported => '本地音乐暂不支持添加到云端歌单';
@@ -791,5 +791,5 @@ class AppLocalizationsZh extends AppLocalizations {
   String get artistNotFound => '未找到该歌手';
 
   @override
-  String get settingsLanguageNya => '喵语中文';
+  String get settingsLanguageNya => '喵语中文喵';
 }

@@ -43,6 +43,8 @@ class SettingsPage extends StatelessWidget {
                         value: 'zh', child: Text(l10n.settingsLanguageZh)),
                     DropdownMenuItem(
                         value: 'en', child: Text(l10n.settingsLanguageEn)),
+                    DropdownMenuItem(
+                        value: 'ja', child: Text(l10n.settingsLanguageNya)),
                   ],
                   onChanged: (v) {
                     if (v != null) {

@@ -46,7 +46,7 @@ class ThemeController extends ChangeNotifier {
   bool _dark = true;
   bool get isDark => _dark;
 
-  // 界面语言：zh（简体中文）| en（English），由设置页切换
+  // 界面语言：zh（简体中文）| en（English）| ja 载体=喵语中文（Nya），由设置页切换
   String _language = 'zh';
   String get language => _language;
 

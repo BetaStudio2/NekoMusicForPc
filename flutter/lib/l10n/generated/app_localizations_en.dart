@@ -797,4 +797,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get artistNotFound => 'Artist not found';
+
+  @override
+  String get settingsLanguageNya => 'Meow Chinese';
 }

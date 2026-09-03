@@ -243,5 +243,6 @@
   "emptyData": "No data",
   "localToCloudUnsupported": "Local music can't be added to cloud playlists",
   "needLoginAdd": "Sign in to add to playlists",
-  "artistNotFound": "Artist not found"
+  "artistNotFound": "Artist not found",
+  "settingsLanguageNya": "Meow Chinese"
 }
