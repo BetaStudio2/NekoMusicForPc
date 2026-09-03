@@ -290,11 +290,16 @@ jobs:
           curl -sL -o dist/tools/linuxdeploy-x86_64.AppImage             https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
           curl -sL -o dist/tools/appimagetool-x86_64.AppImage             https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
           chmod +x dist/tools/linuxdeploy-x86_64.AppImage dist/tools/appimagetool-x86_64.AppImage
-          curl -sL -o dist/tools/linuxdeploy-plugin-qt-x86_64.AppImage \
-            https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-x86_64.AppImage
-          curl -sL -o dist/tools/linuxdeploy-plugin-gtk-x86_64.AppImage \
-            https://github.com/linuxdeploy/linuxdeploy-plugin-gtk/releases/download/continuous/linuxdeploy-plugin-gtk-x86_64.AppImage
-          chmod +x dist/tools/linuxdeploy-plugin-qt-x86_64.AppImage dist/tools/linuxdeploy-plugin-gtk-x86_64.AppImage
+          # 插件 AppImage 需 FUSE，CI 无 FUSE → 各自解包为可执行插件文件
+          for p in linuxdeploy-plugin-qt linuxdeploy-plugin-gtk; do
+            curl -sL -o "dist/tools/$p-x86_64.AppImage" \
+              "https://github.com/linuxdeploy/$p/releases/download/continuous/$p-x86_64.AppImage"
+            chmod +x "dist/tools/$p-x86_64.AppImage"
+            mkdir -p "dist/tools/extract-$p"
+            (cd "dist/tools/extract-$p" && "../$p-x86_64.AppImage" --appimage-extract >/dev/null 2>&1 || true)
+            cp "dist/tools/extract-$p/squashfs-root/AppRun" "dist/tools/$p" 2>/dev/null || true
+            chmod +x "dist/tools/$p" || true
+          done
       - name: Package AppImage
         env:
           LINUXDEPLOY: dist/tools/linuxdeploy-x86_64.AppImage
@@ -326,12 +331,16 @@ jobs:
           flatpak install --user --noninteractive flathub org.kde.Platform//6.7 org.kde.Sdk//6.7
       - uses: actions/download-artifact@v4
         with: { name: nekomusic-linux-portable, path: portable }
-      - name: Prepare bundle source
+      - name: Prepare bundle + share sources
         run: |
-          mkdir -p flatpak/bundle
+          mkdir -p flatpak/bundle flatpak/share/applications \
+                   flatpak/share/icons/hicolor/512x512/apps
           (cd portable && unzip -oq *.zip)
           cp -r portable/nekomusic/. flatpak/bundle/
           rm -f flatpak/bundle/README.txt
+          cp packaging/com.nekomusic.neko_music.desktop flatpak/share/applications/
+          cp packaging/icons/hicolor/512x512/apps/nekomusic.png \
+             flatpak/share/icons/hicolor/512x512/apps/
       - name: Build flatpak
         run: |
           flatpak-builder --user --force-clean --repo=repo build flatpak/com.nekomusic.neko_music.yml
@@ -361,9 +370,9 @@ jobs:
       # 仅 snapcraft 在容器内执行（宿主自带 docker）
       - name: Build snap (docker)
         run: |
-          docker run --rm -v "$PWD":/build -w /build \
+          docker run --rm -v "$PWD":/build -w /build/snap \
             snapcore/snapcraft:stable snapcraft snap \
-            --output nekomusic-1.0.1.snap
+            --output /build/nekomusic-1.0.1.snap
       - uses: actions/upload-artifact@v4
         with:
           name: nekomusic-linux-snap
