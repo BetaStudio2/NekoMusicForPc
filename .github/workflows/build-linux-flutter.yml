@@ -230,13 +230,14 @@ jobs:
             $crt = Get-ChildItem $redist -Recurse -Directory -Filter 'Microsoft.VC*.CRT' |
               Where-Object {
                 $_.FullName -match '\\x64\\' -and
+                $_.FullName -notmatch '\\onecore\\' -and
                 (Test-Path (Join-Path $_.FullName 'msvcp140.dll'))
               } |
               Select-Object -First 1
           }
           if ($crt) {
-            Copy-Item (Join-Path $crt.FullName 'x64\msvcp140.dll') $rel -Force
-            Copy-Item (Join-Path $crt.FullName 'x64\vcruntime140.dll') $rel -Force
+            Copy-Item (Join-Path $crt.FullName 'msvcp140.dll') $rel -Force
+            Copy-Item (Join-Path $crt.FullName 'vcruntime140.dll') $rel -Force
             Write-Host "copied VC runtime from $($crt.FullName)"
           } else {
             Write-Host 'warning: VC CRT redist not found (vswhere/fallback)'
