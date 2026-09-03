@@ -300,7 +300,11 @@ class NekoApp extends StatelessWidget {
       listenable: ThemeController.instance,
       builder: (context, _) {
         final dark = ThemeController.instance.isDark;
-        return MaterialApp(
+        return CoreScope(
+          controller: core,
+          child: EngineScope(
+            controller: engine,
+            child: MaterialApp(
           title: 'Neko歌姬计划',
           debugShowCheckedModeBanner: false,
           // dart 原生 l10n（gen_l10n）：语言随设置实时切换并持久化
@@ -311,6 +315,8 @@ class NekoApp extends StatelessWidget {
           theme: _buildTheme(Brightness.light),
           darkTheme: _buildTheme(Brightness.dark),
           home: MainShell(core: core, engine: engine),
+            ),
+          ),
         );
       },
     );
