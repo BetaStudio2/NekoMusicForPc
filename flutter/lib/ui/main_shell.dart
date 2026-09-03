@@ -13,7 +13,7 @@ import '../l10n/generated/app_localizations.dart';
 import 'list_pages.dart';
 import 'login_dialog.dart';
 import 'player_bar.dart';
-import 'widgets/queue_sheet.dart';
+import 'widgets/queue_panel_body.dart';
 import 'lan_panel.dart';
 import 'daily_music_page.dart';
 import 'search_page.dart';
@@ -75,6 +75,7 @@ class _MainShellState extends State<MainShell>
   /// 当前播放的在线 URL（断流重试用）与播放序号（用于丢弃过期的重试 Timer）
   Timer? _lanTimer;
   bool _lanVisible = false;
+  bool _queueOpen = false;
 
   late final AnimationController _lanAnim = AnimationController(
       vsync: this, duration: const Duration(milliseconds: 260));
@@ -95,17 +96,6 @@ class _MainShellState extends State<MainShell>
     if (!_lanVisible) return;
     setState(() => _lanVisible = false);
     _lanAnim.reverse();
-  }
-
-  /// 播放列表（队列）：BottomSheet 弹出（含「设备同步」子菜单）
-  void _openQueueSheet() {
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: kCardBg,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(14))),
-      builder: (_) => QueueSheet(onLan: _openLan),
-    );
   }
 
   /// 播放条快速队列面板（对齐 Qt PlaylistPanel）：展示当前队列 + 设备同步子菜单
@@ -266,9 +256,31 @@ class _MainShellState extends State<MainShell>
                       ],
                     ),
                   ),
+                  if (_queueOpen)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(8, 0, 8, 0),
+                      child: Container(
+                        height: 300,
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          color: kCardBg,
+                          borderRadius: const BorderRadius.vertical(
+                              top: Radius.circular(14)),
+                          border:
+                              Border(top: BorderSide(color: kDivider)),
+                        ),
+                        clipBehavior: Clip.antiAlias,
+                        child: QueuePanelBody(
+                          onClose: () =>
+                              setState(() => _queueOpen = false),
+                          onLan: _openLan,
+                        ),
+                      ),
+                    ),
                   PlayerBar(
                     // 非 const：主题切换时随 NekoApp 重建刷新配色
-                    onQueueToggle: _openQueueSheet,
+                    onQueueToggle: () =>
+                        setState(() => _queueOpen = !_queueOpen),
                   ),
                 ],
               ),
