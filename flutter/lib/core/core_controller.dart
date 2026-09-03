@@ -157,6 +157,7 @@ class CoreController extends ChangeNotifier {
 
   void _requestFavorites() {
     _post(_core.fetchFavorites, (r) {
+      if (!r.ok) debugPrint('[favorites] fail: ${r.message}');
       favorites = r.rows;
       favoriteIds = r.rows.map((m) => m.id).toSet();
       notifyListeners();
@@ -427,7 +428,9 @@ class CoreController extends ChangeNotifier {
           onDone}) async {
     try {
       final resp = await HttpClient()
-          .getUrl(Uri.parse('$_apiBase/api/captcha/slider'))
+          // 时间戳防缓存：部分服务端对无参 GET 命中缓存，导致每次验证码相同
+          .getUrl(Uri.parse(
+              '$_apiBase/api/captcha/slider?t=${DateTime.now().millisecondsSinceEpoch}'))
           .then((req) => req.close())
           .timeout(const Duration(seconds: 8));
       final body = await resp
@@ -495,6 +498,7 @@ class CoreController extends ChangeNotifier {
           onDone}) {
     _post(_core.vipPricing, (r) {
       if (!r.ok) {
+        debugPrint('[vipPricing] fail: ${r.message} (str=${r.str})');
         onDone?.call(false, const [], r.message);
         return;
       }
