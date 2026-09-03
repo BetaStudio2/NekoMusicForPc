@@ -6,6 +6,7 @@ import '../core/engine_controller.dart';
 import '../ffi/neko_core.dart';
 import '../ffi/neko_engine.dart';
 import 'player_detail_page.dart';
+import '../l10n/generated/app_localizations.dart';
 
 /// 底部播放栏（对齐原版 PlayerBar 的信息结构，布局约定对齐
 /// ArchoeraMusic player_bar）：
@@ -25,6 +26,7 @@ class PlayerBar extends StatefulWidget {
 
 class _PlayerBarState extends State<PlayerBar> {
   bool _volOpen = false;
+  AppLocalizations get _l10n => AppLocalizations.of(context);
 
   String _fmt(double s) {
     if (s.isNaN || s.isInfinite || s <= 0) return '00:00';
@@ -193,7 +195,7 @@ class _PlayerBarState extends State<PlayerBar> {
           children: [
             Flexible(
               child: Text(
-                music?.title ?? '未在播放',
+                music?.title ?? _l10n.playerIdleTitle,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style:
@@ -227,15 +229,15 @@ class _PlayerBarState extends State<PlayerBar> {
   /// 播放模式（顺序/循环/单曲/随机）按钮：位于左弹性栏末尾，不参与居中
   Widget _modeButton(CoreController core) {
     return PopupMenuButton<String>(
-      tooltip: '播放模式',
+      tooltip: _l10n.playModeTooltip,
       initialValue: core.playMode,
       icon: Icon(_modeIcon(core.playMode), size: 20, color: kTextSecondary),
       onSelected: core.setPlayMode,
-      itemBuilder: (context) => const [
-        PopupMenuItem(value: 'list', child: Text('顺序播放')),
-        PopupMenuItem(value: 'loop', child: Text('列表循环')),
-        PopupMenuItem(value: 'single', child: Text('单曲循环')),
-        PopupMenuItem(value: 'random', child: Text('随机播放')),
+      itemBuilder: (context) => [
+        PopupMenuItem(value: 'list', child: Text(_l10n.playModeList)),
+        PopupMenuItem(value: 'loop', child: Text(_l10n.playModeLoop)),
+        PopupMenuItem(value: 'single', child: Text(_l10n.playModeSingle)),
+        PopupMenuItem(value: 'random', child: Text(_l10n.playModeRandom)),
       ],
     );
   }
@@ -247,7 +249,7 @@ class _PlayerBarState extends State<PlayerBar> {
       mainAxisSize: MainAxisSize.min,
       children: [
         IconButton(
-          tooltip: '上一首',
+          tooltip: _l10n.prevTrack,
           iconSize: 20,
           icon: const Icon(Icons.skip_previous_rounded),
           color: kTextSecondary,
@@ -268,7 +270,7 @@ class _PlayerBarState extends State<PlayerBar> {
           },
         ),
         IconButton(
-          tooltip: '下一首',
+          tooltip: _l10n.nextTrack,
           iconSize: 20,
           icon: const Icon(Icons.skip_next_rounded),
           color: kTextSecondary,

@@ -1,7 +1,6 @@
 {
   "@@locale": "en",
   "appName": "Neko Project",
-
   "settingsTitle": "Settings",
   "settingsGeneral": "General",
   "settingsLanguage": "Language",
@@ -37,8 +36,15 @@
   "settingsCancel": "Cancel",
   "settingsApply": "Apply",
   "settingsFileNotFound": "File not found",
-
   "searchHint": "Search music / playlists / artists",
   "settingsTooltip": "Settings",
-  "engineErrorPrefix": "Playback engine error: "
+  "engineErrorPrefix": "Playback engine error: ",
+  "playerIdleTitle": "Not playing",
+  "playModeTooltip": "Play mode",
+  "playModeList": "In order",
+  "playModeLoop": "Repeat list",
+  "playModeSingle": "Repeat one",
+  "playModeRandom": "Shuffle",
+  "prevTrack": "Previous",
+  "nextTrack": "Next"
 }

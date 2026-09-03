@@ -1,7 +1,6 @@
 {
   "@@locale": "zh",
   "appName": "Neko歌姬计划",
-
   "settingsTitle": "设置",
   "settingsGeneral": "通用",
   "settingsLanguage": "语言 / Language",
@@ -37,8 +36,15 @@
   "settingsCancel": "取消",
   "settingsApply": "应用",
   "settingsFileNotFound": "文件不存在",
-
   "searchHint": "搜索音乐 / 歌单 / 歌手",
   "settingsTooltip": "设置",
-  "engineErrorPrefix": "播放引擎异常："
+  "engineErrorPrefix": "播放引擎异常：",
+  "playerIdleTitle": "未在播放",
+  "playModeTooltip": "播放模式",
+  "playModeList": "顺序播放",
+  "playModeLoop": "列表循环",
+  "playModeSingle": "单曲循环",
+  "playModeRandom": "随机播放",
+  "prevTrack": "上一首",
+  "nextTrack": "下一首"
 }

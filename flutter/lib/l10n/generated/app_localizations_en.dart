@@ -128,4 +128,28 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get engineErrorPrefix => 'Playback engine error: ';
+
+  @override
+  String get playerIdleTitle => 'Not playing';
+
+  @override
+  String get playModeTooltip => 'Play mode';
+
+  @override
+  String get playModeList => 'In order';
+
+  @override
+  String get playModeLoop => 'Repeat list';
+
+  @override
+  String get playModeSingle => 'Repeat one';
+
+  @override
+  String get playModeRandom => 'Shuffle';
+
+  @override
+  String get prevTrack => 'Previous';
+
+  @override
+  String get nextTrack => 'Next';
 }

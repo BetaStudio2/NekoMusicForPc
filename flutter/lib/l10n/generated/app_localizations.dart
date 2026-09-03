@@ -331,6 +331,54 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'播放引擎异常：'**
   String get engineErrorPrefix;
+
+  /// No description provided for @playerIdleTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'未在播放'**
+  String get playerIdleTitle;
+
+  /// No description provided for @playModeTooltip.
+  ///
+  /// In zh, this message translates to:
+  /// **'播放模式'**
+  String get playModeTooltip;
+
+  /// No description provided for @playModeList.
+  ///
+  /// In zh, this message translates to:
+  /// **'顺序播放'**
+  String get playModeList;
+
+  /// No description provided for @playModeLoop.
+  ///
+  /// In zh, this message translates to:
+  /// **'列表循环'**
+  String get playModeLoop;
+
+  /// No description provided for @playModeSingle.
+  ///
+  /// In zh, this message translates to:
+  /// **'单曲循环'**
+  String get playModeSingle;
+
+  /// No description provided for @playModeRandom.
+  ///
+  /// In zh, this message translates to:
+  /// **'随机播放'**
+  String get playModeRandom;
+
+  /// No description provided for @prevTrack.
+  ///
+  /// In zh, this message translates to:
+  /// **'上一首'**
+  String get prevTrack;
+
+  /// No description provided for @nextTrack.
+  ///
+  /// In zh, this message translates to:
+  /// **'下一首'**
+  String get nextTrack;
 }
 
 class _AppLocalizationsDelegate

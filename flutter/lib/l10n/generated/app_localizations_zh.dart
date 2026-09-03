@@ -124,4 +124,28 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get engineErrorPrefix => '播放引擎异常：';
+
+  @override
+  String get playerIdleTitle => '未在播放';
+
+  @override
+  String get playModeTooltip => '播放模式';
+
+  @override
+  String get playModeList => '顺序播放';
+
+  @override
+  String get playModeLoop => '列表循环';
+
+  @override
+  String get playModeSingle => '单曲循环';
+
+  @override
+  String get playModeRandom => '随机播放';
+
+  @override
+  String get prevTrack => '上一首';
+
+  @override
+  String get nextTrack => '下一首';
 }
