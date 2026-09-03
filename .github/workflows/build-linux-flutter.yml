@@ -179,7 +179,9 @@ jobs:
           # 主 exe 是 Flutter runner（非 Qt）；Qt 依赖来自 neko_core.dll（核心桥）
           $qtDll = Get-ChildItem $rel -Filter neko_core.dll | Select-Object -First 1
           if (-not $qtDll) { throw 'neko_core.dll not found in Release (Qt 核心桥缺失)' }
-          & $deploy.FullName --release --no-translations $qtDll.FullName
+          # --compiler-runtime：连带打包 MSVC 运行库（msvcp140/vcruntime140），
+          # 避免干净 Windows 上 zip/setup 因缺 VC 运行库无法启动
+          & $deploy.FullName --release --no-translations --compiler-runtime $qtDll.FullName
           if ($LASTEXITCODE -ne 0) { throw "windeployqt failed: $LASTEXITCODE" }
           # mpv dll（搜索解压根，MPV_DIR 可能指向 include）
           $mpv = Get-ChildItem "$env:RUNNER_TEMP\mpv" -Recurse -Filter mpv-2.dll |
