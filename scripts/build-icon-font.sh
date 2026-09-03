@@ -76,4 +76,25 @@ open(sys.argv[2], 'w').write('\n'.join(lines) + '\n')
 print(f"dart regenerated: {len(m)} icons")
 PYEOF
 
+# 完整性守卫：码点唯一 + json 与 dart 常量一一对应，防静默丢字形
+python3 - "$WORK/out/neko_icons.json" "$FLUTTER/lib/ui/neko_icons.dart" <<'PYEOF'
+import json, re, sys
+m = json.load(open(sys.argv[1]))
+src = open(sys.argv[2], encoding='utf-8').read()
+consts = dict(re.findall(r'IconData (\w+) = IconData\((0x[0-9A-Fa-f]+),', src))
+by_cp = {}
+for k, cp in m.items():
+    if cp in by_cp:
+        raise SystemExit(f'dup codepoint {cp:#x}: {by_cp[cp]} / {k}')
+    by_cp[cp] = k
+if len(consts) != len(m):
+    raise SystemExit(f'mismatch dart={len(consts)} json={len(m)}')
+# 每个 json 名对应一个 dart 常量（kebab -> Pascal）
+expect = {''.join(p[:1].upper() + p[1:] for p in k.split('-')) for k in m}
+diff = set(consts) ^ expect
+if diff:
+    raise SystemExit(f'name mismatch: {sorted(diff)[:10]}')
+print(f'guard ok: {len(m)} unique glyphs == dart consts')
+PYEOF
+
 echo "== done: $FLUTTER/assets/fonts/neko_icons.ttf (+ $FLUTTER/lib/ui/neko_icons.dart)"

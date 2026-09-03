@@ -1579,7 +1579,7 @@ abstract class AppLocalizations {
   /// No description provided for @settingsBrandGlyphHint.
   ///
   /// In zh, this message translates to:
-  /// **'固定品牌色，随主题不变（默认开）'**
+  /// **'固定品牌色，随主题不变（默认关）'**
   String get settingsBrandGlyphHint;
 }
 

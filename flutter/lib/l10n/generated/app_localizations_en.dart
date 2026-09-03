@@ -806,5 +806,5 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsBrandGlyphHint =>
-      'Fixed brand color, independent of theme (on by default)';
+      'Fixed brand color, independent of theme (off by default)';
 }
