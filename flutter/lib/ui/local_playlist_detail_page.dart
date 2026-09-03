@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../main.dart';
 import '../core/core_controller.dart';
+import '../l10n/generated/app_localizations.dart';
 import '../ffi/neko_core.dart';
 import 'widgets/song_context_menu.dart';
 import 'widgets/song_tile.dart';
@@ -25,6 +26,7 @@ class LocalPlaylistDetailPage extends StatefulWidget {
 }
 
 class _LocalPlaylistDetailPageState extends State<LocalPlaylistDetailPage> {
+  AppLocalizations get _l10n => AppLocalizations.of(context);
   List<NekoCoreMusic> _songs = [];
   bool _loading = true;
 
@@ -50,8 +52,8 @@ class _LocalPlaylistDetailPageState extends State<LocalPlaylistDetailPage> {
     widget.core.removeFromPlaylist(widget.playlist.localId, music, onDone: (ok) {
       if (!mounted) return;
       if (!ok) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('移除失败'), duration: Duration(seconds: 2)));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(_l10n.removeFailed), duration: const Duration(seconds: 2)));
         return;
       }
       _load();
@@ -65,21 +67,21 @@ class _LocalPlaylistDetailPageState extends State<LocalPlaylistDetailPage> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: kBgSurface,
-        title: const Text('重命名歌单'),
+        title: Text(_l10n.renamePlaylistTitle),
         content: TextField(
           controller: ctrl,
           autofocus: true,
-          decoration: const InputDecoration(labelText: '歌单名称'),
+          decoration: InputDecoration(labelText: _l10n.inputName),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('取消'),
+            child: Text(_l10n.cancel),
           ),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: kPrimary),
             onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
-            child: const Text('确定'),
+            child: Text(_l10n.confirm),
           ),
         ],
       ),
@@ -95,17 +97,17 @@ class _LocalPlaylistDetailPageState extends State<LocalPlaylistDetailPage> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: kBgSurface,
-        title: const Text('删除歌单'),
-        content: Text('确定删除歌单「${widget.playlist.name}」吗？此操作不可恢复。'),
+        title: Text(_l10n.deletePlaylist),
+        content: Text(_l10n.deletePlaylistConfirm(widget.playlist.name)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('取消'),
+            child: Text(_l10n.cancel),
           ),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: kPrimary),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('删除'),
+            child: Text(_l10n.deleteAction),
           ),
         ],
       ),
@@ -131,7 +133,7 @@ class _LocalPlaylistDetailPageState extends State<LocalPlaylistDetailPage> {
               child: Row(
                 children: [
                   IconButton(
-                    tooltip: '返回',
+                    tooltip: _l10n.back,
                     icon: const Icon(Icons.arrow_back),
                     onPressed: () => Navigator.of(context).pop(),
                   ),
@@ -146,13 +148,13 @@ class _LocalPlaylistDetailPageState extends State<LocalPlaylistDetailPage> {
                     ),
                   ),
                   IconButton(
-                    tooltip: '重命名',
+                    tooltip: _l10n.rename,
                     icon: const Icon(Icons.edit_outlined, size: 20),
                     color: kTextSecondary,
                     onPressed: _rename,
                   ),
                   IconButton(
-                    tooltip: '删除歌单',
+                    tooltip: _l10n.deletePlaylist,
                     icon: const Icon(Icons.delete_outline, size: 20),
                     color: kTextSecondary,
                     onPressed: _delete,
@@ -179,7 +181,7 @@ class _LocalPlaylistDetailPageState extends State<LocalPlaylistDetailPage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          '${_songs.length} 首歌曲',
+                          _l10n.songsCountFull(_songs.length),
                           style: TextStyle(
                               fontSize: 13, color: kTextSecondary),
                         ),
@@ -201,7 +203,7 @@ class _LocalPlaylistDetailPageState extends State<LocalPlaylistDetailPage> {
                         ? null
                         : () => core.playAll(_songs),
                     icon: const Icon(Icons.play_arrow, size: 18),
-                    label: const Text('播放全部'),
+                    label: Text(_l10n.playAll),
                     style: FilledButton.styleFrom(backgroundColor: kPrimary),
                   ),
                 ],
@@ -219,7 +221,7 @@ class _LocalPlaylistDetailPageState extends State<LocalPlaylistDetailPage> {
                           Padding(
                             padding: const EdgeInsets.symmetric(vertical: 48),
                             child: Center(
-                              child: Text('歌单暂无内容',
+                              child: Text(_l10n.playlistEmpty,
                                   style: TextStyle(color: kTextMuted)),
                             ),
                           )
@@ -240,7 +242,7 @@ class _LocalPlaylistDetailPageState extends State<LocalPlaylistDetailPage> {
                                     menuExtra: [
                                       (
                                         icon: Icons.remove_circle_outline,
-                                        label: '从歌单移除',
+                                        label: _l10n.removeFromPlaylist,
                                         action: () => _removeSong(_songs[i]),
                                       ),
                                     ],

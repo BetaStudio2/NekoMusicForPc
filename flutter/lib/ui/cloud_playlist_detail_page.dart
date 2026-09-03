@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../main.dart';
 import '../core/core_controller.dart';
+import '../l10n/generated/app_localizations.dart';
 import '../ffi/neko_core.dart';
 import 'widgets/song_tile.dart';
 
@@ -22,6 +23,7 @@ class CloudPlaylistDetailPage extends StatefulWidget {
 }
 
 class _CloudPlaylistDetailPageState extends State<CloudPlaylistDetailPage> {
+  AppLocalizations get _l10n => AppLocalizations.of(context);
   List<NekoCoreMusic> _songs = [];
   bool _loading = true;
 
@@ -58,7 +60,7 @@ class _CloudPlaylistDetailPageState extends State<CloudPlaylistDetailPage> {
               child: Row(
                 children: [
                   IconButton(
-                    tooltip: '返回',
+                    tooltip: _l10n.back,
                     icon: const Icon(Icons.arrow_back),
                     onPressed: () => Navigator.of(context).pop(),
                   ),
@@ -75,7 +77,7 @@ class _CloudPlaylistDetailPageState extends State<CloudPlaylistDetailPage> {
                   ListenableBuilder(
                     listenable: core,
                     builder: (context, _) => IconButton(
-                      tooltip: favorited ? '取消收藏歌单' : '收藏歌单',
+                      tooltip: favorited ? _l10n.unfavoritePlaylist : _l10n.favoritePlaylist,
                       icon: Icon(
                         favorited ? Icons.favorite : Icons.favorite_border,
                         size: 20,
@@ -98,7 +100,7 @@ class _CloudPlaylistDetailPageState extends State<CloudPlaylistDetailPage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          '${_songs.length} 首歌曲',
+                          _l10n.songsCountFull(_songs.length),
                           style: TextStyle(
                               fontSize: 13, color: kTextSecondary),
                         ),
@@ -120,7 +122,7 @@ class _CloudPlaylistDetailPageState extends State<CloudPlaylistDetailPage> {
                         ? null
                         : () => core.playAll(_songs),
                     icon: const Icon(Icons.play_arrow, size: 18),
-                    label: const Text('播放全部'),
+                    label: Text(_l10n.playAll),
                     style: FilledButton.styleFrom(backgroundColor: kPrimary),
                   ),
                 ],
@@ -138,7 +140,7 @@ class _CloudPlaylistDetailPageState extends State<CloudPlaylistDetailPage> {
                           Padding(
                             padding: const EdgeInsets.symmetric(vertical: 48),
                             child: Center(
-                              child: Text('歌单暂无内容',
+                              child: Text(_l10n.playlistEmpty,
                                   style: TextStyle(color: kTextMuted)),
                             ),
                           )

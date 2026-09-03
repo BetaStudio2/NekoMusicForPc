@@ -1417,6 +1417,90 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'扫码支付（{method}）'**
   String scanPayN(Object method);
+
+  /// No description provided for @removeFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'移除失败'**
+  String get removeFailed;
+
+  /// No description provided for @deletePlaylistConfirm.
+  ///
+  /// In zh, this message translates to:
+  /// **'确定删除歌单「{name}」吗？此操作不可恢复。'**
+  String deletePlaylistConfirm(Object name);
+
+  /// No description provided for @deleteAction.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除'**
+  String get deleteAction;
+
+  /// No description provided for @playlistEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'歌单暂无内容'**
+  String get playlistEmpty;
+
+  /// No description provided for @removeFromPlaylist.
+  ///
+  /// In zh, this message translates to:
+  /// **'从歌单移除'**
+  String get removeFromPlaylist;
+
+  /// No description provided for @songsCountFull.
+  ///
+  /// In zh, this message translates to:
+  /// **'{n} 首歌曲'**
+  String songsCountFull(Object n);
+
+  /// No description provided for @unfavoritePlaylist.
+  ///
+  /// In zh, this message translates to:
+  /// **'取消收藏歌单'**
+  String get unfavoritePlaylist;
+
+  /// No description provided for @favoritePlaylist.
+  ///
+  /// In zh, this message translates to:
+  /// **'收藏歌单'**
+  String get favoritePlaylist;
+
+  /// No description provided for @artistNoSongs.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无该歌手歌曲'**
+  String get artistNoSongs;
+
+  /// No description provided for @addedToN.
+  ///
+  /// In zh, this message translates to:
+  /// **'已添加到「{name}」'**
+  String addedToN(Object name);
+
+  /// No description provided for @addFailedDupe.
+  ///
+  /// In zh, this message translates to:
+  /// **'添加失败（歌曲可能已在歌单中）'**
+  String get addFailedDupe;
+
+  /// No description provided for @enterPlaylistName.
+  ///
+  /// In zh, this message translates to:
+  /// **'请输入歌单名称'**
+  String get enterPlaylistName;
+
+  /// No description provided for @createAndAdd.
+  ///
+  /// In zh, this message translates to:
+  /// **'新建并添加'**
+  String get createAndAdd;
+
+  /// No description provided for @noPlaylistsCreateHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无歌单，可先新建'**
+  String get noPlaylistsCreateHint;
 }
 
 class _AppLocalizationsDelegate

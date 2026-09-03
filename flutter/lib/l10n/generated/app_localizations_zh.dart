@@ -707,4 +707,52 @@ class AppLocalizationsZh extends AppLocalizations {
   String scanPayN(Object method) {
     return '扫码支付（$method）';
   }
+
+  @override
+  String get removeFailed => '移除失败';
+
+  @override
+  String deletePlaylistConfirm(Object name) {
+    return '确定删除歌单「$name」吗？此操作不可恢复。';
+  }
+
+  @override
+  String get deleteAction => '删除';
+
+  @override
+  String get playlistEmpty => '歌单暂无内容';
+
+  @override
+  String get removeFromPlaylist => '从歌单移除';
+
+  @override
+  String songsCountFull(Object n) {
+    return '$n 首歌曲';
+  }
+
+  @override
+  String get unfavoritePlaylist => '取消收藏歌单';
+
+  @override
+  String get favoritePlaylist => '收藏歌单';
+
+  @override
+  String get artistNoSongs => '暂无该歌手歌曲';
+
+  @override
+  String addedToN(Object name) {
+    return '已添加到「$name」';
+  }
+
+  @override
+  String get addFailedDupe => '添加失败（歌曲可能已在歌单中）';
+
+  @override
+  String get enterPlaylistName => '请输入歌单名称';
+
+  @override
+  String get createAndAdd => '新建并添加';
+
+  @override
+  String get noPlaylistsCreateHint => '暂无歌单，可先新建';
 }

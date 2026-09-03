@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../main.dart';
 import '../core/core_controller.dart';
+import '../l10n/generated/app_localizations.dart';
 import '../ffi/neko_core.dart';
 import 'widgets/song_tile.dart';
 
@@ -18,6 +19,7 @@ class ArtistDetailPage extends StatefulWidget {
 }
 
 class _ArtistDetailPageState extends State<ArtistDetailPage> {
+  AppLocalizations get _l10n => AppLocalizations.of(context);
   late List<NekoCoreMusic> _songs;
 
   @override
@@ -53,7 +55,7 @@ class _ArtistDetailPageState extends State<ArtistDetailPage> {
 
   @override
   Widget build(BuildContext context) {
-    final name = '${widget.artist['name'] ?? '未知歌手'}';
+    final name = '${widget.artist['name'] ?? _l10n.unknownArtist}';
     return Scaffold(
       backgroundColor: kBgDeep,
       body: SafeArea(
@@ -65,7 +67,7 @@ class _ArtistDetailPageState extends State<ArtistDetailPage> {
               child: Row(
                 children: [
                   IconButton(
-                    tooltip: '返回',
+                    tooltip: _l10n.back,
                     icon: const Icon(Icons.arrow_back),
                     onPressed: () => Navigator.of(context).pop(),
                   ),
@@ -104,7 +106,7 @@ class _ArtistDetailPageState extends State<ArtistDetailPage> {
                             style: const TextStyle(
                                 fontSize: 20, fontWeight: FontWeight.bold)),
                         const SizedBox(height: 4),
-                        Text('${_songs.length} 首歌曲',
+                        Text(_l10n.songsCountFull(_songs.length),
                             style: TextStyle(
                                 fontSize: 13, color: kTextSecondary)),
                       ],
@@ -114,7 +116,7 @@ class _ArtistDetailPageState extends State<ArtistDetailPage> {
                     onPressed:
                         _songs.isEmpty ? null : () => widget.core.playAll(_songs),
                     icon: const Icon(Icons.play_arrow, size: 18),
-                    label: const Text('播放全部'),
+                    label: Text(_l10n.playAll),
                     style: FilledButton.styleFrom(backgroundColor: kPrimary),
                   ),
                 ],
@@ -124,7 +126,7 @@ class _ArtistDetailPageState extends State<ArtistDetailPage> {
             Expanded(
               child: _songs.isEmpty
                   ? Center(
-                      child: Text('暂无该歌手歌曲',
+                      child: Text(_l10n.artistNoSongs,
                           style: TextStyle(color: kTextMuted)))
                   : ListView(
                       padding: const EdgeInsets.all(16),

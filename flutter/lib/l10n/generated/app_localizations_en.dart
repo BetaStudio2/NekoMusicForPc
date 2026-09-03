@@ -713,4 +713,53 @@ class AppLocalizationsEn extends AppLocalizations {
   String scanPayN(Object method) {
     return 'Scan to pay ($method)';
   }
+
+  @override
+  String get removeFailed => 'Remove failed';
+
+  @override
+  String deletePlaylistConfirm(Object name) {
+    return 'Delete playlist \"$name\"? This cannot be undone.';
+  }
+
+  @override
+  String get deleteAction => 'Delete';
+
+  @override
+  String get playlistEmpty => 'This playlist is empty';
+
+  @override
+  String get removeFromPlaylist => 'Remove from playlist';
+
+  @override
+  String songsCountFull(Object n) {
+    return '$n songs';
+  }
+
+  @override
+  String get unfavoritePlaylist => 'Unfavorite playlist';
+
+  @override
+  String get favoritePlaylist => 'Favorite playlist';
+
+  @override
+  String get artistNoSongs => 'No songs by this artist yet';
+
+  @override
+  String addedToN(Object name) {
+    return 'Added to \"$name\"';
+  }
+
+  @override
+  String get addFailedDupe =>
+      'Add failed (song may already be in the playlist)';
+
+  @override
+  String get enterPlaylistName => 'Enter a playlist name';
+
+  @override
+  String get createAndAdd => 'Create & add';
+
+  @override
+  String get noPlaylistsCreateHint => 'No playlists — create one first';
 }

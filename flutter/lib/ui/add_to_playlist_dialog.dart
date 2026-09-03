@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../main.dart';
 import '../core/core_controller.dart';
+import '../l10n/generated/app_localizations.dart';
 import '../ffi/neko_core.dart';
 
 /// 「添加到歌单」对话框（对齐原版 AddToPlaylistDialog）：
@@ -17,6 +18,7 @@ class AddToPlaylistDialog extends StatefulWidget {
 }
 
 class _AddToPlaylistDialogState extends State<AddToPlaylistDialog> {
+  AppLocalizations get _l10n => AppLocalizations.of(context);
   final TextEditingController _newNameCtrl = TextEditingController();
 
   @override
@@ -31,10 +33,10 @@ class _AddToPlaylistDialogState extends State<AddToPlaylistDialog> {
       if (!mounted) return;
       final added = (result?['addedCount'] as num?)?.toInt() ?? 0;
       final msg = error != null
-          ? '添加失败：$error'
+          ? _l10n.addFailed(error)
           : added > 0
-              ? '已添加到「$name」'
-              : '添加失败（歌曲可能已在歌单中）';
+              ? _l10n.addedToN(name)
+              : _l10n.addFailedDupe;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text(msg),
         duration: const Duration(seconds: 2),
@@ -45,8 +47,8 @@ class _AddToPlaylistDialogState extends State<AddToPlaylistDialog> {
   Future<void> _createAndAdd() async {
     final name = _newNameCtrl.text.trim();
     if (name.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('请输入歌单名称'),
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(_l10n.enterPlaylistName),
         duration: Duration(seconds: 2),
       ));
       return;
@@ -54,8 +56,8 @@ class _AddToPlaylistDialogState extends State<AddToPlaylistDialog> {
     widget.core.createCloudPlaylist(name, onDone: (id) {
       if (!mounted) return;
       if (id == null) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('创建歌单失败'),
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(_l10n.createPlaylistFailed),
           duration: Duration(seconds: 2),
         ));
         return;
@@ -68,7 +70,7 @@ class _AddToPlaylistDialogState extends State<AddToPlaylistDialog> {
   Widget build(BuildContext context) {
     return AlertDialog(
       backgroundColor: kBgSurface,
-      title: const Text('添加到歌单'),
+      title: Text(_l10n.addToPlaylist),
       content: SizedBox(
         width: 320,
         child: SingleChildScrollView(
@@ -81,8 +83,8 @@ class _AddToPlaylistDialogState extends State<AddToPlaylistDialog> {
                   Expanded(
                     child: TextField(
                       controller: _newNameCtrl,
-                      decoration: const InputDecoration(
-                          labelText: '新建歌单名称', isDense: true),
+                      decoration: InputDecoration(
+                          labelText: _l10n.newPlaylistName, isDense: true),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -90,7 +92,7 @@ class _AddToPlaylistDialogState extends State<AddToPlaylistDialog> {
                     style: FilledButton.styleFrom(backgroundColor: kPrimary),
                     onPressed: _createAndAdd,
                     icon: const Icon(Icons.add, size: 16),
-                    label: const Text('新建并添加'),
+                    label: Text(_l10n.createAndAdd),
                   ),
                 ],
               ),
@@ -98,7 +100,7 @@ class _AddToPlaylistDialogState extends State<AddToPlaylistDialog> {
               if (widget.core.myPlaylists.isEmpty)
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 24),
-                  child: Text('暂无歌单，可先新建',
+                  child: Text(_l10n.noPlaylistsCreateHint,
                       style: TextStyle(color: kTextMuted)),
                 )
               else
@@ -123,7 +125,7 @@ class _AddToPlaylistDialogState extends State<AddToPlaylistDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('取消'),
+          child: Text(_l10n.cancel),
         ),
       ],
     );
