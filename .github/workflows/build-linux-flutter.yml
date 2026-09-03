@@ -124,6 +124,21 @@ jobs:
           fi
           # Apple Silicon：对 app 内全部二进制 ad-hoc 签名，否则 unsigned dylib 拒绝加载
           codesign --force --deep --sign - "$APP_DIR"
+      - name: Verify macOS runtime deps & signature
+        run: |
+          APP_DIR=$(ls -d flutter/build/macos/Build/Products/Release/*.app | head -1)
+          FW="$APP_DIR/Contents/Frameworks"
+          fail=0
+          for f in libneko_engine.dylib libneko_core.dylib; do
+            if [[ ! -f "$FW/$f" ]]; then echo "missing Frameworks/$f"; fail=1; fi
+          done
+          ls "$FW" | grep -qi '^QtCore.framework' || { echo 'QtCore.framework missing'; fail=1; }
+          ls "$FW" | grep -qi '^libmpv' || { echo 'libmpv missing'; fail=1; }
+          ls "$APP_DIR/Contents/PlugIns/sqldrivers"/*  >/dev/null 2>&1 || { echo 'sqldrivers plugin missing'; fail=1; }
+          ls "$APP_DIR/Contents/PlugIns/imageformats"/* >/dev/null 2>&1 || { echo 'imageformats plugin missing'; fail=1; }
+          codesign -dv "$APP_DIR" >/dev/null 2>&1 || { echo 'ad-hoc signature invalid'; fail=1; }
+          [[ $fail -eq 0 ]] || { echo 'macOS runtime deps check FAILED'; exit 1; }
+          echo 'macOS runtime deps OK'
       - name: Package .app (zip)
         run: |
           APP_DIR=$(ls -d flutter/build/macos/Build/Products/Release/*.app | head -1)
@@ -201,6 +216,33 @@ jobs:
           $mpv = Get-ChildItem "$env:RUNNER_TEMP\mpv" -Recurse -Filter mpv-2.dll |
             Select-Object -First 1
           if ($mpv) { Copy-Item $mpv.FullName "$rel\mpv-2.dll" -Force }
+      - name: Verify Windows runtime deps
+        shell: pwsh
+        run: |
+          $rel = "flutter\build\windows\x64\runner\Release"
+          $required = @('neko_core.dll','neko_engine.dll','Qt6Core.dll',
+                        'Qt6Network.dll','Qt6Sql.dll','mpv-2.dll',
+                        'msvcp140.dll','vcruntime140.dll')
+          $missing = @()
+          foreach ($n in $required) {
+            if (-not (Test-Path (Join-Path $rel $n))) { $missing += $n }
+          }
+          foreach ($p in @('platforms\qwindows.dll','sqldrivers\qsqlite.dll')) {
+            if (-not (Test-Path (Join-Path $rel $p))) { $missing += $p }
+          }
+          if ($missing.Count -gt 0) {
+            throw 'Missing Windows runtime deps: ' + ($missing -join ', ')
+          }
+          Write-Host "Windows runtime deps OK"
+      - name: Smoke run (Windows)
+        shell: pwsh
+        run: |
+          $exe = Join-Path $env:GITHUB_WORKSPACE 'flutter\build\windows\x64\runner\Release\neko_music.exe'
+          $p = Start-Process -FilePath $exe -PassThru
+          Start-Sleep -Seconds 8
+          if ($p.HasExited) { throw "app exited during smoke (code $($p.ExitCode))" }
+          Stop-Process -Id $p.Id -Force
+          Write-Host 'Windows smoke OK'
       - name: Install NSIS
         run: choco install nsis -y --no-progress
       - name: Build installer (NSIS)
