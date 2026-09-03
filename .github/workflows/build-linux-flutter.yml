@@ -200,14 +200,17 @@ jobs:
           $mpv = Get-ChildItem "$env:RUNNER_TEMP\mpv" -Recurse -Filter mpv-2.dll |
             Select-Object -First 1
           if ($mpv) { Copy-Item $mpv.FullName "$rel\mpv-2.dll" -Force }
-          $zip = "$GITHUB_WORKSPACE\nekomusic-1.0.1-windows-x64.zip"
+          $outDir = Join-Path $GITHUB_WORKSPACE "portable"
+          New-Item -ItemType Directory -Force -Path $outDir | Out-Null
+          $zip = Join-Path $outDir "nekomusic-1.0.1-windows-x64.zip"
           if (Test-Path $zip) { Remove-Item $zip }
           Compress-Archive -Path "$rel\*" -DestinationPath $zip -Force
           if (-not (Test-Path $zip)) { throw 'portable zip was not created' }
+          Write-Host "portable zip: $zip ($((Get-Item $zip).Length) bytes)"
       - uses: actions/upload-artifact@v4
         with:
           name: nekomusic-windows-portable
-          path: nekomusic-1.0.1-windows-x64.zip
+          path: portable/*.zip
           if-no-files-found: error
       - uses: actions/upload-artifact@v4
         with:
