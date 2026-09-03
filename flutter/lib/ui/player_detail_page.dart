@@ -55,15 +55,20 @@ class _PlayerDetailPageState extends State<PlayerDetailPage>
   late final Animation<double> _queueBarrier =
       Tween<double>(begin: 0, end: 0.35).animate(_queueAnim);
 
-  void _toggleQueue() {
-    if (_showQueue) {
-      _queueAnim.reverse();
-      setState(() => _showQueue = false); // 立即解除交互，面板反向滑出
-    } else {
-      setState(() => _showQueue = true);
-      _queueAnim.forward();
-    }
+  void _openQueue() {
+    if (_showQueue) return;
+    setState(() => _showQueue = true);
+    _queueAnim.forward();
   }
+
+  /// 关闭队列：反向滑出动画 + 立即解除交互（避免面板/遮罩残留导致的假卡死）
+  void _closeQueue() {
+    if (!_showQueue) return;
+    setState(() => _showQueue = false);
+    _queueAnim.reverse();
+  }
+
+  void _toggleQueue() => _showQueue ? _closeQueue() : _openQueue();
 
   @override
   void initState() {
@@ -209,8 +214,7 @@ class _PlayerDetailPageState extends State<PlayerDetailPage>
                 width: 384,
                 child: SlideTransition(
                   position: _queueSlide,
-                  child: _queuePanel(core, engine, playing,
-                      () => setState(() => _showQueue = false)),
+                  child: _queuePanel(core, engine, playing, _closeQueue),
                 ),
               ),
           ],
