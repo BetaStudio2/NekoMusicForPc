@@ -34,7 +34,8 @@ class MainShell extends StatefulWidget {
   State<MainShell> createState() => _MainShellState();
 }
 
-class _MainShellState extends State<MainShell> {
+class _MainShellState extends State<MainShell>
+    with SingleTickerProviderStateMixin {
   // 核心控制器为应用级单例（main() 创建）：歌词窗开关重建本树时不重建
   EngineController get _engine => widget.engine;
   CoreController get _core => widget.core;
@@ -72,8 +73,26 @@ class _MainShellState extends State<MainShell> {
   /// 当前播放的在线 URL（断流重试用）与播放序号（用于丢弃过期的重试 Timer）
   Timer? _lanTimer;
   bool _lanVisible = false;
-  void _openLan() => setState(() => _lanVisible = true);
-  void _closeLan() => setState(() => _lanVisible = false);
+  late final AnimationController _lanAnim = AnimationController(
+      vsync: this, duration: const Duration(milliseconds: 260));
+  late final Animation<Offset> _lanSlide = Tween<Offset>(
+    begin: const Offset(1.15, 0),
+    end: Offset.zero,
+  ).animate(CurvedAnimation(parent: _lanAnim, curve: Curves.easeOutCubic));
+  late final Animation<double> _lanBarrier =
+      Tween<double>(begin: 0, end: 0.35).animate(_lanAnim);
+
+  void _openLan() {
+    if (_lanVisible) return;
+    setState(() => _lanVisible = true);
+    _lanAnim.forward();
+  }
+
+  void _closeLan() {
+    if (!_lanVisible) return;
+    setState(() => _lanVisible = false);
+    _lanAnim.reverse();
+  }
 
   String? _currentUrl;
   int _streamSeq = 0;
@@ -121,6 +140,7 @@ class _MainShellState extends State<MainShell> {
 
   @override
   void dispose() {
+    _lanAnim.dispose();
     _lanTimer?.cancel();
     // 核心控制器为应用级单例，不随本树卸载
     super.dispose();
@@ -233,24 +253,31 @@ class _MainShellState extends State<MainShell> {
                   PlayerBar(), // 非 const：主题切换时随 NekoApp 重建刷新配色
                 ],
               ),
-              // LAN 设备面板遮罩 + 右缘面板
-              if (_lanVisible) ...[
-                Positioned.fill(
+              // LAN 设备面板遮罩（变暗 + 点击关闭，关闭态不拦截）
+              Positioned.fill(
+                child: IgnorePointer(
+                  ignoring: !_lanVisible,
                   child: GestureDetector(
                     behavior: HitTestBehavior.opaque,
                     onTap: _closeLan,
-                    child: ColoredBox(
-                        color: Colors.black.withValues(alpha: 0.35)),
+                    child: FadeTransition(
+                      opacity: _lanBarrier,
+                      child: const ColoredBox(color: Colors.black),
+                    ),
                   ),
                 ),
-                Positioned(
-                  right: 12,
-                  top: 12,
-                  bottom: 12,
-                  width: 384,
+              ),
+              // LAN 设备面板：右缘滑入动效（常驻 + SlideTransition）
+              Positioned(
+                right: 12,
+                top: 12,
+                bottom: 12,
+                width: 384,
+                child: SlideTransition(
+                  position: _lanSlide,
                   child: LanPanel(onClose: _closeLan),
                 ),
-              ],
+              ),
             ],
           ),
             ),
