@@ -58,6 +58,12 @@ class CoreController extends ChangeNotifier {
   bool loading = false;
   String? error;
 
+  // ── LAN 设备同步 ──
+  List<Map<String, dynamic>> lanDevices = [];
+  Map<String, dynamic>? lanRemoteQueue;
+  bool lanConnected = false;
+  String lanSelectedDeviceId = '';
+
   bool get isLoggedIn => userInfo != null;
   int _seq = 0;
 
@@ -70,6 +76,7 @@ class CoreController extends ChangeNotifier {
     if (infoJson.isNotEmpty) {
       try {
         userInfo = jsonDecode(infoJson) as Map<String, dynamic>;
+        lanInit();
       } catch (_) {
         userInfo = null;
       }
@@ -579,12 +586,52 @@ class CoreController extends ChangeNotifier {
   }
 
   /// 登录；结果通过 [error] 或 userInfo 呈现
+  /// LAN：按当前登录态（重）启动。userId<=0 停止。
+  void lanInit() {
+    final userId = userInfo?['id'] ?? userInfo?['userId'] ?? -1;
+    final id = userId is num ? userId.toInt() : -1;
+    _post(() => _core.lanSetAccount(id), (_) {
+      _post(() => _core.lanStart(), (_) {});
+    });
+  }
+
+  void lanStop() => _post(_core.lanStop, (_) {});
+
+  void lanSelectDevice(String deviceId) {
+    _post(() => _core.lanSelectDevice(deviceId), (_) {});
+    lanSelectedDeviceId = deviceId;
+    notifyListeners();
+  }
+
+  /// 上报本机播放镜像（曲目 id + 是否播放），供快照广播
+  void lanSyncPlayer(int musicId, bool playing) {
+    _post(() => _core.lanSetPlayerState(musicId, playing), (_) {});
+  }
+
+  /// 轮询一次：刷新设备列表/远端队列/连接状态
+  void lanPollTick() {
+    _post(_core.lanPoll, (r) {
+      if (r.str.isEmpty) return;
+      try {
+        final j = jsonDecode(r.str) as Map<String, dynamic>;
+        lanDevices = (j['devices'] as List? ?? [])
+            .cast<Map<String, dynamic>>();
+        lanRemoteQueue = j['remoteQueue'] as Map<String, dynamic>?;
+        lanConnected = j['connected'] == true;
+        lanSelectedDeviceId =
+            (j['selectedDeviceId'] as String?) ?? lanSelectedDeviceId;
+        notifyListeners();
+      } catch (_) {}
+    });
+  }
+
   void login(String username, String password, {void Function(bool ok)? onDone}) {
     _post(() => _core.login(username, password), (r) {
       if (r.ok) {
         userInfo = jsonDecode(r.str) as Map<String, dynamic>;
         _requestFavorites();
         _requestCloudPlaylists();
+        lanInit();
       } else {
         error = r.message;
       }
@@ -601,6 +648,7 @@ class CoreController extends ChangeNotifier {
         userInfo = jsonDecode(r.str) as Map<String, dynamic>;
         _requestFavorites();
         _requestCloudPlaylists();
+        lanInit();
       } else {
         error = r.message;
       }
@@ -610,6 +658,7 @@ class CoreController extends ChangeNotifier {
   }
 
   void logout() {
+    lanStop();
     _post(_core.logout, (r) {
       userInfo = null;
       favoriteIds.clear();
@@ -617,6 +666,9 @@ class CoreController extends ChangeNotifier {
       myPlaylists = [];
       favPlaylists = [];
       favPlaylistIds = {};
+      lanDevices = [];
+      lanRemoteQueue = null;
+      lanConnected = false;
       notifyListeners();
     });
   }

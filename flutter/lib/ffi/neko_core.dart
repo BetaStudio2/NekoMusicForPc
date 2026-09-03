@@ -328,6 +328,12 @@ class NekoCore {
   late final int Function(Pointer<_NativeNekoCoreMusic>, int) _queueAddAll;
   late final int Function(int) _queueSetIndex;
   late final int Function(Pointer<Utf8>) _queueSetMode;
+  late final int Function() _lanStart;
+  late final int Function() _lanStop;
+  late final int Function(Pointer<Utf8>) _lanSelectDevice;
+  late final int Function(int) _lanSetAccount;
+  late final int Function(int, int) _lanSetPlayerState;
+  late final int Function() _lanPoll;
   late final int Function() _recentLoad;
   late final int Function(Pointer<_NativeNekoCoreMusic>) _recordRecent;
   late final int Function() _downloadsLoad;
@@ -437,6 +443,19 @@ class NekoCore {
     _queueSetMode = _lib.lookupFunction<
         _cmd_1s_t,
         int Function(Pointer<Utf8>)>('neko_core_cmd_queue_set_mode');
+    _lanStart = _lib.lookupFunction<_cmd_0_t, int Function()>(
+        'neko_core_cmd_lan_start');
+    _lanStop = _lib.lookupFunction<_cmd_0_t, int Function()>(
+        'neko_core_cmd_lan_stop');
+    _lanSelectDevice = _lib.lookupFunction<
+        _cmd_1s_t,
+        int Function(Pointer<Utf8>)>('neko_core_cmd_lan_select_device');
+    _lanSetAccount = _lib.lookupFunction<_cmd_int_t, int Function(int)>(
+        'neko_core_cmd_lan_set_account');
+    _lanSetPlayerState = _lib.lookupFunction<_cmd_i2_t, int Function(int, int)>(
+        'neko_core_cmd_lan_set_player_state');
+    _lanPoll = _lib.lookupFunction<_cmd_0_t, int Function()>(
+        'neko_core_cmd_lan_poll');
     _recentLoad = _lib.lookupFunction<_cmd_0_t, int Function()>(
         'neko_core_cmd_recent_load');
     _recordRecent = _lib.lookupFunction<
@@ -689,6 +708,23 @@ class NekoCore {
       calloc.free(m);
     }
   }
+
+  int lanStart() => _lanStart();
+  int lanStop() => _lanStop();
+
+  int lanSelectDevice(String deviceId) {
+    final s = deviceId.toNativeUtf8();
+    try {
+      return _lanSelectDevice(s);
+    } finally {
+      calloc.free(s);
+    }
+  }
+
+  int lanSetAccount(int userId) => _lanSetAccount(userId);
+  int lanSetPlayerState(int musicId, bool playing) =>
+      _lanSetPlayerState(musicId, playing ? 1 : 0);
+  int lanPoll() => _lanPoll();
 
   int recentLoad() => _recentLoad();
   int recordRecent(NekoCoreMusic music) {

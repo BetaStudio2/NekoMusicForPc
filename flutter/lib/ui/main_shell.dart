@@ -58,9 +58,19 @@ class _MainShellState extends State<MainShell> {
     // 在线流断流 → 断点续播（对齐原版 handleRemoteStreamFailure）
     _engine.onStreamFailure = _handleStreamFailure;
     // （桌面歌词 attach 已提升至 main()，避免重建时重复添加监听）
+    // LAN 同步：周期推送本机播放镜像 + 轮询远端设备/队列
+    _lanTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+      if (!mounted) return;
+      final music = _core.current;
+      _core.lanSyncPlayer(music?.id ?? 0,
+          _engine.state == NekoPlayState.playing);
+      _core.lanPollTick();
+    });
   }
 
   /// 当前播放的在线 URL（断流重试用）与播放序号（用于丢弃过期的重试 Timer）
+  Timer? _lanTimer;
+
   String? _currentUrl;
   int _streamSeq = 0;
   int _streamFailCount = 0;
@@ -107,6 +117,7 @@ class _MainShellState extends State<MainShell> {
 
   @override
   void dispose() {
+    _lanTimer?.cancel();
     // 核心控制器为应用级单例，不随本树卸载
     super.dispose();
   }
