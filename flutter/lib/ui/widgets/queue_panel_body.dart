@@ -417,26 +417,26 @@ class QueuePanelBody extends StatelessWidget {
               Padding(
                 padding:
                     const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-                child: TextButton.icon(
-                  style: TextButton.styleFrom(
-                      foregroundColor: kTextSecondary),
-                  onPressed: () {
-                    // 滚动到当前曲（近似按行高 56）
-                    final i = core.currentIndex;
-                    final maxScroll = (localQueue.length * 56 - 300)
-                        .clamp(0, 1 << 30);
-                    Scrollable.ensureVisible(
-                      context,
-                      alignment: 0.0,
-                      duration: const Duration(milliseconds: 200),
-                      alignmentPolicy: ScrollPositionAlignmentPolicy
-                          .explicit,
-                    );
-                    debugPrint('[queue] scroll-to-current idx=$i max=$maxScroll');
-                  },
-                  icon: const Icon(NekoIcons.Location, size: 15),
-                  label: Text(t.t('定位当前播放', 'Scroll to current'),
-                      style: const TextStyle(fontSize: 12)),
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: IconButton(
+                    tooltip: t.t('定位当前播放', 'Scroll to current'),
+                    icon: const Icon(NekoIcons.Location, size: 16),
+                    constraints: const BoxConstraints.tightFor(
+                        width: 30, height: 30),
+                    visualDensity: VisualDensity.compact,
+                    color: kTextSecondary,
+                    onPressed: () {
+                      // 滚动到当前曲（近似按行高 56）
+                      Scrollable.ensureVisible(
+                        context,
+                        alignment: 0.0,
+                        duration: const Duration(milliseconds: 200),
+                        alignmentPolicy: ScrollPositionAlignmentPolicy
+                            .explicit,
+                      );
+                    },
+                  ),
                 ),
               ),
             if (remote && remoteItems.isNotEmpty)
