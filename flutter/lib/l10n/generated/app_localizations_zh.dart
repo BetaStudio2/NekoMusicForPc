@@ -427,7 +427,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get register => '注册';
 
   @override
-  String get username => '邮箱';
+  String get username => '用户名';
 
   @override
   String get email => '邮箱';

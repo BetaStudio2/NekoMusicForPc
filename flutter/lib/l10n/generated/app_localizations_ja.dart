@@ -427,7 +427,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get register => '加入 Neko 家族喵~';
 
   @override
-  String get username => '邮箱';
+  String get username => '用户名';
 
   @override
   String get email => '联络暗号(邮箱)喵~';

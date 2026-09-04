@@ -176,7 +176,9 @@ class _LoginDialogState extends State<_LoginDialog> {
               TextField(
                 controller: _username,
                 decoration: InputDecoration(
-                  labelText: _l10n.username,
+                  labelText: _registerMode
+                      ? _l10n.username
+                      : _l10n.email,
                   isDense: true,
                   filled: true,
                   border: OutlineInputBorder(),

@@ -431,7 +431,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get register => 'Sign up';
 
   @override
-  String get username => 'Email';
+  String get username => 'Username';
 
   @override
   String get email => 'Email';
