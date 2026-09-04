@@ -122,6 +122,7 @@ NEKO_CORE_API int64_t neko_core_cmd_toggle_favorite(int music_id);
 NEKO_CORE_API int64_t neko_core_cmd_queue_load(void);
 NEKO_CORE_API int64_t neko_core_cmd_queue_clear(void);
 NEKO_CORE_API int64_t neko_core_cmd_queue_add_all(const neko_core_music *list, int n);
+NEKO_CORE_API int64_t neko_core_cmd_queue_append(const neko_core_music *list, int n);
 NEKO_CORE_API int64_t neko_core_cmd_queue_set_index(int index);
 NEKO_CORE_API int64_t neko_core_cmd_queue_set_mode(const char *mode);
 NEKO_CORE_API int64_t neko_core_cmd_recent_load(void);
