@@ -1,4 +1,4 @@
-# 编译指南（详细版）
+# 编译指南（太长不看版）
 
 面向从源码构建 **Neko歌姬计划 PC 版（Flutter）** 的完整说明：依赖安装、逐平台构建、打包与常见问题。
 脚本入口统一为 `scripts/`，CI 与本地同一套脚本。
@@ -160,6 +160,126 @@ scripts\build.bat release
 makensis packaging\nekomusic.nsi
 :: 便携 zip：直接压缩 Release 目录
 ```
+
+---
+
+
+---
+
+## 手动构建（不依赖脚本，逐步执行）
+
+> 脚本（`scripts/build.sh` / `build.bat`）本质是下面这些步骤的封装。想自行控制每一步（或排查问题）时按本节操作。
+
+### A. 安装 Flutter SDK（已装可跳过）
+
+**方式一：git 克隆（推荐，便于切版本）**
+
+```bash
+git clone https://github.com/flutter/flutter.git -b stable --depth 1
+cd flutter && ./bin/flutter --version   # 首次运行会自动下载 Dart SDK
+export PATH="$PWD/flutter/bin:$PATH"     # 写入 ~/.bashrc / ~/.zshrc
+```
+
+**方式二：官方压缩包**
+
+从 https://docs.flutter.dev/get-started/install 下载对应平台压缩包，解压后把 `bin` 加入 `PATH`。
+
+**版本要求**：`flutter --version` ≥ 3.44（推荐 3.47.x）。旧版本可用 `flutter downgrade` / checkout 对应 tag。
+
+**国内网络可选镜像**（克隆/下载 Dart SDK 与 pub 包加速）：
+
+```bash
+export PUB_HOSTED_URL=https://pub.flutter-io.cn
+export FLUTTER_STORAGE_BASE_URL=https://storage.flutter-io.cn
+```
+
+**自检**：
+
+```bash
+flutter doctor
+# 至少 [√] Flutter 无报错；对应桌面平台一行无阻断
+#   Linux:   需 clang/cmake/ninja/gtk3
+#   Windows: 需 Visual Studio – develop Windows apps
+#   macOS:   需 Xcode command line tools
+```
+
+### B. 拉取 Dart 依赖
+
+```bash
+cd flutter            # 仓库内的 flutter/ 应用目录
+flutter pub get
+```
+
+### C. 编译原生引擎（libneko_engine + libneko_core）
+
+```bash
+# 仓库根目录执行
+cmake -S engine -B engine/build -DCMAKE_BUILD_TYPE=Release -G Ninja
+cmake --build engine/build --target neko_engine neko_core --parallel
+```
+
+- Linux/macOS 产物：`engine/build/libneko_engine.so|.dylib`、`libneko_core.so|.dylib`
+- Windows：需在 **MSVC 环境**（vcvars64 / x64 Native Tools）下执行，产物 `engine/build/neko_engine.dll`、`neko_core.dll`；
+  需要 `MPV_DIR` 指向 mpv 开发包（其 `lib` 下需有 MSVC 可链接的 `mpv.lib`）
+
+> Linux/macOS 下 Flutter 的 CMake 工程会引用 engine 产物；Windows 的 runner CMake 同理。
+
+### D. 构建 Flutter 应用（关键参数 --no-tree-shake-icons）
+
+```bash
+cd flutter
+# Linux
+flutter build linux --release --no-tree-shake-icons
+#   产物: build/linux/x64/release/bundle/  （cd 进去 ./neko_music 运行）
+# macOS
+flutter build macos --release --no-tree-shake-icons
+#   产物: build/macos/Build/Products/Release/*.app
+# Windows（MSVC 环境中）
+flutter build windows --release --no-tree-shake-icons
+#   产物: build/windows/x64/runner/Release/
+```
+
+> ⚠️ 不要省略 `--no-tree-shake-icons`：release 默认的图标 tree-shaking 会裁掉自绘字形，
+> 造成部分图标空白。生产构建请始终带上。
+
+### E. 平台后处理（脚本自动做的事，手动需自行完成）
+
+**Linux**：无需后处理，bundle 自带引擎 `.so`（位于 `bundle/lib/`），目录内直接运行。
+
+**macOS**（四步，缺一不可）：
+
+```bash
+APP=build/macos/Build/Products/Release/*.app
+# 1) 引擎 dylib 拷入 Frameworks
+mkdir -p "$APP/Contents/Frameworks"
+cp ../engine/build/libneko_engine.dylib ../engine/build/libneko_core.dylib "$APP/Contents/Frameworks/"
+# 2) Qt 框架+插件（默认插件含 sqldrivers/imageformats/tls）
+"$(brew --prefix qt)/bin/macdeployqt" "$APP" -no-strip
+# 3) libmpv 依赖闭包打包并改写安装名
+dylibbundler -of -b -x "$APP/Contents/Frameworks/libneko_engine.dylib" \
+  -d "$APP/Contents/Frameworks" -p @executable_path/../Frameworks
+# 4) ad-hoc 签名（Apple Silicon 必须，否则 dylib 拒载）
+codesign --force --deep --sign - "$APP"
+```
+
+**Windows**（运行时 DLL 补齐，缺则启动即崩）：
+
+```bat
+set REL=build\windows\x64\runner\Release
+set QT_ROOT=C:\Qt\6.8.2\msvc2022_64
+:: 1) Qt 运行库 + Qt 插件（sqldrivers 等）+ MSVC 运行库
+"%QT_ROOT%\bin\windeployqt.exe" --release --no-translations --compiler-runtime "%REL%\neko_core.dll"
+:: 2) mpv 运行库
+copy /Y "%MPV_DIR%\..\mpv-2.dll" "%REL%\"   :: 或 libmpv-2.dll，以实际包内名称为准
+```
+
+检查清单：`Qt6Core/Network/Sql.dll`、`sqldrivers\qsqlite.dll`、`mpv*.dll`、`msvcp140.dll`、`vcruntime140.dll`。
+
+### F. 打包分发
+
+- Linux：`bundle/` 目录即绿色包；桌面入口/图标参考 `packaging/`，或直接用 `scripts/package-*.sh`
+- macOS：`.app` 直接压缩分发
+- Windows：补齐 DLL 后的 `Release/` 目录直接压缩即便携包；NSIS 安装器见 `packaging/nekomusic.nsi`
 
 ---
 
