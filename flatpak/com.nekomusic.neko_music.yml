@@ -1,0 +1,36 @@
+# Neko歌姬计划 — Flatpak（Flathub 风格）manifest
+# 运行库: org.kde.Platform（含 Qt6/GTK）；应用本体由预构建 bundle 注入
+id: com.nekomusic.neko_music
+runtime: org.kde.Platform
+runtime-version: '6.7'
+sdk: org.kde.Sdk
+command: nekomusic
+
+finish-args:
+  - --share=ipc
+  - --share=network
+  - --socket=x11
+  - --socket=wayland
+  - --device=dri
+  - --socket=pulseaudio
+  - --talk-name=org.freedesktop.Notifications
+  - --talk-name=org.kde.StatusNotifierWatcher
+
+modules:
+  # 应用本体：解包后的 release bundle（exe + data + lib 相对路径不变）
+  - name: nekomusic
+    buildsystem: simple
+    build-commands:
+      - install -Dm755 neko_music /app/bin/nekomusic
+      - mkdir -p /app/bin
+      - cp -r data /app/bin/data
+      - cp -r lib /app/bin/lib
+      - install -Dm644 nekomusic.desktop /app/share/applications/com.nekomusic.neko_music.desktop
+      - install -Dm644 nekomusic.png /app/share/icons/hicolor/512x512/apps/nekomusic.png
+    sources:
+      - type: dir
+        path: bundle
+      - type: file
+        path: nekomusic.desktop
+      - type: file
+        path: nekomusic.png

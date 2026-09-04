@@ -67,7 +67,7 @@ body:
       label: 构建 / 获取方式
       options:
         - 官网下载
-        - 本地 CMake / 脚本自编译（如 build_linux.sh）
+        - 脚本自编译（scripts/build.sh / scripts\build.bat）
         - CI 产物 / 其他（请说明）
     validations:
       required: true

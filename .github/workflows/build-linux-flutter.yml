@@ -1,0 +1,476 @@
+name: Build Flutter (Linux / macOS / Windows)
+
+'on':
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - "flutter/**"
+      - "engine/**"
+      - "packaging/**"
+      - "scripts/**"
+      - ".github/workflows/**"
+  pull_request:
+    paths:
+      - "flutter/**"
+      - "engine/**"
+      - "scripts/**"
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ── Linux（Debian/Ubuntu）：.deb ─────────────────────────────
+  linux-deb:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build libgtk-3-dev libmpv-dev qt6-base-dev \
+            libayatana-appindicator3-dev
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.47.2
+          channel: stable
+          cache: true
+      - name: Build (release)
+        run: ./scripts/build.sh release
+      - name: Package .deb
+        run: ./scripts/package-deb.sh
+      - name: Package portable zip
+        run: ./scripts/package-portable.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nekomusic-linux-deb
+          path: flutter/build/dist/*.deb
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nekomusic-linux-portable
+          path: flutter/build/dist/*linux-x64.zip
+          if-no-files-found: error
+
+  # ── Linux（Fedora/RPM 系）：.rpm ─────────────────────────────
+  linux-rpm:
+    runs-on: ubuntu-24.04
+    container: fedora:latest
+    timeout-minutes: 45
+    steps:
+      - name: Install system dependencies
+        run: |
+          dnf install -y git curl jq which xz tar file cmake ninja-build gcc-c++ clang gtk3-devel \
+            mpv-libs-devel qt6-qtbase-devel rpm-build libayatana-appindicator-gtk3-devel
+      - uses: actions/checkout@v4
+      - name: Git safe directory (容器属主)
+        run: git config --global --add safe.directory '*'
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.47.2
+          channel: stable
+          cache: true
+      - name: Build (release)
+        run: ./scripts/build.sh release
+      - name: Package .rpm
+        run: ./scripts/package-rpm.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nekomusic-linux-rpm
+          path: flutter/build/dist/*.rpm
+          if-no-files-found: error
+
+  # ── macOS：.app（zip）────────────────────────────────────────
+  macos:
+    runs-on: macos-14
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install system dependencies
+        run: brew install cmake ninja mpv qt
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.47.2
+          channel: stable
+          cache: true
+      - name: Build (release)
+        run: ./scripts/build.sh release
+      - name: Install dylibbundler
+        run: brew install dylibbundler
+      - name: Bundle Qt frameworks (macdeployqt)
+        run: |
+          APP_DIR=$(ls -d flutter/build/macos/Build/Products/Release/*.app | head -1)
+          QT_BIN="$(brew --prefix qt)/bin"
+          # 默认插件：补齐 QtSql sqldrivers / QtGui imageformats / QtNetwork tls
+          "$QT_BIN/macdeployqt" "$APP_DIR" -no-strip
+          # libmpv 及其依赖闭包拷入 Frameworks 并改相对路径（引擎在 Contents/Frameworks）
+          ENGINE_DYLIB=$(ls "$APP_DIR/Contents/Frameworks"/libneko_engine.dylib 2>/dev/null || true)
+          if [[ -n "$ENGINE_DYLIB" ]]; then
+            dylibbundler -of -b -x "$ENGINE_DYLIB" \
+              -d "$APP_DIR/Contents/Frameworks" \
+              -p @executable_path/../Frameworks
+          else
+            echo "警告: 未找到 libneko_engine.dylib，跳过 dylibbundler"
+          fi
+          # Apple Silicon：对 app 内全部二进制 ad-hoc 签名，否则 unsigned dylib 拒绝加载
+          codesign --force --deep --sign - "$APP_DIR"
+      - name: Verify macOS runtime deps & signature
+        run: |
+          APP_DIR=$(ls -d flutter/build/macos/Build/Products/Release/*.app | head -1)
+          FW="$APP_DIR/Contents/Frameworks"
+          fail=0
+          for f in libneko_engine.dylib libneko_core.dylib; do
+            if [[ ! -f "$FW/$f" ]]; then echo "missing Frameworks/$f"; fail=1; fi
+          done
+          ls "$FW" | grep -qi '^QtCore.framework' || { echo 'QtCore.framework missing'; fail=1; }
+          ls "$FW" | grep -qi '^libmpv' || { echo 'libmpv missing'; fail=1; }
+          ls "$APP_DIR/Contents/PlugIns/sqldrivers"/*  >/dev/null 2>&1 || { echo 'sqldrivers plugin missing'; fail=1; }
+          ls "$APP_DIR/Contents/PlugIns/imageformats"/* >/dev/null 2>&1 || { echo 'imageformats plugin missing'; fail=1; }
+          codesign -dv "$APP_DIR" >/dev/null 2>&1 || { echo 'ad-hoc signature invalid'; fail=1; }
+          [[ $fail -eq 0 ]] || { echo 'macOS runtime deps check FAILED'; exit 1; }
+          echo 'macOS runtime deps OK'
+      - name: Package .app (zip)
+        run: |
+          APP_DIR=$(ls -d flutter/build/macos/Build/Products/Release/*.app | head -1)
+          APP_NAME=$(basename "$APP_DIR")
+          (cd "$(dirname "$APP_DIR")" && zip -qry "$GITHUB_WORKSPACE/$APP_NAME.zip" "$APP_NAME")
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nekomusic-macos
+          path: "*.zip"
+          if-no-files-found: error
+
+  # ── Windows：手动触发（实验性）──────────────────────────────
+  build-windows:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    if: github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Qt 6
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.8.2'
+          host: 'windows'
+          target: 'desktop'
+          arch: 'win64_msvc2022_64'
+          cache: true
+      - name: Setup Ninja
+        run: choco install ninja -y
+      - name: Setup libmpv
+        shell: pwsh
+        run: |
+          $url = 'https://github.com/shinchiro/mpv-winbuild-cmake/releases/download/20260902/mpv-dev-x86_64-20260902-git-174b638f29.7z'
+          Invoke-WebRequest -Uri $url -OutFile mpv-dev.7z
+          7z x mpv-dev.7z -o"$env:RUNNER_TEMP\mpv"
+          # 归档自带一层目录且内含 mingw 导入库；MSVC 可消费 COFF .lib——
+          # 改名为 mpv.lib 供 find_library。搜索基准用 RUNNER_TEMP 兼容嵌套结构
+          $root = Get-ChildItem "$env:RUNNER_TEMP\mpv" -Recurse -Filter client.h |
+            Select-Object -First 1
+          if (-not $root) { throw 'mpv headers not found in archive' }
+          $inc = Split-Path (Split-Path $root.FullName -Parent) -Parent
+          $import = Get-ChildItem "$env:RUNNER_TEMP\mpv" -Recurse -Filter *.a |
+            Where-Object Name -match 'libmpv|mpv' | Select-Object -First 1
+          if (-not $import) { throw 'mpv import lib (.a) not found' }
+          New-Item -ItemType Directory -Force -Path "$inc\lib" | Out-Null
+          Copy-Item $import.FullName "$inc\lib\mpv.lib"
+          echo "MPV_DIR=$inc" | Out-File -FilePath $env:GITHUB_ENV -Append
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.47.2
+          channel: stable
+          cache: true
+      - name: Enable MSVC toolchain
+        uses: ilammy/msvc-dev-cmd@v1
+      - name: Build (release)
+        shell: cmd
+        run: scripts\build.bat release
+      - name: Bundle Qt runtime (windeployqt + mpv)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $rel = "flutter\build\windows\x64\runner\Release"
+          $qtRoot = if ($env:QT_ROOT_DIR) { $env:QT_ROOT_DIR } else { $env:Qt6_DIR }
+          if (-not $qtRoot) { throw 'QT_ROOT_DIR/Qt6_DIR 未由 install-qt-action 设置' }
+          $deploy = Get-ChildItem (Join-Path $qtRoot 'bin') -Filter windeployqt.exe |
+            Select-Object -First 1
+          if (-not $deploy) { throw "windeployqt not found under $qtRoot\bin" }
+          # 主 exe 是 Flutter runner（非 Qt）；Qt 依赖来自 neko_core.dll（核心桥）
+          $qtDll = Get-ChildItem $rel -Filter neko_core.dll | Select-Object -First 1
+          if (-not $qtDll) { throw 'neko_core.dll not found in Release (Qt 核心桥缺失)' }
+          # --compiler-runtime：连带打包 MSVC 运行库（msvcp140/vcruntime140），
+          # 避免干净 Windows 上 zip/setup 因缺 VC 运行库无法启动
+          & $deploy.FullName --release --no-translations --compiler-runtime $qtDll.FullName
+          if ($LASTEXITCODE -ne 0) { throw "windeployqt failed: $LASTEXITCODE" }
+          # windeployqt 对 DLL 不部署 QPA/VC redist 不可靠：显式补 VC 运行库
+          $redist = $env:VCToolsRedistDir
+          if (-not $redist -or -not (Test-Path $redist)) {
+            $vswhere = "$env:ProgramFiles(x86)\Microsoft Visual Studio\Installer\vswhere.exe"
+            if (Test-Path $vswhere) {
+              $vs = & $vswhere -latest -products * -property installationPath |
+                Select-Object -First 1
+              if ($vs) {
+                $cand = Join-Path $vs 'VC\Redist\MSVC'
+                if (Test-Path $cand) { $redist = $cand }
+              }
+            }
+          }
+          $crt = $null
+          if ($redist -and (Test-Path $redist)) {
+            $crt = Get-ChildItem $redist -Recurse -Directory -Filter 'Microsoft.VC*.CRT' |
+              Where-Object {
+                $_.FullName -match '\\x64\\' -and
+                $_.FullName -notmatch '\\onecore\\' -and
+                (Test-Path (Join-Path $_.FullName 'msvcp140.dll'))
+              } |
+              Select-Object -First 1
+          }
+          if ($crt) {
+            Copy-Item (Join-Path $crt.FullName 'msvcp140.dll') $rel -Force
+            Copy-Item (Join-Path $crt.FullName 'vcruntime140.dll') $rel -Force
+            Write-Host "copied VC runtime from $($crt.FullName)"
+          } else {
+            Write-Host 'warning: VC CRT redist not found (vswhere/fallback)'
+          }
+          # mpv dll（搜索解压根，MPV_DIR 可能指向 include）；名字可能是 mpv-2.dll / libmpv-2.dll
+          $mpv = Get-ChildItem "$env:RUNNER_TEMP\mpv" -Recurse -Filter '*mpv*.dll' |
+            Where-Object { $_.Name -match '^(lib)?mpv(-2)?\.dll$' } | Select-Object -First 1
+          if ($mpv) { Copy-Item $mpv.FullName "$rel\$($mpv.Name)" -Force }
+      - name: Verify Windows runtime deps
+        shell: pwsh
+        run: |
+          $rel = "flutter\build\windows\x64\runner\Release"
+          $required = @('neko_core.dll','neko_engine.dll','Qt6Core.dll',
+                        'Qt6Network.dll','Qt6Sql.dll',
+                        'msvcp140.dll','vcruntime140.dll')
+          $missing = @()
+          foreach ($n in $required) {
+            if (-not (Test-Path (Join-Path $rel $n))) { $missing += $n }
+          }
+          # QtSql 插件（DB 必需）
+          if (-not (Test-Path (Join-Path $rel 'sqldrivers\qsqlite.dll'))) {
+            $missing += 'sqldrivers\qsqlite.dll'
+          }
+          # mpv（名字可能是 mpv-2.dll / libmpv-2.dll）
+          $mpvOk = Get-ChildItem $rel -Filter '*.dll' |
+            Where-Object { $_.Name -match '^(lib)?mpv(-2)?\.dll$' }
+          if (-not $mpvOk) { $missing += 'mpv*.dll' }
+          if ($missing.Count -gt 0) {
+            throw 'Missing Windows runtime deps: ' + ($missing -join ', ')
+          }
+          Write-Host "Windows runtime deps OK ($($mpvOk.Name))"
+      - name: Smoke run (Windows)
+        shell: pwsh
+        run: |
+          $exe = Join-Path $env:GITHUB_WORKSPACE 'flutter\build\windows\x64\runner\Release\neko_music.exe'
+          $p = Start-Process -FilePath $exe -PassThru
+          Start-Sleep -Seconds 8
+          if ($p.HasExited) { throw "app exited during smoke (code $($p.ExitCode))" }
+          Stop-Process -Id $p.Id -Force
+          Write-Host 'Windows smoke OK'
+      - name: Install NSIS
+        run: choco install nsis -y --no-progress
+      - name: Build installer (NSIS)
+        shell: cmd
+        run: |
+          set "PATH=C:\Program Files (x86)\NSIS;%PATH%"
+          makensis /DVERSION=1.0.1 ^
+            /DOUT=%GITHUB_WORKSPACE%\nekomusic-setup-1.0.1.exe ^
+            /DSTAGING=%GITHUB_WORKSPACE%\flutter\build\windows\x64\runner\Release ^
+            packaging\nekomusic.nsi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nekomusic-windows-x64
+          path: flutter/build/windows/x64/runner/Release/
+          if-no-files-found: error
+      - name: Package portable zip
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $rel = "flutter\build\windows\x64\runner\Release"
+          $outDir = Join-Path $env:GITHUB_WORKSPACE "portable"
+          New-Item -ItemType Directory -Force -Path $outDir | Out-Null
+          $zip = Join-Path $outDir "nekomusic-1.0.1-windows-x64.zip"
+          if (Test-Path $zip) { Remove-Item $zip }
+          Compress-Archive -Path "$rel\*" -DestinationPath $zip -Force
+          if (-not (Test-Path $zip)) { throw 'portable zip was not created' }
+          Write-Host "portable zip: $zip ($((Get-Item $zip).Length) bytes)"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nekomusic-windows-portable
+          path: portable/*.zip
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nekomusic-windows-setup
+          path: nekomusic-setup-1.0.1.exe
+          if-no-files-found: error
+
+  # ── Linux（Arch Linux）：.pkg.tar.zst ────────────────────────
+  linux-arch:
+    runs-on: ubuntu-24.04
+    container: archlinux:latest
+    timeout-minutes: 45
+    steps:
+      - name: Install system dependencies
+        run: |
+          pacman -Syu --noconfirm --needed base-devel git curl jq cmake ninja clang libayatana-appindicator \
+            qt6-base mpv gtk3 zstd
+      - uses: actions/checkout@v4
+      # Arch 仓库无 flutter：直接下载官方 SDK（容器内兼容，非 root）
+      - name: Download Flutter SDK
+        run: |
+          curl -sL -o /tmp/flutter.tar.xz \
+            https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_3.47.2-stable.tar.xz
+          mkdir -p /opt/flutter-sdk
+          tar -xJf /tmp/flutter.tar.xz -C /opt/flutter-sdk
+      - name: Add non-root builder (flutter 拒绝 root)
+        run: |
+          useradd -m builder
+          chown -R builder "$GITHUB_WORKSPACE" /opt/flutter-sdk
+      - name: Build (release)
+        run: |
+          runuser -u builder -- env \
+            PATH="/opt/flutter-sdk/flutter/bin:$PATH" \
+            FLUTTER_BIN=/opt/flutter-sdk/flutter/bin/flutter \
+            bash scripts/build.sh release
+      - name: Package Arch pkg
+        run: bash scripts/package-arch.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nekomusic-linux-arch
+          path: flutter/build/dist/*.pkg.tar.zst
+          if-no-files-found: error
+
+  # ── NixOS：真源码 flake 构建（关沙箱以允许 flutter 联网下产物）──
+  linux-nix:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DeterminateSystems/nix-installer-action@v16
+        with:
+          extra-conf: |
+            sandbox = false
+            substituters = https://cache.nixos.org
+      - name: Build (flake, release)
+        run: nix build .#default --option sandbox false --print-build-logs
+      - name: Package result
+        run: |
+          mkdir -p flutter/build/dist
+          tar -czf flutter/build/dist/nekomusic-nixos-1.0.1-x86_64.tar.gz -C result .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nekomusic-nixos
+          path: flutter/build/dist/*.tar.gz
+          if-no-files-found: error
+
+
+  # ── AppImage ───────────────────────────────────────────────────
+  linux-appimage:
+    runs-on: ubuntu-24.04
+    needs: linux-deb
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install deps (linuxdeploy 插件收集依赖用)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y file libgtk-3-dev qt6-base-dev libmpv-dev \
+            libayatana-appindicator3-dev
+      - uses: actions/download-artifact@v4
+        with: { name: nekomusic-linux-portable, path: portable }
+      - name: Assemble bundle for AppImage
+        run: |
+          mkdir -p AppImageBundle
+          (cd portable && unzip -oq *.zip -d ../AppImageBundle)
+          mkdir -p dist
+          cp -r AppImageBundle/nekomusic dist/bundle
+      - name: Download linuxdeploy + appimagetool
+        run: |
+          mkdir -p dist/tools
+          curl -sL -o dist/tools/linuxdeploy-x86_64.AppImage             https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
+          curl -sL -o dist/tools/appimagetool-x86_64.AppImage             https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
+          # linuxdeploy-plugin-qt 官方 continuous AppImage；linuxdeploy 会按文件名
+          # linuxdeploy-plugin-* 发现插件。CI 无 FUSE 时由 APPIMAGE_EXTRACT_AND_RUN 解包执行。
+          curl -sL -o dist/tools/linuxdeploy-plugin-qt \
+            "https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-x86_64.AppImage"
+          # 注意：linuxdeploy-plugin-gtk 上游已不再发布 AppImage（仅提供依赖 dev 包的
+          # bash 脚本，且 AppRun 解包法已被上游废弃），故 AppImage 不启用 gtk 插件；
+          # GTK/Qt 运行库仍会由 linuxdeploy 按可执行文件动态依赖自动收拢进 usr/lib。
+          chmod +x dist/tools/linuxdeploy-x86_64.AppImage dist/tools/appimagetool-x86_64.AppImage dist/tools/linuxdeploy-plugin-qt
+          ls -la dist/tools
+      - name: Package AppImage
+        env:
+          LINUXDEPLOY: dist/tools/linuxdeploy-x86_64.AppImage
+          APPIMAGETOOL: dist/tools/appimagetool-x86_64.AppImage
+          LINUXDEPLOY_PLUGIN_PATH: dist/tools
+          APPIMAGE_EXTRACT_AND_RUN: '1'
+        run: |
+          # qt 插件需 qmake 探测已安装的 Qt 模块（Ubuntu 的 qmake6 不在默认 PATH）
+          export PATH="/usr/lib/qt6/bin:/usr/bin:$PATH"
+          # 脚本期望 bundle 在 flutter/build/linux/x64/release/bundle
+          mkdir -p flutter/build/linux/x64/release
+          rm -rf flutter/build/linux/x64/release/bundle
+          mv dist/bundle flutter/build/linux/x64/release/bundle
+          bash scripts/package-appimage.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nekomusic-linux-appimage
+          path: flutter/build/dist/*.AppImage
+          if-no-files-found: error
+
+  # ── Flatpak ───────────────────────────────────────────────────
+  linux-flatpak:
+    runs-on: ubuntu-24.04
+    needs: linux-deb
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install flatpak tooling + KDE runtime
+        run: |
+          sudo apt-get update && sudo apt-get install -y flatpak flatpak-builder
+          flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+          flatpak install --user --noninteractive flathub org.kde.Platform//6.7 org.kde.Sdk//6.7
+      - uses: actions/download-artifact@v4
+        with: { name: nekomusic-linux-portable, path: portable }
+      - name: Prepare bundle + desktop/icon sources
+        run: |
+          mkdir -p flatpak/bundle
+          (cd portable && unzip -oq *.zip)
+          cp -r portable/nekomusic/. flatpak/bundle/
+          rm -f flatpak/bundle/README.txt
+          cp packaging/com.nekomusic.neko_music.desktop flatpak/nekomusic.desktop
+          cp packaging/icons/hicolor/512x512/apps/nekomusic.png flatpak/nekomusic.png
+      - name: Build flatpak
+        run: |
+          flatpak-builder --user --force-clean --repo=repo build flatpak/com.nekomusic.neko_music.yml
+          flatpak build-bundle repo nekomusic-flatpak.flatpak com.nekomusic.neko_music
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nekomusic-linux-flatpak
+          path: nekomusic-flatpak.flatpak
+          if-no-files-found: error
+
+  # ── Release：附加全部产物 ────────────────────────────────────
+  attach-release:
+    if: github.event_name == 'release'
+    needs: [linux-deb, linux-rpm, macos, linux-arch, linux-nix, linux-appimage, linux-flatpak]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/**/*

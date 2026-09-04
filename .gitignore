@@ -1,16 +1,14 @@
-# Build
+# 构建产物
 build/
-cmake-build-*/
-build-linux/
-build-windows/
+dist/
 
 # IDE
 .vscode/
 .idea/
 *.user
-CMakeLists.txt.user
+*.autosave
 
-# Compiled
+# 编译产物
 *.o
 *.obj
 *.exe
@@ -20,22 +18,10 @@ CMakeLists.txt.user
 *.dylib
 *.dll
 
-# Generated
-moc_*
-ui_*
-qrc_*
-*.autosave
-
-# OS
+# 系统
 .DS_Store
 Thumbs.db
 .qoder
 
-qt-win
-
-# Old Electron project
-dist/
-dist-electron/
-node_modules/
-release/
-build-mac-intel/
+# 签名/密钥
+key.key

@@ -1,0 +1,248 @@
+import 'neko_icons.dart';
+import 'dart:ui' as ui;
+
+import 'package:flutter/material.dart';
+
+import '../main.dart';
+import '../core/core_controller.dart';
+import '../l10n/generated/app_localizations.dart';
+import '../ffi/neko_core.dart' show NekoCoreMusic;
+
+/// LAN 设备同步面板（毛玻璃右缘滑入）。
+/// 展示局域网内同账号发现的设备，点击订阅其队列；可一键接管远端列表播放。
+class LanPanel extends StatelessWidget {
+  const LanPanel({super.key, required this.onClose});
+
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    final core = CoreScope.of(context);
+    final l10n = AppLocalizations.of(context);
+    final scheme = Theme.of(context).colorScheme;
+    return Material(
+      color: Colors.transparent,
+      child: ListenableBuilder(
+        listenable: core,
+        builder: (context, _) {
+          final devices = core.lanDevices;
+          final rq = core.lanRemoteQueue;
+          final rqItems = (rq?['items'] as List? ?? const [])
+              .cast<Map<String, dynamic>>();
+          return Container(
+            decoration: BoxDecoration(
+              color: kBgSurface.withValues(alpha: 0.66),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.28),
+                  blurRadius: 28,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(18, 10, 6, 4),
+                  child: Row(
+                    children: [
+                      Icon(NekoIcons.DevicesOther, size: 18, color: scheme.primary),
+                      const SizedBox(width: 8),
+                      Text(l10n.deviceSync,
+                          style: TextStyle(
+                              fontSize: 15, fontWeight: FontWeight.w600)),
+                      const SizedBox(width: 8),
+                      if (!core.isLoggedIn)
+                        Text(l10n.needLogin,
+                            style: TextStyle(
+                                fontSize: 11, color: kTextMuted)),
+                      const Spacer(),
+                      IconButton(
+                        tooltip: l10n.actionRefresh,
+                        visualDensity: VisualDensity.compact,
+                        iconSize: 18,
+                        onPressed: core.lanPollTick,
+                        icon: const Icon(NekoIcons.Refresh),
+                      ),
+                      IconButton(
+                        tooltip: l10n.close,
+                        visualDensity: VisualDensity.compact,
+                        iconSize: 18,
+                        onPressed: onClose,
+                        icon: const Icon(NekoIcons.Close),
+                      ),
+                    ],
+                  ),
+                ),
+                Divider(height: 1, color: kDivider),
+                Expanded(
+                  child: devices.isEmpty
+                      ? Center(
+                          child: Text(
+                            core.isLoggedIn ? l10n.lanEmpty : l10n.lanLoginHint,
+                            style: TextStyle(color: kTextMuted, fontSize: 13),
+                          ),
+                        )
+                      : ListView.builder(
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          itemCount: devices.length + (rqItems.isNotEmpty ? 1 : 0),
+                          itemBuilder: (context, i) {
+                            if (rqItems.isNotEmpty && i == devices.length) {
+                              return _remoteQueueTile(
+                                  context, core, rq, rqItems);
+                            }
+                            final d = devices[i];
+                            final selected =
+                                d['deviceId'] == core.lanSelectedDeviceId;
+                            return ListTile(
+                              dense: true,
+                              selected: selected,
+                              selectedTileColor:
+                                  kPrimary.withValues(alpha: 0.10),
+                              leading: Icon(
+                                d['platform'] == 'android'
+                                    ? NekoIcons.Smartphone
+                                    : NekoIcons.Computer,
+                                size: 20,
+                                color: selected
+                                    ? kPrimary
+                                    : kTextSecondary,
+                              ),
+                              title: Text(
+                                d['deviceName']?.toString() ?? '?',
+                                style: TextStyle(
+                                    fontSize: 13,
+                                    color: selected
+                                        ? kPrimary
+                                        : kTextPrimary),
+                              ),
+                              subtitle: Text(
+                                l10n.remoteQueueSubtitle(
+                                    d['queueCount'] ?? 0, _curTitle(d, l10n)),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(fontSize: 11),
+                              ),
+                              trailing: Icon(
+                                selected
+                                    ? NekoIcons.Link
+                                    : NekoIcons.LinkOff,
+                                size: 16,
+                                color: selected ? kPrimary : kTextMuted,
+                              ),
+                              onTap: () => core.lanSelectDevice(
+                                  selected
+                                      ? ''
+                                      : (d['deviceId']?.toString() ?? '')),
+                            );
+                          },
+                        ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _remoteQueueTile(
+      BuildContext context,
+      CoreController core,
+      Map<String, dynamic>? rq,
+      List<Map<String, dynamic>> items) {
+    final l10n = AppLocalizations.of(context);
+    final currentMusicId = (rq?['currentMusicId'] as num?)?.toInt() ?? 0;
+    final playing = rq?['isPlaying'] == true;
+    return Container(
+      margin: const EdgeInsets.fromLTRB(12, 4, 12, 10),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: kBgMid.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(NekoIcons.Sync, size: 15,
+                  color: playing ? kPrimary : kTextMuted),
+              const SizedBox(width: 6),
+              Text(
+                playing ? l10n.lanRemotePlaying : l10n.lanRemoteQueue,
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+              ),
+              const Spacer(),
+              Text(l10n.playlistCountSongs(items.length),
+                  style: TextStyle(fontSize: 11, color: kTextMuted)),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            _curRemote(items, currentMusicId, l10n),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 12),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: FilledButton(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: kPrimary.withValues(alpha: 0.15),
+                    foregroundColor: kPrimary,
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  onPressed: () => _takeOver(core, items),
+                  child: Text(l10n.lanTakeover, style: const TextStyle(fontSize: 12)),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 接管：把远端队列写入本地并起播（对齐点击歌单“播放全部”）
+  void _takeOver(CoreController core, List<Map<String, dynamic>> items) {
+    final songs = <NekoCoreMusic>[];
+    for (final it in items) {
+      final id = (it['id'] as num?)?.toInt() ?? 0;
+      songs.add(NekoCoreMusic(
+        id: id,
+        title: (it['title'] as String?) ?? '',
+        artist: (it['artist'] as String?) ?? '',
+        album: (it['album'] as String?) ?? '',
+        duration: (it['duration'] as num?)?.toInt() ?? 0,
+        coverUrl: (it['coverPath'] as String?) ?? '',
+        localPath: '',
+        playCount: 0,
+        uploadedAtMs: 0,
+        lrc: false,
+      ));
+    }
+    if (songs.isNotEmpty) core.playAll(songs);
+  }
+
+  String _curTitle(Map<String, dynamic> d, AppLocalizations l10n) {
+    final id = (d['currentMusicId'] as num?)?.toInt() ?? 0;
+    if (id == 0) return l10n.playerIdleTitle;
+    return l10n.lanNowPlaying(id);
+  }
+
+  String _curRemote(List<Map<String, dynamic>> items, int currentId,
+      AppLocalizations l10n) {
+    for (final it in items) {
+      if (((it['id'] as num?)?.toInt() ?? 0) == currentId) {
+        return '${it['title']} - ${it['artist']}';
+      }
+    }
+    return items.isEmpty ? l10n.lanEmptyTag : '${items.first['title']} …';
+  }
+}
