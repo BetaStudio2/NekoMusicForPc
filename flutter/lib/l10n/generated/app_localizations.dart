@@ -907,7 +907,7 @@ abstract class AppLocalizations {
   /// No description provided for @username.
   ///
   /// In zh, this message translates to:
-  /// **'用户名'**
+  /// **'邮箱'**
   String get username;
 
   /// No description provided for @email.
