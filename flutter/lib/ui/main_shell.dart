@@ -276,7 +276,26 @@ class _MainShellState extends State<MainShell>
                         Expanded(
                           child: Padding(
                             padding: const EdgeInsets.all(24),
-                            child: _buildPage(),
+                            child: AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 220),
+                              switchInCurve: Curves.easeOutCubic,
+                              switchOutCurve: Curves.easeInCubic,
+                              transitionBuilder: (child, animation) =>
+                                  FadeTransition(
+                                opacity: animation,
+                                child: SlideTransition(
+                                  position: Tween<Offset>(
+                                          begin: const Offset(0, 0.012),
+                                          end: Offset.zero)
+                                      .animate(animation),
+                                  child: child,
+                                ),
+                              ),
+                              child: KeyedSubtree(
+                                key: ValueKey('page-${_page == -1 ? 's' : _page}'),
+                                child: _buildPage(),
+                              ),
+                            ),
                           ),
                         ),
                       ],
