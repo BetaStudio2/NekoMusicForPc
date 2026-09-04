@@ -326,6 +326,7 @@ class NekoCore {
   late final int Function() _queueLoad;
   late final int Function() _queueClear;
   late final int Function(Pointer<_NativeNekoCoreMusic>, int) _queueAddAll;
+  late final int Function(Pointer<_NativeNekoCoreMusic>, int) _queueAppend;
   late final int Function(int) _queueSetIndex;
   late final int Function(Pointer<Utf8>) _queueSetMode;
   late final int Function() _lanStart;
@@ -438,6 +439,10 @@ class NekoCore {
         _cmd_list_t,
         int Function(Pointer<_NativeNekoCoreMusic>, int)>(
         'neko_core_cmd_queue_add_all');
+    _queueAppend = _lib.lookupFunction<
+        _cmd_list_t,
+        int Function(Pointer<_NativeNekoCoreMusic>, int)>(
+        'neko_core_cmd_queue_append');
     _queueSetIndex = _lib.lookupFunction<_cmd_int_t, int Function(int)>(
         'neko_core_cmd_queue_set_index');
     _queueSetMode = _lib.lookupFunction<
@@ -693,6 +698,20 @@ class NekoCore {
         list[i].toNative(ptr.elementAt(i));
       }
       return _queueAddAll(ptr, list.length);
+    } finally {
+      calloc.free(ptr);
+    }
+  }
+
+  /// 追加到播放队列（不清空已有队列；对齐 Qt addToPlaylist）
+  int queueAppend(List<NekoCoreMusic> list) {
+    if (list.isEmpty) return _queueAppend(nullptr, 0);
+    final ptr = calloc<_NativeNekoCoreMusic>(list.length);
+    try {
+      for (var i = 0; i < list.length; i++) {
+        list[i].toNative(ptr.elementAt(i));
+      }
+      return _queueAppend(ptr, list.length);
     } finally {
       calloc.free(ptr);
     }

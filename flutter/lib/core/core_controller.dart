@@ -707,7 +707,7 @@ class CoreController extends ChangeNotifier {
 
   /// 加入播放队列：仅追加不打断当前播放（对齐 Qt PlaylistManager.addToPlaylist→队列）
   void addToQueue(NekoCoreMusic music) {
-    _post(() => _core.queueAddAll([music]), (_) {
+    _post(() => _core.queueAppend([music]), (_) {
       _requestQueue();
       notifyListeners();
     });

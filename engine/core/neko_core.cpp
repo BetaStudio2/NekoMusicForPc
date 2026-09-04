@@ -62,7 +62,7 @@ enum class CmdType {
     SendResetCode, ResetPassword,
     FetchRanking, FetchLatest, FetchDaily, SearchMusic,
     FetchMusicInfo, FetchLyrics, FetchFavorites, ToggleFavorite,
-    QueueLoad, QueueClear, QueueAddAll, QueueSetIndex, QueueSetMode,
+    QueueLoad, QueueClear, QueueAddAll, QueueAppend, QueueSetIndex, QueueSetMode,
     RecentLoad, RecordRecent, DownloadsLoad, RecordDownload,
     PlaylistCreate, PlaylistDelete, PlaylistUpdate,
     PlaylistList, PlaylistDetail, PlaylistAddMusic, PlaylistRemoveMusic,
@@ -421,6 +421,12 @@ public:
             break;
         case CmdType::QueueAddAll: {
             PlaylistManager::instance().clearPlaylist();
+            PlaylistManager::instance().addAllToPlaylist(cmd->musicList);
+            PlaylistManager::instance().save();
+            doQueueLoad(cmd);
+            break;
+        }
+        case CmdType::QueueAppend: {
             PlaylistManager::instance().addAllToPlaylist(cmd->musicList);
             PlaylistManager::instance().save();
             doQueueLoad(cmd);
@@ -1667,6 +1673,22 @@ int64_t neko_core_cmd_queue_load(void)
 int64_t neko_core_cmd_queue_clear(void)
 {
     return postSimple(CmdType::QueueClear);
+}
+
+int64_t neko_core_cmd_queue_append(const neko_core_music *list, int n)
+{
+    QObject *w = g_worker.load(std::memory_order_acquire);
+    if (!w)
+        return 0;
+    auto *cmd = new Cmd;
+    cmd->type = CmdType::QueueAppend;
+    cmd->seq = nextSeq();
+    for (int i = 0; i < n; ++i)
+        cmd->musicList.append(musicFromRow(&list[i]));
+    QMetaObject::invokeMethod(w,
+                              [w, cmd]() { static_cast<CoreWorker *>(w)->processCommand(cmd); },
+                              Qt::QueuedConnection);
+    return cmd->seq;
 }
 
 int64_t neko_core_cmd_queue_add_all(const neko_core_music *list, int n)
