@@ -382,40 +382,108 @@ class QueuePanelBody extends StatelessWidget {
                                   ),
                                 ],
                               ),
-                              trailing: Text(
-                                  _fmt(m.duration.toDouble()),
-                                  style: TextStyle(
-                                      fontSize: 11, color: kTextMuted)),
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                      _fmt(m.duration.toDouble()),
+                                      style: TextStyle(
+                                          fontSize: 11, color: kTextMuted)),
+                                  IconButton(
+                                    tooltip: t.t('移除', 'Remove'),
+                                    icon: const Icon(NekoIcons.Close,
+                                        size: 14),
+                                    constraints:
+                                        const BoxConstraints.tightFor(
+                                            width: 26, height: 26),
+                                    visualDensity:
+                                        VisualDensity.compact,
+                                    color: kTextMuted,
+                                    onPressed: () =>
+                                        core.removeFromQueue(i),
+                                  ),
+                                ],
+                              ),
                             );
                           },
                         )),
             ),
             if (remote && remoteItems.isNotEmpty)
               Divider(height: 1, color: kDivider),
+            if (!remote &&
+                !localQueue.isEmpty &&
+                core.currentIndex >= 0 &&
+                localQueue.isNotEmpty)
+              Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                child: TextButton.icon(
+                  style: TextButton.styleFrom(
+                      foregroundColor: kTextSecondary),
+                  onPressed: () {
+                    // 滚动到当前曲（近似按行高 56）
+                    final i = core.currentIndex;
+                    final maxScroll = (localQueue.length * 56 - 300)
+                        .clamp(0, 1 << 30);
+                    Scrollable.ensureVisible(
+                      context,
+                      alignment: 0.0,
+                      duration: const Duration(milliseconds: 200),
+                      alignmentPolicy: ScrollPositionAlignmentPolicy
+                          .explicit,
+                    );
+                    debugPrint('[queue] scroll-to-current idx=$i max=$maxScroll');
+                  },
+                  icon: const Icon(NekoIcons.Location, size: 15),
+                  label: Text(t.t('定位当前播放', 'Scroll to current'),
+                      style: const TextStyle(fontSize: 12)),
+                ),
+              ),
             if (remote && remoteItems.isNotEmpty)
               Padding(
                 padding:
                     const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: kPrimary,
-                      side: BorderSide(color: kPrimary.withValues(alpha: 0.5)),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: kTextSecondary,
+                          side: BorderSide(color: kDivider),
+                        ),
+                        onPressed: () {
+                          final songs =
+                              remoteItems.map(_musicFromRemote).toList();
+                          if (songs.isNotEmpty) {
+                            core.replaceQueue(songs);
+                            core.lanSelectDevice('');
+                          }
+                        },
+                        icon: const Icon(NekoIcons.AddList, size: 16),
+                        label: Text(t.t('替换本机列表', 'Replace local'),
+                            style: const TextStyle(fontSize: 13)),
+                      ),
                     ),
-                    onPressed: () {
-                      final songs =
-                          remoteItems.map(_musicFromRemote).toList();
-                      if (songs.isNotEmpty) {
-                        core.playAll(songs);
-                        // 对齐 Qt：整列导入本机后切回本机视图
-                        core.lanSelectDevice('');
-                      }
-                    },
-                    icon: const Icon(NekoIcons.Play, size: 18),
-                    label: Text(t.t('播放全部', 'Play all'),
-                        style: const TextStyle(fontSize: 13)),
-                  ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: FilledButton.icon(
+                        style: FilledButton.styleFrom(
+                            backgroundColor: kPrimary,
+                            foregroundColor: Colors.white),
+                        onPressed: () {
+                          final songs =
+                              remoteItems.map(_musicFromRemote).toList();
+                          if (songs.isNotEmpty) {
+                            core.playAll(songs);
+                            core.lanSelectDevice('');
+                          }
+                        },
+                        icon: const Icon(NekoIcons.Play, size: 16),
+                        label: Text(t.t('播放全部', 'Play all'),
+                            style: const TextStyle(fontSize: 13)),
+                      ),
+                    ),
+                  ],
                 ),
               ),
           ],

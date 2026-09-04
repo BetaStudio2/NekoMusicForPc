@@ -705,6 +705,45 @@ class CoreController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 用指定列表整体替换当前队列（对齐 Qt replacePlaylist）
+  void replaceQueue(List<NekoCoreMusic> songs, {int index = 0}) {
+    if (songs.isEmpty) {
+      _post(_core.queueClear, (_) {
+        _requestQueue();
+        notifyListeners();
+      });
+      return;
+    }
+    _post(() => _core.queueAddAll(songs), (_) {
+      final i = index.clamp(0, songs.length - 1);
+      _post(() => _core.queueSetIndex(i), (_) {
+        _requestQueue();
+        notifyListeners();
+      });
+    });
+  }
+
+  /// 从当前队列移除指定位置曲目
+  void removeFromQueue(int i) {
+    if (i < 0 || i >= queue.length) return;
+    final cur = currentIndex;
+    final list = List.of(queue)..removeAt(i);
+    if (list.isEmpty) {
+      _post(_core.queueClear, (_) {
+        _requestQueue();
+        notifyListeners();
+      });
+      return;
+    }
+    final ni = i < cur ? cur - 1 : cur.clamp(0, list.length - 1);
+    _post(() => _core.queueAddAll(list), (_) {
+      _post(() => _core.queueSetIndex(ni), (_) {
+        _requestQueue();
+        notifyListeners();
+      });
+    });
+  }
+
   /// 加入播放队列：仅追加不打断当前播放（对齐 Qt PlaylistManager.addToPlaylist→队列）
   void addToQueue(NekoCoreMusic music) {
     _post(() => _core.queueAppend([music]), (_) {
