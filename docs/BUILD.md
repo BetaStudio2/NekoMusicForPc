@@ -180,9 +180,25 @@ cd flutter && ./bin/flutter --version   # 首次运行会自动下载 Dart SDK
 export PATH="$PWD/flutter/bin:$PATH"     # 写入 ~/.bashrc / ~/.zshrc
 ```
 
-**方式二：官方压缩包**
+**方式二：官网下载压缩包**
 
-从 https://docs.flutter.dev/get-started/install 下载对应平台压缩包，解压后把 `bin` 加入 `PATH`。
+- 入口：https://flutter.dev/downloads 或 https://docs.flutter.dev/get-started/install
+  （按平台选择 stable 压缩包：`flutter_linux_*.tar.xz` / `flutter_windows_*.zip` / `flutter_macos_*.zip`）
+- 解压到目标目录（**避免**含空格/中文的路径），把 `bin` 加入 `PATH`：
+
+```bash
+# Linux/macOS 示例
+cd ~/dev && unzip ~/Downloads/flutter_macos_arm64_*.zip   # 或 tar -xf flutter_linux_*.tar.xz
+export PATH="$HOME/dev/flutter/bin:$PATH"                  # 写入 shell 配置
+```
+
+```bat
+:: Windows 示例（PowerShell 亦可）
+:: 解压 flutter_windows_*.zip 到 D:\dev\flutter 后，系统环境变量 PATH 增加：
+D:\dev\flutter\bin
+```
+
+> Windows 还可通过 Git 直接 `git clone https://github.com/flutter/flutter.git -b stable`（同方式一）。
 
 **版本要求**：`flutter --version` ≥ 3.44（推荐 3.47.x）。旧版本可用 `flutter downgrade` / checkout 对应 tag。
 
