@@ -10,6 +10,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter/widgets.dart';
 import 'package:tray_manager/tray_manager.dart';
 import 'package:window_manager/window_manager.dart';
@@ -23,13 +24,24 @@ class BackgroundService with WindowListener, TrayListener {
 
   bool _ready = false;
   Timer? _winRefreshTimer;
+  String? _iconFile;
+
+  /// 托盘图标：Flutter 资产路径对原生插件不可见，先落盘为临时文件
+  Future<String> _ensureIconFile() async {
+    if (_iconFile != null) return _iconFile!;
+    final data = await rootBundle.load('assets/logo/neko_tray.ico');
+    final f = File('${Directory.systemTemp.path}/neko_tray_icon.ico');
+    await f.writeAsBytes(data.buffer.asUint8List(), flush: true);
+    _iconFile = f.path;
+    return _iconFile!;
+  }
 
   /// Windows 托盘极易被 Explorer 通知区回收：图标消失/右键菜单丢失。
   /// 用低频周期重设图标与菜单恢复（仅 Windows）。
   Future<void> _refreshWindowsTray() async {
     if (!_ready || !Platform.isWindows) return;
     try {
-      await trayManager.setIcon('assets/logo/nekomusic.png');
+      await trayManager.setIcon(await _ensureIconFile());
       await trayManager.setContextMenu(_buildMenu());
     } catch (_) {}
   }
@@ -38,7 +50,7 @@ class BackgroundService with WindowListener, TrayListener {
   Future<void> init() async {
     try {
       trayManager.addListener(this);
-      await trayManager.setIcon('assets/logo/nekomusic.png');
+      await trayManager.setIcon(await _ensureIconFile());
       try {
         await trayManager.setToolTip('Neko歌姬计划');
       } catch (_) {}

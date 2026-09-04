@@ -66,6 +66,7 @@ flutter:
 
   assets:
     - assets/logo/nekomusic.png
+    - assets/logo/neko_tray.ico
 
   # gen_l10n（flutter gen-l10n）代码生成配置
   generate: true
