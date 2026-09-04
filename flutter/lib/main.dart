@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:window_manager/window_manager.dart';
 
 import 'core/core_controller.dart';
 import 'core/background_service.dart';
@@ -229,6 +230,9 @@ final (CoreController, EngineController) appControllers =
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // 窗口管理先于首帧初始化：拦截关闭→托盘的事件链才可靠
+  // （缺失时 Windows 原生关闭被 preventClose 拦下但 Dart 侧收不到 onWindowClose）
+  await windowManager.ensureInitialized();
   await ThemeController.instance.load();
   // 引擎与 Qt 核心桥：应用生命周期单例
   final (core, engine) = appControllers;
