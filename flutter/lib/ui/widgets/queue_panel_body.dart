@@ -17,6 +17,21 @@ class QueuePanelBody extends StatelessWidget {
 
   final VoidCallback onClose;
 
+  NekoCoreMusic _musicFromRemote(Map<String, dynamic> it) {
+    return NekoCoreMusic(
+      id: (it['id'] as num?)?.toInt() ?? 0,
+      title: (it['title'] as String?) ?? '',
+      artist: (it['artist'] as String?) ?? '',
+      album: (it['album'] as String?) ?? '',
+      duration: (it['duration'] as num?)?.toInt() ?? 0,
+      coverUrl: (it['coverPath'] as String?) ?? '',
+      localPath: '',
+      playCount: 0,
+      uploadedAtMs: 0,
+      lrc: false,
+    );
+  }
+
   String _fmt(double s) {
     if (s.isNaN || s.isInfinite || s <= 0) return '00:00';
     final m = s ~/ 60;
@@ -213,6 +228,10 @@ class QueuePanelBody extends StatelessWidget {
                                 (m['id'] as num?)?.toInt() == curRemoteId;
                             return ListTile(
                               dense: true,
+                              onTap: () {
+                                core.play(_musicFromRemote(m));
+                                core.lanSelectDevice('');
+                              },
                               leading: SizedBox(
                                 width: 36,
                                 child: Center(
@@ -385,25 +404,16 @@ class QueuePanelBody extends StatelessWidget {
                       side: BorderSide(color: kPrimary.withValues(alpha: 0.5)),
                     ),
                     onPressed: () {
-                      final songs = <NekoCoreMusic>[];
-                      for (final it in remoteItems) {
-                        songs.add(NekoCoreMusic(
-                          id: (it['id'] as num?)?.toInt() ?? 0,
-                          title: (it['title'] as String?) ?? '',
-                          artist: (it['artist'] as String?) ?? '',
-                          album: (it['album'] as String?) ?? '',
-                          duration: (it['duration'] as num?)?.toInt() ?? 0,
-                          coverUrl: (it['coverPath'] as String?) ?? '',
-                          localPath: '',
-                          playCount: 0,
-                          uploadedAtMs: 0,
-                          lrc: false,
-                        ));
+                      final songs =
+                          remoteItems.map(_musicFromRemote).toList();
+                      if (songs.isNotEmpty) {
+                        core.playAll(songs);
+                        // 对齐 Qt：整列导入本机后切回本机视图
+                        core.lanSelectDevice('');
                       }
-                      if (songs.isNotEmpty) core.playAll(songs);
                     },
-                    icon: const Icon(NekoIcons.PlaylistPlay, size: 18),
-                    label: Text(t.t('接管并播放', 'Take over & play'),
+                    icon: const Icon(NekoIcons.Play, size: 18),
+                    label: Text(t.t('播放全部', 'Play all'),
                         style: const TextStyle(fontSize: 13)),
                   ),
                 ),
