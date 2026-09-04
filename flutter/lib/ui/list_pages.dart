@@ -23,11 +23,26 @@ class FavoritesPage extends StatelessWidget {
         Row(
           children: [
             Text(l10n.myFavorites,
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+                style: const TextStyle(
+                    fontSize: 22, fontWeight: FontWeight.bold)),
             const Spacer(),
-            if (core.favorites.isNotEmpty)
+            if (core.favorites.isNotEmpty) ...[
               Text(l10n.playlistCountSongs(core.favorites.length),
                   style: TextStyle(color: kTextMuted, fontSize: 12)),
+              const SizedBox(width: 12),
+              FilledButton.icon(
+                style: FilledButton.styleFrom(
+                    backgroundColor: kPrimary,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 8)),
+                onPressed: core.favorites.isEmpty
+                    ? null
+                    : () => core.playAll(List.of(core.favorites)),
+                icon: const Icon(NekoIcons.Play, size: 16),
+                label: Text(l10n.playAll,
+                    style: const TextStyle(fontSize: 13)),
+              ),
+            ],
           ],
         ),
         const SizedBox(height: 16),
