@@ -127,7 +127,11 @@ class BackgroundService with WindowListener, TrayListener {
   @override
   void onTrayIconMouseDown() => _showWindow();
   @override
-  void onTrayIconRightMouseDown() {}
+  void onTrayIconRightMouseDown() {
+    // Windows：右键菜单需手动弹出（tray_manager 示例约定），
+    // 空实现会吞掉事件导致菜单永不出现（进而无法从托盘退出）
+    trayManager.popUpContextMenu();
+  }
 
   /// 真正退出：清理托盘并关闭窗口（结束进程）
   Future<void> quit() async {
