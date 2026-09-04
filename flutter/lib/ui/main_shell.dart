@@ -67,10 +67,28 @@ class _MainShellState extends State<MainShell>
     // LAN 同步：周期推送本机播放镜像 + 轮询远端设备/队列
     _lanTimer = Timer.periodic(const Duration(seconds: 2), (_) {
       if (!mounted) return;
+      final wasConnected = _core.lanConnected;
       final music = _core.current;
       _core.lanSyncPlayer(music?.id ?? 0,
           _engine.state == NekoPlayState.playing);
       _core.lanPollTick();
+      // 对齐 Qt Toast：连接状态变化提示（已连接/已断开）
+      Timer(const Duration(milliseconds: 400), () {
+        if (!mounted) return;
+        final now = _core.lanConnected;
+        if (wasConnected != now && now != _lastLanConnected) {
+          _lastLanConnected = now;
+          final t = ThemeController.instance;
+          ScaffoldMessenger.of(context)
+            ..hideCurrentSnackBar()
+            ..showSnackBar(SnackBar(
+              content: Text(now
+                  ? t.t('已连接设备', 'Device connected')
+                  : t.t('设备连接已断开', 'Device disconnected')),
+              duration: const Duration(seconds: 2),
+            ));
+        }
+      });
     });
   }
 
@@ -78,6 +96,7 @@ class _MainShellState extends State<MainShell>
   Timer? _lanTimer;
   bool _lanVisible = false;
   bool _queueOpen = false;
+  bool _lastLanConnected = false;
   late final AnimationController _queueAnim = AnimationController(
       vsync: this, duration: const Duration(milliseconds: 260));
   late final Animation<Offset> _queueSlide = Tween<Offset>(
