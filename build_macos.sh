@@ -205,6 +205,17 @@ fi
 
 echo ""
 echo "Bundling Qt frameworks with macdeployqt..."
+# macdeployqt 会解析所有会被打包插件的依赖；不打算打包的 SQL 插件先从 Qt 插件目录剔除，
+# 免得它对机器上不存在的 libmimerapi / libiodbc / libpq 刷一堆 ERROR（下面还会再兜底清理一次）
+QT_SQL_PLUGIN_DIR="$QT_MAC_ROOT/plugins/sqldrivers"
+if [[ -d "$QT_SQL_PLUGIN_DIR" ]]; then
+    for plugin in libqsqlodbc.dylib libqsqlpsql.dylib libqsqlmimer.dylib; do
+        if [[ -f "$QT_SQL_PLUGIN_DIR/$plugin" ]]; then
+            rm -f "$QT_SQL_PLUGIN_DIR/$plugin"
+            echo "  Skipped $plugin (not bundled)"
+        fi
+    done
+fi
 "$MACDEPLOYQT" "$APP_DIR" -always-overwrite
 
 echo ""

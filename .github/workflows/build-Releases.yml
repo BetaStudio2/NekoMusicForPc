@@ -89,7 +89,8 @@ jobs:
           files: ${{ steps.pack.outputs.file }}
 
   # ============================================================
-  # Windows：原生构建（Qt 官方 MinGW 套件）+ windeployqt + NSIS 安装包
+  # Windows：原生构建（Qt 官方 MinGW 套件）→ windeployqt → NSIS 安装包
+  # 构建 / 部署 / 打包放在同一个步骤里，避免跨步骤丢失部署目录
   # ============================================================
   windows:
     name: Windows (.exe)
@@ -112,10 +113,13 @@ jobs:
           cache: true
           install-deps: false
 
-      - name: Build and deploy
+      - name: Build, deploy and package (.exe)
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
+          $root     = $PWD.Path
+          $buildDir = Join-Path $root 'build-windows'
+          $stage    = Join-Path $root 'build'          # NSIS 脚本约定的待打包目录
 
           # Qt 自带的 MinGW 工具链（g++ / gcc），确保优先于其它编译器
           $mingw = Get-ChildItem $env:IQTA_TOOLS -Directory |
@@ -124,64 +128,92 @@ jobs:
           if (-not $mingw) { throw "未在 $env:IQTA_TOOLS 找到 MinGW 工具链" }
           $env:Path = "$($mingw.FullName)\bin;$env:Path"
 
-          Write-Host "Qt   : $env:QT_ROOT_DIR"
-          Write-Host "MinGW: $($mingw.FullName)"
+          if (-not $env:QT_ROOT_DIR) { throw "未取到 QT_ROOT_DIR，install-qt-action 可能没装上 Qt" }
+          Write-Host "Qt    : $env:QT_ROOT_DIR"
+          Write-Host "MinGW : $($mingw.FullName)"
           & g++ --version | Select-Object -First 1
 
           if (-not (Get-Command ninja -ErrorAction SilentlyContinue)) {
             choco install ninja -y --no-progress
           }
 
-          cmake -S . -B build-windows -G Ninja `
+          # ---------------- 构建 ----------------
+          cmake -S $root -B $buildDir -G Ninja `
             -DCMAKE_BUILD_TYPE=Release `
             -DCMAKE_C_COMPILER=gcc `
             -DCMAKE_CXX_COMPILER=g++ `
             -DCMAKE_PREFIX_PATH="$env:QT_ROOT_DIR"
+          if ($LASTEXITCODE -ne 0) { throw "CMake 配置失败" }
 
-          cmake --build build-windows --parallel
+          cmake --build $buildDir --parallel
+          if ($LASTEXITCODE -ne 0) { throw "编译失败" }
 
-          if (-not (Test-Path 'build-windows\NekoMusic.exe')) {
-            throw "未生成 build-windows\NekoMusic.exe"
-          }
+          $exe = Join-Path $buildDir 'NekoMusic.exe'
+          if (-not (Test-Path $exe)) { throw "未生成 $exe" }
 
-          # NSIS 脚本约定：待打包内容位于 ../build
-          if (Test-Path 'build') { Remove-Item 'build' -Recurse -Force }
-          New-Item -ItemType Directory -Path 'build' | Out-Null
-          Copy-Item 'build-windows\NekoMusic.exe' 'build\'
+          # ---------------- 部署 Qt 依赖 ----------------
+          if (Test-Path $stage) { Remove-Item $stage -Recurse -Force }
+          New-Item -ItemType Directory -Path $stage | Out-Null
 
+          # 先部署依赖，再把主程序拷进去（避免 windeployqt 面对目标目录内的自身产物）
           & "$env:QT_ROOT_DIR\bin\windeployqt.exe" `
             --release --compiler-runtime `
-            --dir build 'build\NekoMusic.exe'
+            --dir $stage $exe
+          if ($LASTEXITCODE -ne 0) { throw "windeployqt 失败，退出码 $LASTEXITCODE" }
+
+          Copy-Item $exe (Join-Path $stage 'NekoMusic.exe')
 
           # 兼容 windeployqt 把插件放进 plugins\ 子目录的布局
-          if (Test-Path 'build\plugins') {
-            Copy-Item 'build\plugins\*' 'build' -Recurse -Force
-            Remove-Item 'build\plugins' -Recurse -Force
+          $pluginsSub = Join-Path $stage 'plugins'
+          if (Test-Path $pluginsSub) {
+            Copy-Item (Join-Path $pluginsSub '*') $stage -Recurse -Force
+            Remove-Item $pluginsSub -Recurse -Force
           }
 
-          if (-not (Test-Path 'build\platforms\qwindows.dll')) {
-            throw "Qt 平台插件未部署：build\platforms\qwindows.dll 缺失"
+          # MinGW 运行库兜底（NSIS 里是必选文件，缺了会直接编译失败）
+          foreach ($dll in @('libstdc++-6.dll', 'libgcc_s_seh-1.dll', 'libwinpthread-1.dll')) {
+            $dst = Join-Path $stage $dll
+            if (-not (Test-Path $dst)) {
+              $srcDll = Join-Path $mingw.FullName "bin\$dll"
+              if (Test-Path $srcDll) {
+                Copy-Item $srcDll $dst
+                Write-Host "  补拷 $dll（来自 MinGW 工具链）"
+              }
+            }
           }
 
-      - name: Build NSIS installer
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
+          # NSIS 脚本里这些是必选文件，缺失时在这里就报清楚，别等 makensis 中止
+          $required = @(
+            'NekoMusic.exe', 'platforms\qwindows.dll',
+            'Qt6Core.dll', 'Qt6Gui.dll', 'Qt6Widgets.dll', 'Qt6Multimedia.dll',
+            'Qt6Network.dll', 'Qt6Sql.dll', 'Qt6Svg.dll', 'Qt6SvgWidgets.dll',
+            'Qt6Concurrent.dll',
+            'libstdc++-6.dll', 'libgcc_s_seh-1.dll', 'libwinpthread-1.dll'
+          )
+          $missing = @($required | Where-Object { -not (Test-Path (Join-Path $stage $_)) })
+          if ($missing.Count -gt 0) {
+            Write-Host "---- $stage 内容 ----"
+            Get-ChildItem $stage -Recurse -Depth 1 | Select-Object -First 60 FullName
+            throw "部署目录缺少必需文件: $($missing -join ', ')"
+          }
 
+          # ---------------- NSIS 打包 ----------------
           $makensis = "${env:ProgramFiles(x86)}\NSIS\makensis.exe"
           if (-not (Test-Path $makensis)) {
             choco install nsis -y --no-progress
-            $makensis = "${env:ProgramFiles(x86)}\NSIS\makensis.exe"
           }
-          if (-not (Test-Path $makensis)) { throw "未找到 makensis.exe" }
+          if (-not (Test-Path $makensis)) {
+            $makensis = (Get-Command makensis -ErrorAction SilentlyContinue).Source
+          }
+          if (-not $makensis -or -not (Test-Path $makensis)) { throw "未找到 makensis.exe" }
 
-          $version = [regex]::Match((Get-Content 'CMakeLists.txt' -Raw),
+          $version = [regex]::Match((Get-Content (Join-Path $root 'CMakeLists.txt') -Raw),
             '(?m)^\s*VERSION\s+([0-9][0-9.]*)\s*$').Groups[1].Value
           if (-not $version) { throw "无法从 CMakeLists.txt 解析版本号" }
           Write-Host "版本: $version"
 
           # 脚本内为 UTF-8（无 BOM），需显式指定输入字符集
-          Push-Location packaging
+          Push-Location (Join-Path $root 'packaging')
           try {
             & $makensis -V2 -INPUTCHARSET UTF8 "-DVERSION=$version" nekomusic_installer.nsi
             if ($LASTEXITCODE -ne 0) { throw "makensis 失败，退出码 $LASTEXITCODE" }
@@ -189,12 +221,18 @@ jobs:
             Pop-Location
           }
 
-          $exe = Get-ChildItem -Path . -Filter '*-win.exe' -File | Select-Object -First 1
-          if (-not $exe) { throw "未生成 Windows 安装包" }
+          # NSIS 的 OutFile 落在仓库根目录
+          $installer = Join-Path $root "Neko歌姬计划-$version-win.exe"
+          if (-not (Test-Path $installer)) {
+            $installer = (Get-ChildItem -Path $root -Filter '*-win.exe' -File |
+                          Select-Object -First 1).FullName
+          }
+          if (-not $installer -or -not (Test-Path $installer)) { throw "未生成 Windows 安装包" }
 
-          New-Item -ItemType Directory -Force -Path dist | Out-Null
-          $target = Join-Path 'dist' "Neko歌姬计划-$version-win.exe"
-          Copy-Item $exe.FullName $target -Force
+          $dist = Join-Path $root 'dist'
+          New-Item -ItemType Directory -Force -Path $dist | Out-Null
+          $target = Join-Path $dist "Neko歌姬计划-$version-win.exe"
+          Copy-Item $installer $target -Force
           Get-Item $target | Format-List Name, Length
 
       - name: Resolve artifact path
@@ -244,6 +282,8 @@ jobs:
       - name: Build and package (universal .pkg)
         env:
           QT_MAC_ROOT: ${{ env.QT_ROOT_DIR }}
+          # Qt 6.10 的 dylib 最低要求 macOS 13，按 11 链接只会刷一堆 ld 版本告警
+          OSX_DEPLOYMENT_TARGET: '13.0'
         run: |
           set -euo pipefail
           echo "Qt: ${QT_MAC_ROOT:-<未设置>}"
