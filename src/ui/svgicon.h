@@ -1,10 +1,5 @@
 #pragma once
 
-/**
- * @file svgicon.h
- * @brief SPlayer SVG 图标渲染（resources/icons/*.svg）
- */
-
 #include <QIcon>
 #include <QPixmap>
 #include <QString>
