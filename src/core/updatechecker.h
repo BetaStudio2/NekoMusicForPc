@@ -4,7 +4,7 @@
  * @file updatechecker.h
  * @brief 版本更新检查器
  *
- * 从 API 获取 version.json，对比当前版本，提供下载链接。
+ * 从 API 获取 /version，对比当前版本，提供下载链接。
  */
 
 #include <QObject>

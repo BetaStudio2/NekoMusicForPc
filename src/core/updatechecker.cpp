@@ -25,7 +25,7 @@ UpdateChecker::UpdateChecker(const QString &currentVersion, QObject *parent)
 
 void UpdateChecker::checkForUpdates()
 {
-    QUrl url(QString::fromUtf8("%1/version.json").arg(Theme::kApiBase));
+    QUrl url(QString::fromUtf8("%1/version").arg(Theme::kApiBase));
     QNetworkRequest req(url);
     // 禁用缓存
     req.setAttribute(QNetworkRequest::CacheLoadControlAttribute, QNetworkRequest::AlwaysNetwork);
@@ -71,7 +71,7 @@ void UpdateChecker::checkForUpdates()
 
             info.installKind = resolveInstallKind(platformKey, urlTemplate);
             if (info.installKind == UpdateInstallKind::ArchAurHelper) {
-                // version.json 仅有 windows / mac / linux，Arch 走 AUR，不下载 pc.linux 的 deb
+                // /version 仅有 windows / mac / linux，Arch 走 AUR，不下载 pc.linux 的 deb
                 info.downloadUrl = aurPackagePageUrl();
             } else {
                 info.downloadUrl = urlTemplate.replace(QStringLiteral("{pc_ver}"), remoteVersion);

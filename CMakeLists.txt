@@ -477,7 +477,7 @@ if(LINUX)
     set(CPACK_DEBIAN_PACKAGE_POSTINST "${CMAKE_SOURCE_DIR}/packaging/debian/postinst")
     set(CPACK_DEBIAN_PACKAGE_POSTRM "${CMAKE_SOURCE_DIR}/packaging/debian/postrm")
 
-    # Output filename format matching version.json URL pattern
+    # Output filename format matching the /version URL pattern
     set(CPACK_PACKAGE_FILE_NAME "Neko歌姬计划-${CPACK_PACKAGE_VERSION}-linux-amd64")
 
 elseif(WIN32)
