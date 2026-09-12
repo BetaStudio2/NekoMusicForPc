@@ -268,7 +268,7 @@ rm -rf "$DEPLOY_TEMP"
 cp -r "$SCRIPT_DIR/$BUILD_DIR/$DEPLOY_DIR" "$DEPLOY_TEMP"
 
 echo "Running makensis..."
-makensis -V2 -DVERSION="$FULL_VERSION" "$SCRIPT_DIR/packaging/nekomusic_installer.nsi"
+makensis -V2 "-DBUILD_DIR=$SCRIPT_DIR/build" -DVERSION="$FULL_VERSION" "$SCRIPT_DIR/packaging/nekomusic_installer.nsi"
 NSIS_EXIT=$?
 echo "makensis exit code: $NSIS_EXIT"
 

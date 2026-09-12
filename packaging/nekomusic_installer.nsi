@@ -14,6 +14,12 @@
 !define APP_PROGID "NekoMusic.AudioFile"
 !define APP_CAPABILITIES "Software\NekoMusic\Capabilities"
 
+; 待打包的部署目录。默认相对本脚本所在目录（packaging\..\build）；
+; 相对路径在不同环境下的解析基准不一致，CI 会用 -DBUILD_DIR=<绝对路径> 覆盖。
+!ifndef BUILD_DIR
+  !define BUILD_DIR "${__FILEDIR__}\..\build"
+!endif
+
 !macro RegisterMediaAssociation EXT MIME
     WriteRegStr HKLM "${APP_CAPABILITIES}\FileAssociations" "${EXT}" "${APP_PROGID}"
     WriteRegStr HKLM "${APP_CAPABILITIES}\MIMEAssociations" "${MIME}" "${APP_PROGID}"
@@ -59,48 +65,48 @@ Section "Neko歌姬计划" SecMain
     SetOutPath "$INSTDIR"
 
     ; Install main executable
-    File "../build/${APP_EXE}"
+    File "${BUILD_DIR}\${APP_EXE}"
 
     ; Install Qt dependencies
-    File /nonfatal /r "../build/platforms"
-    File /nonfatal /r "../build/multimedia"
-    File /nonfatal /r "../build/iconengines"
-    File /nonfatal /r "../build/imageformats"
-    File /nonfatal /r "../build/styles"
-    File /nonfatal /r "../build/translations"
-    File /nonfatal /r "../build/sqldrivers"
-    File /nonfatal /r "../build/tls"
-    File /nonfatal /r "../build/networkinformation"
-    File /nonfatal /r "../build/generic"
+    File /nonfatal /r "${BUILD_DIR}\platforms"
+    File /nonfatal /r "${BUILD_DIR}\multimedia"
+    File /nonfatal /r "${BUILD_DIR}\iconengines"
+    File /nonfatal /r "${BUILD_DIR}\imageformats"
+    File /nonfatal /r "${BUILD_DIR}\styles"
+    File /nonfatal /r "${BUILD_DIR}\translations"
+    File /nonfatal /r "${BUILD_DIR}\sqldrivers"
+    File /nonfatal /r "${BUILD_DIR}\tls"
+    File /nonfatal /r "${BUILD_DIR}\networkinformation"
+    File /nonfatal /r "${BUILD_DIR}\generic"
 
     ; Qt DLLs
-    File "../build/Qt6Core.dll"
-    File "../build/Qt6Gui.dll"
-    File "../build/Qt6Widgets.dll"
-    File "../build/Qt6Multimedia.dll"
-    File "../build/Qt6Network.dll"
-    File "../build/Qt6Sql.dll"
-    File "../build/Qt6Svg.dll"
-    File "../build/Qt6SvgWidgets.dll"
-    File "../build/Qt6Concurrent.dll"
+    File "${BUILD_DIR}\Qt6Core.dll"
+    File "${BUILD_DIR}\Qt6Gui.dll"
+    File "${BUILD_DIR}\Qt6Widgets.dll"
+    File "${BUILD_DIR}\Qt6Multimedia.dll"
+    File "${BUILD_DIR}\Qt6Network.dll"
+    File "${BUILD_DIR}\Qt6Sql.dll"
+    File "${BUILD_DIR}\Qt6Svg.dll"
+    File "${BUILD_DIR}\Qt6SvgWidgets.dll"
+    File "${BUILD_DIR}\Qt6Concurrent.dll"
 
     ; Qt Multimedia -> FFmpeg（版本号随 Qt 变化，用通配）
-    File /nonfatal "../build/avcodec-*.dll"
-    File /nonfatal "../build/avformat-*.dll"
-    File /nonfatal "../build/avutil-*.dll"
-    File /nonfatal "../build/swresample-*.dll"
-    File /nonfatal "../build/swscale-*.dll"
+    File /nonfatal "${BUILD_DIR}\avcodec-*.dll"
+    File /nonfatal "${BUILD_DIR}\avformat-*.dll"
+    File /nonfatal "${BUILD_DIR}\avutil-*.dll"
+    File /nonfatal "${BUILD_DIR}\swresample-*.dll"
+    File /nonfatal "${BUILD_DIR}\swscale-*.dll"
 
     ; MinGW / 图形依赖（与 build_windows.sh 部署目录一致）
-    File "../build/libstdc++-6.dll"
-    File "../build/libgcc_s_seh-1.dll"
-    File "../build/libwinpthread-1.dll"
-    File /nonfatal "../build/d3dcompiler_47.dll"
-    File /nonfatal "../build/opengl32sw.dll"
+    File "${BUILD_DIR}\libstdc++-6.dll"
+    File "${BUILD_DIR}\libgcc_s_seh-1.dll"
+    File "${BUILD_DIR}\libwinpthread-1.dll"
+    File /nonfatal "${BUILD_DIR}\d3dcompiler_47.dll"
+    File /nonfatal "${BUILD_DIR}\opengl32sw.dll"
 
     ; Optional: OpenSSL DLLs
-    File /nonfatal "../build/libssl*.dll"
-    File /nonfatal "../build/libcrypto*.dll"
+    File /nonfatal "${BUILD_DIR}\libssl*.dll"
+    File /nonfatal "${BUILD_DIR}\libcrypto*.dll"
 
     ; Create Start Menu Shortcut
     CreateDirectory "$SMPROGRAMS\Neko歌姬计划"

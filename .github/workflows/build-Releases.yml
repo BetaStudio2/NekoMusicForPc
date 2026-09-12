@@ -225,20 +225,26 @@ jobs:
           if (-not $version) { throw "无法从 CMakeLists.txt 解析版本号" }
           Write-Host "版本: $version"
 
-          # 脚本内为 UTF-8（无 BOM），需显式指定输入字符集
+          Write-Host "部署目录: $stage"
+          Get-ChildItem $stage -Filter '*.exe' | Select-Object Name, Length | Format-Table
+
+          # 脚本内为 UTF-8（无 BOM），需显式指定输入字符集；
+          # BUILD_DIR 传绝对路径，避免 makensis 对相对路径的解析基准不一致
           Push-Location (Join-Path $root 'packaging')
           try {
-            & $makensis -V2 -INPUTCHARSET UTF8 "-DVERSION=$version" nekomusic_installer.nsi
+            & $makensis -V2 -INPUTCHARSET UTF8 "-DBUILD_DIR=$stage" `
+              "-DVERSION=$version" nekomusic_installer.nsi
             if ($LASTEXITCODE -ne 0) { throw "makensis 失败，退出码 $LASTEXITCODE" }
           } finally {
             Pop-Location
           }
 
-          # NSIS 的 OutFile 落在仓库根目录
+          # NSIS 的 OutFile 约定落在仓库根目录；兜底再全仓搜一次
           $installer = Join-Path $root "Neko歌姬计划-$version-win.exe"
           if (-not (Test-Path $installer)) {
-            $installer = (Get-ChildItem -Path $root -Filter '*-win.exe' -File |
-                          Select-Object -First 1).FullName
+            $found = Get-ChildItem -Path $root -Recurse -Filter '*-win.exe' -File `
+                     -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($found) { $installer = $found.FullName }
           }
           if (-not $installer -or -not (Test-Path $installer)) { throw "未生成 Windows 安装包" }
 
