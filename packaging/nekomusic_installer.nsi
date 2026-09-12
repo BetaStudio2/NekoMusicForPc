@@ -39,7 +39,7 @@ RequestExecutionLevel admin
 ; UI Settings
 !define MUI_ICON "app.ico"
 !define MUI_ABORTWARNING
-!define MUI_WELCOMEFINISHPAGE_BITMAP "/usr/share/nsis/Contrib/Graphics/Wizard/nsis3-branding.bmp"
+!define MUI_WELCOMEFINISHPAGE_BITMAP "${NSISDIR}\Contrib\Graphics\Wizard\nsis3-branding.bmp"
 
 ; Pages
 !insertmacro MUI_PAGE_WELCOME

@@ -91,8 +91,8 @@ cmake --install build/linux-release --prefix /usr/local
 | 平台 | 说明 |
 | --- | --- |
 | Linux | 可执行文件在构建目录；`build_linux.sh` 可用 CPack 打 deb（若已配置） |
-| Windows | `build_windows.sh` 完成后一般在 `dist/` 下生成安装包（见脚本输出） |
-| macOS | `build_macos.sh` 完成后在 `dist/` 下生成通用架构 `.pkg`（arm64 + x86_64）；CI 见 `.github/workflows/build-macos.yml` |
+| Windows | `build_windows.sh`（Linux 交叉编译）或 CI 原生构建，产物为 `dist/` 下的 NSIS 安装包 |
+| macOS | `build_macos.sh` 完成后在 `dist/` 下生成通用架构 `.pkg`（arm64 + x86_64） |
 
 ---
 

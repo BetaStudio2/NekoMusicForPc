@@ -1,0 +1,287 @@
+name: build-Releases
+
+# 三平台一键出包：Linux(.deb) / Windows(NSIS .exe) / macOS(通用架构 .pkg)
+# push 即触发；打 tag（v*）时额外上传到 GitHub Release 作为发布资产。
+
+'on':
+  push:
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: "手动触发原因（可选）"
+        required: false
+        default: "manual"
+        type: string
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  QT_VERSION: '6.10.2'
+
+jobs:
+  # ============================================================
+  # Linux：本机构建 + CPack 打包 .deb
+  # ============================================================
+  linux-deb:
+    name: Linux (.deb)
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Qt 6 (Linux)
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          host: 'linux'
+          target: 'desktop'
+          arch: 'linux_gcc_64'
+          modules: 'qtmultimedia'
+          cache: true
+
+      - name: Install packaging deps
+        run: |
+          sudo apt-get install -y --no-install-recommends \
+            dpkg-dev \
+            fakeroot
+
+      - name: Build and package (.deb)
+        env:
+          CMAKE_PREFIX_PATH: ${{ env.QT_ROOT_DIR }}
+        run: |
+          set -euo pipefail
+          echo "Qt: ${QT_ROOT_DIR:-<未设置>}"
+          chmod +x build_linux.sh
+          ./build_linux.sh Release
+
+      - name: Resolve artifact path
+        id: pack
+        run: |
+          set -euo pipefail
+          DEB="$(find dist -maxdepth 1 -name 'Neko歌姬计划-*-linux-amd64.deb' -type f | head -n1 || true)"
+          if [[ -z "$DEB" ]]; then
+            echo "未在 dist/ 找到 .deb"
+            ls -la dist || true
+            exit 1
+          fi
+          ls -lh "$DEB"
+          echo "file=$DEB" >> "$GITHUB_OUTPUT"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-deb
+          path: ${{ steps.pack.outputs.file }}
+          if-no-files-found: error
+
+      - name: Upload release asset (on tag)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ steps.pack.outputs.file }}
+
+  # ============================================================
+  # Windows：原生构建（Qt 官方 MinGW 套件）+ windeployqt + NSIS 安装包
+  # ============================================================
+  windows:
+    name: Windows (.exe)
+    runs-on: windows-latest
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Qt 6 (Windows MinGW kit)
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          host: 'windows'
+          target: 'desktop'
+          arch: 'win64_mingw'
+          modules: 'qtmultimedia'
+          tools: 'tools_mingw1310'
+          cache: true
+          install-deps: false
+
+      - name: Build and deploy
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          # Qt 自带的 MinGW 工具链（g++ / gcc），确保优先于其它编译器
+          $mingw = Get-ChildItem $env:IQTA_TOOLS -Directory |
+                   Where-Object { Test-Path (Join-Path $_.FullName 'bin\g++.exe') } |
+                   Select-Object -First 1
+          if (-not $mingw) { throw "未在 $env:IQTA_TOOLS 找到 MinGW 工具链" }
+          $env:Path = "$($mingw.FullName)\bin;$env:Path"
+
+          Write-Host "Qt   : $env:QT_ROOT_DIR"
+          Write-Host "MinGW: $($mingw.FullName)"
+          & g++ --version | Select-Object -First 1
+
+          if (-not (Get-Command ninja -ErrorAction SilentlyContinue)) {
+            choco install ninja -y --no-progress
+          }
+
+          cmake -S . -B build-windows -G Ninja `
+            -DCMAKE_BUILD_TYPE=Release `
+            -DCMAKE_C_COMPILER=gcc `
+            -DCMAKE_CXX_COMPILER=g++ `
+            -DCMAKE_PREFIX_PATH="$env:QT_ROOT_DIR"
+
+          cmake --build build-windows --parallel
+
+          if (-not (Test-Path 'build-windows\NekoMusic.exe')) {
+            throw "未生成 build-windows\NekoMusic.exe"
+          }
+
+          # NSIS 脚本约定：待打包内容位于 ../build
+          if (Test-Path 'build') { Remove-Item 'build' -Recurse -Force }
+          New-Item -ItemType Directory -Path 'build' | Out-Null
+          Copy-Item 'build-windows\NekoMusic.exe' 'build\'
+
+          & "$env:QT_ROOT_DIR\bin\windeployqt.exe" `
+            --release --compiler-runtime `
+            --dir build 'build\NekoMusic.exe'
+
+          # 兼容 windeployqt 把插件放进 plugins\ 子目录的布局
+          if (Test-Path 'build\plugins') {
+            Copy-Item 'build\plugins\*' 'build' -Recurse -Force
+            Remove-Item 'build\plugins' -Recurse -Force
+          }
+
+          if (-not (Test-Path 'build\platforms\qwindows.dll')) {
+            throw "Qt 平台插件未部署：build\platforms\qwindows.dll 缺失"
+          }
+
+      - name: Build NSIS installer
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          $makensis = "${env:ProgramFiles(x86)}\NSIS\makensis.exe"
+          if (-not (Test-Path $makensis)) {
+            choco install nsis -y --no-progress
+            $makensis = "${env:ProgramFiles(x86)}\NSIS\makensis.exe"
+          }
+          if (-not (Test-Path $makensis)) { throw "未找到 makensis.exe" }
+
+          $version = [regex]::Match((Get-Content 'CMakeLists.txt' -Raw),
+            '(?m)^\s*VERSION\s+([0-9][0-9.]*)\s*$').Groups[1].Value
+          if (-not $version) { throw "无法从 CMakeLists.txt 解析版本号" }
+          Write-Host "版本: $version"
+
+          # 脚本内为 UTF-8（无 BOM），需显式指定输入字符集
+          Push-Location packaging
+          try {
+            & $makensis -V2 -INPUTCHARSET UTF8 "-DVERSION=$version" nekomusic_installer.nsi
+            if ($LASTEXITCODE -ne 0) { throw "makensis 失败，退出码 $LASTEXITCODE" }
+          } finally {
+            Pop-Location
+          }
+
+          $exe = Get-ChildItem -Path . -Filter '*-win.exe' -File | Select-Object -First 1
+          if (-not $exe) { throw "未生成 Windows 安装包" }
+
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          $target = Join-Path 'dist' "Neko歌姬计划-$version-win.exe"
+          Copy-Item $exe.FullName $target -Force
+          Get-Item $target | Format-List Name, Length
+
+      - name: Resolve artifact path
+        id: pack
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $exe = Get-ChildItem -Path dist -Filter '*-win.exe' -File | Select-Object -First 1
+          if (-not $exe) { throw "未在 dist/ 找到安装包" }
+          "file=$($exe.FullName)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-exe
+          path: ${{ steps.pack.outputs.file }}
+          if-no-files-found: error
+
+      - name: Upload release asset (on tag)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ steps.pack.outputs.file }}
+
+  # ============================================================
+  # macOS：通用架构（arm64 + x86_64）.pkg
+  # ============================================================
+  macos:
+    name: macOS (.pkg, universal)
+    runs-on: macos-latest
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Qt 6 (macOS)
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          host: 'mac'
+          target: 'desktop'
+          arch: 'clang_64'
+          modules: 'qtmultimedia'
+          cache: true
+
+      - name: Build and package (universal .pkg)
+        env:
+          QT_MAC_ROOT: ${{ env.QT_ROOT_DIR }}
+        run: |
+          set -euo pipefail
+          echo "Qt: ${QT_MAC_ROOT:-<未设置>}"
+          chmod +x build_macos.sh
+          ./build_macos.sh Release
+
+      - name: Resolve artifact path
+        id: pack
+        run: |
+          set -euo pipefail
+          PKG="$(find dist -maxdepth 1 -name 'Neko歌姬计划-*-macos-universal.pkg' -type f | head -n1 || true)"
+          if [[ -z "$PKG" ]]; then
+            echo "未在 dist/ 找到 .pkg"
+            ls -la dist || true
+            exit 1
+          fi
+          ls -lh "$PKG"
+          echo "file=$PKG" >> "$GITHUB_OUTPUT"
+
+          APP_BIN="build-macos/install/NekoMusic.app/Contents/MacOS/NekoMusic"
+          if [[ -f "$APP_BIN" ]]; then
+            ARCH_INFO="$(lipo -info "$APP_BIN")"
+            echo "$ARCH_INFO"
+            grep -q 'arm64' <<<"$ARCH_INFO" || { echo "通用二进制缺少 arm64"; exit 1; }
+            grep -q 'x86_64' <<<"$ARCH_INFO" || { echo "通用二进制缺少 x86_64"; exit 1; }
+          else
+            echo "未找到 app 可执行文件，跳过架构检查"
+          fi
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-pkg
+          path: ${{ steps.pack.outputs.file }}
+          if-no-files-found: error
+
+      - name: Upload release asset (on tag)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ steps.pack.outputs.file }}
