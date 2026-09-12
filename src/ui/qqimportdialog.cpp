@@ -20,6 +20,8 @@
 #include <QPainter>
 #include <QRegularExpression>
 #include <QGraphicsDropShadowEffect>
+#include <QNetworkReply>
+#include <QPointer>
 
 namespace {
 
@@ -45,6 +47,14 @@ QqImportDialog::QqImportDialog(ApiClient *apiClient, QWidget *parent)
     polishFramelessDialog(this);
     setFixedSize(520, 480);
     setupUi();
+}
+
+QqImportDialog::~QqImportDialog()
+{
+    if (m_pullReply) {
+        m_pullReply->abort();
+        m_pullReply = nullptr;
+    }
 }
 
 void QqImportDialog::setupUi()
@@ -360,8 +370,6 @@ void QqImportDialog::updatePlaylistCombo()
         m_userPlaylists.clear();
         m_targetPlaylistCombo->clear();
 
-        m_targetPlaylistCombo->addItem(I18n::instance().tr(QStringLiteral("favorites")), kImportTargetFavorites);
-
         for (const auto &pl : playlists) {
             int id = pl.value(QStringLiteral("id")).toInt();
             QString name = pl.value(QStringLiteral("name")).toString();
@@ -385,34 +393,111 @@ void QqImportDialog::onStartImport()
         setError(I18n::instance().tr(QStringLiteral("noTracksToImport")));
         return;
     }
-    
-    int targetPlaylistId = m_targetPlaylistCombo->currentData().toInt();
 
+    const int targetPlaylistId = m_targetPlaylistCombo->currentData().toInt();
+    QString newPlaylistName;
     if (targetPlaylistId == kImportTargetNewPlaylist) {
-        const QString newName = m_newPlaylistEdit->text().trimmed();
-        if (newName.isEmpty()) {
+        newPlaylistName = m_newPlaylistEdit->text().trimmed();
+        if (newPlaylistName.isEmpty()) {
             setError(I18n::instance().tr(QStringLiteral("inputNewPlaylistName")));
             return;
         }
     }
-    
+
+    if (!UserManager::instance().isLoggedIn()) {
+        setError(I18n::instance().tr(QStringLiteral("pleaseLoginFirst")));
+        return;
+    }
+
     // 禁用按钮
     m_fetchBtn->setEnabled(false);
     m_importBtn->setEnabled(false);
     m_targetPlaylistCombo->setEnabled(false);
     m_newPlaylistEdit->setEnabled(false);
-    
+
     // 显示进度
     m_progressBar->show();
-    m_progressBar->setValue(5);
+    m_progressBar->setRange(0, 0);
     m_statusLabel->show();
     setError(QString());
 
-    doImport(targetPlaylistId);
+    startPull(targetPlaylistId, newPlaylistName);
+}
+
+void QqImportDialog::startPull(int targetPlaylistId, const QString &newPlaylistName)
+{
+    QPointer<QqImportDialog> guard(this);
+
+    ApiClient::ExternalPullCallbacks callbacks;
+    callbacks.onStart = [guard](const ApiClient::ExternalPullStart &start) {
+        if (!guard)
+            return;
+        guard->m_totalTracks = start.total > 0 ? start.total : guard->m_qqTracks.size();
+        guard->m_finishedTracks = 0;
+        guard->m_importedCount = 0;
+        guard->m_existedCount = 0;
+        guard->m_failedCount = 0;
+        guard->m_progressBar->setRange(0, qMax(1, guard->m_totalTracks));
+        guard->m_progressBar->setValue(0);
+        guard->setProgress(I18n::instance().tr(QStringLiteral("searchingTracks")));
+    };
+    callbacks.onTrack = [guard](const ApiClient::ExternalPullTrack &track) {
+        if (guard)
+            guard->onPullTrack(track);
+    };
+    callbacks.onProgress = [guard](const ApiClient::ExternalPullProgress &progress) {
+        if (guard)
+            guard->onPullProgress(progress);
+    };
+    callbacks.onDone = [guard](const ApiClient::ExternalPullSummary &summary) {
+        if (guard)
+            guard->finishImport(summary);
+    };
+    callbacks.onError = [guard](const QString &message) {
+        if (!guard)
+            return;
+        guard->setError(message.isEmpty()
+                            ? I18n::instance().tr(QStringLiteral("addToPlaylistFailed"))
+                            : message);
+        guard->restoreImportControls();
+    };
+
+    m_pullReply = m_apiClient->pullExternalPlaylist(
+        QStringLiteral("qq"), m_qqDisstid, targetPlaylistId, newPlaylistName, callbacks);
+}
+
+void QqImportDialog::onPullTrack(const ApiClient::ExternalPullTrack &track)
+{
+    if (track.status == QLatin1String("downloading") || track.status == QLatin1String("matching")) {
+        if (!track.title.isEmpty())
+            setProgress(I18n::instance().tr(QStringLiteral("searchingTracks")));
+        return;
+    }
+
+    m_finishedTracks++;
+    if (track.status == QLatin1String("imported"))
+        m_importedCount++;
+    else if (track.status == QLatin1String("existed"))
+        m_existedCount++;
+    else
+        m_failedCount++;
+
+    if (m_totalTracks > 0)
+        m_progressBar->setValue(qMin(m_finishedTracks, m_totalTracks));
+    setProgress(I18n::instance().tr(QStringLiteral("addingToPlaylist")).arg(m_finishedTracks));
+}
+
+void QqImportDialog::onPullProgress(const ApiClient::ExternalPullProgress &progress)
+{
+    if (progress.percent < 0)
+        return;
+    setProgress(I18n::instance().tr(QStringLiteral("addingToPlaylist")).arg(m_finishedTracks + 1)
+                + QStringLiteral(" %1%").arg(progress.percent));
 }
 
 void QqImportDialog::restoreImportControls()
 {
+    m_pullReply = nullptr;
     m_fetchBtn->setEnabled(true);
     m_importBtn->setEnabled(true);
     m_targetPlaylistCombo->setEnabled(true);
@@ -421,113 +506,26 @@ void QqImportDialog::restoreImportControls()
     m_statusLabel->hide();
 }
 
-void QqImportDialog::doImport(int targetPlaylistId)
+void QqImportDialog::finishImport(const ApiClient::ExternalPullSummary &summary)
 {
-    m_statusLabel->setText(I18n::instance().tr(QStringLiteral("searchingTracks")));
-    m_progressBar->setValue(15);
+    m_pullReply = nullptr;
+    const int total = summary.total > 0 ? summary.total : m_totalTracks;
+    const int added = summary.imported + summary.existed;
 
-    QList<ApiClient::BatchSearchItem> searchItems;
-    for (const auto &track : m_qqTracks) {
-        ApiClient::BatchSearchItem item;
-        item.title = track.name;
-        item.artist = track.artist;
-        searchItems.append(item);
-    }
-
-    m_apiClient->batchSearchMusic(searchItems, [this, targetPlaylistId](bool success, const ApiClient::BatchSearchResult &result) {
-        if (!success) {
-            setError(I18n::instance().tr(QStringLiteral("searchServiceBusy")));
-            restoreImportControls();
-            return;
-        }
-
-        m_progressBar->setValue(50);
-
-        if (result.matchedMusicIds.isEmpty()) {
-            setError(I18n::instance().tr(QStringLiteral("noMatchedTracks")));
-            restoreImportControls();
-            return;
-        }
-
-        addMatchedTracks(targetPlaylistId, result);
-    });
-}
-
-void QqImportDialog::addMatchedTracks(int targetPlaylistId, const ApiClient::BatchSearchResult &searchResult)
-{
-    const bool importToFavorites = (targetPlaylistId == kImportTargetFavorites);
-
-    auto finishCb = [this, searchResult, importToFavorites](bool addSuccess, const ApiClient::BatchAddResult &addResult) {
-        finishImport(searchResult, addSuccess, addResult, importToFavorites);
-    };
-
-    auto beginAdd = [this, searchResult, finishCb](int resolvedPlaylistId) {
-        m_statusLabel->setText(I18n::instance().tr(QStringLiteral("addingToPlaylist"))
-            .arg(searchResult.matchedMusicIds.size()));
-        m_progressBar->setValue(70);
-        m_apiClient->batchAddMusicToPlaylist(resolvedPlaylistId, searchResult.matchedMusicIds, finishCb);
-    };
-
-    if (importToFavorites) {
-        m_statusLabel->setText(I18n::instance().tr(QStringLiteral("addingToPlaylist"))
-            .arg(searchResult.matchedMusicIds.size()));
-        m_progressBar->setValue(70);
-        m_apiClient->batchAddFavorites(searchResult.matchedMusicIds, finishCb);
-        return;
-    }
-
-    if (targetPlaylistId == kImportTargetNewPlaylist) {
-        const QString newName = m_newPlaylistEdit->text().trimmed();
-        m_statusLabel->setText(I18n::instance().tr(QStringLiteral("creatingPlaylist")));
-        m_progressBar->setValue(60);
-
-        m_apiClient->createPlaylist(newName, QString(), [this, searchResult, beginAdd](bool success, const QString &msg, const QVariantMap &data) {
-            if (!success) {
-                setError(I18n::instance().tr(QStringLiteral("createPlaylistFailed")));
-                restoreImportControls();
-                return;
-            }
-
-            const int newPlaylistId = data.value(QStringLiteral("id")).toInt();
-            if (newPlaylistId <= 0) {
-                setError(I18n::instance().tr(QStringLiteral("createPlaylistFailed")));
-                restoreImportControls();
-                return;
-            }
-
-            beginAdd(newPlaylistId);
-        });
-        return;
-    }
-
-    beginAdd(targetPlaylistId);
-}
-
-void QqImportDialog::finishImport(const ApiClient::BatchSearchResult &searchResult,
-                                       bool addSuccess,
-                                       const ApiClient::BatchAddResult &addResult,
-                                       bool importedToFavorites)
-{
-    m_progressBar->setValue(100);
-
-    if (!addSuccess) {
-        setError(I18n::instance().tr(QStringLiteral("addToPlaylistFailed")));
-        restoreImportControls();
-        return;
-    }
-
+    m_progressBar->setRange(0, qMax(1, total));
+    m_progressBar->setValue(total);
     m_statusLabel->setText(I18n::instance().tr(QStringLiteral("importSuccess"))
-        .arg(addResult.addedCount)
-        .arg(m_qqTracks.size())
-        .arg(searchResult.failCount));
+                               .arg(added)
+                               .arg(total)
+                               .arg(summary.failed));
     m_statusLabel->setStyleSheet(QStringLiteral("color: %1; font-size: 13px; background: transparent;")
-        .arg(QString::fromUtf8(Theme::kMint)));
+                                     .arg(QString::fromUtf8(Theme::kMint)));
 
     m_closeBtn->setText(I18n::instance().tr(QStringLiteral("close")));
     m_importBtn->hide();
     m_fetchBtn->hide();
 
-    emit importCompleted(addResult.addedCount, m_qqTracks.size(), searchResult.failCount, importedToFavorites);
+    emit importCompleted(added, total, summary.failed, false);
 }
 
 void QqImportDialog::setError(const QString &error)

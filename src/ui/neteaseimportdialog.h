@@ -15,6 +15,7 @@ class QLabel;
 class QPushButton;
 class QComboBox;
 class QProgressBar;
+class QNetworkReply;
 
 /**
  * 网易云歌单导入对话框
@@ -26,6 +27,7 @@ class NeteaseImportDialog : public QDialog
 
 public:
     NeteaseImportDialog(ApiClient *apiClient, QWidget *parent = nullptr);
+    ~NeteaseImportDialog() override;
 
 signals:
     void importCompleted(int addedCount, int totalCount, int failCount, bool importedToFavorites);
@@ -37,23 +39,28 @@ private slots:
 private:
     void setupUi();
     void updatePlaylistCombo();
-    void doImport(int targetPlaylistId);
-    void addMatchedTracks(int targetPlaylistId, const ApiClient::BatchSearchResult &searchResult);
+    void startPull(int targetPlaylistId, const QString &newPlaylistName);
+    void onPullTrack(const ApiClient::ExternalPullTrack &track);
+    void onPullProgress(const ApiClient::ExternalPullProgress &progress);
     void restoreImportControls();
-    void finishImport(const ApiClient::BatchSearchResult &searchResult,
-                      bool addSuccess,
-                      const ApiClient::BatchAddResult &addResult,
-                      bool importedToFavorites);
+    void finishImport(const ApiClient::ExternalPullSummary &summary);
     void setStep(int step);
     void setError(const QString &error);
     void setProgress(const QString &status);
     
     static QString parsePlaylistId(const QString &input);
 
-    static constexpr int kImportTargetFavorites = -2;
     static constexpr int kImportTargetNewPlaylist = -1;
 
     ApiClient *m_apiClient = nullptr;
+    QNetworkReply *m_pullReply = nullptr;
+
+    // 导入进度
+    int m_totalTracks = 0;
+    int m_finishedTracks = 0;
+    int m_importedCount = 0;
+    int m_existedCount = 0;
+    int m_failedCount = 0;
     
     // UI 组件
     QLineEdit *m_inputEdit = nullptr;

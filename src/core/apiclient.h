@@ -9,6 +9,8 @@
 #include <QNetworkAccessManager>
 #include <functional>
 
+class QNetworkReply;
+
 class ApiClient : public QObject
 {
     Q_OBJECT
@@ -146,6 +148,58 @@ public:
     };
     using QqPlaylistCb = std::function<void(bool ok, const QString &message, const QqPlaylistInfo &playlist)>;
     void fetchQqPlaylist(const QString &disstid, QqPlaylistCb cb);
+
+    // ─── 外部歌单导入（/loser/{source}/pull，SSE 进度） ────────────
+    struct ExternalPullStart {
+        QString source;
+        int total = 0;
+        int targetPlaylistId = 0;
+        bool targetPlaylistCreated = false;
+    };
+    struct ExternalPullTrack {
+        int index = 0;
+        int total = 0;
+        QString sourceId;
+        QString title;
+        QString artist;
+        QString status;   // downloading / matching / imported / existed / failed
+        int musicId = 0;
+        bool playlistAdded = false;
+        QString message;
+    };
+    struct ExternalPullProgress {
+        int index = 0;
+        int total = 0;
+        qint64 bytes = 0;
+        qint64 totalBytes = -1;
+        int percent = -1;
+    };
+    struct ExternalPullSummary {
+        int total = 0;
+        int imported = 0;
+        int existed = 0;
+        int failed = 0;
+    };
+    struct ExternalPullCallbacks {
+        std::function<void(const ExternalPullStart &)> onStart;
+        std::function<void(const ExternalPullTrack &)> onTrack;
+        std::function<void(const ExternalPullProgress &)> onProgress;
+        std::function<void(const ExternalPullSummary &)> onDone;
+        std::function<void(const QString &)> onError;
+    };
+    /**
+     * 发起 /loser/{source}/pull 导入：后端完成站外匹配、下载入库并加入目标歌单，进度以 SSE 推送。
+     * @param source              "netease" 或 "qq"
+     * @param externalPlaylistId  外部歌单 ID（网易云 playlistId / QQ disstid）
+     * @param targetPlaylistId    站内歌单 ID（targetPlaylistName 为空时使用）
+     * @param targetPlaylistName  新建站内歌单名称（非空时由后端新建歌单）
+     * @return 底层请求，可用于取消
+     */
+    QNetworkReply *pullExternalPlaylist(const QString &source,
+                                        const QString &externalPlaylistId,
+                                        int targetPlaylistId,
+                                        const QString &targetPlaylistName,
+                                        ExternalPullCallbacks callbacks);
 
     struct BatchSearchItem {
         QString title;

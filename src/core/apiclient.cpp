@@ -13,6 +13,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonArray>
+#include <QUrlQuery>
 #include <QDir>
 #include <QStandardPaths>
 #include <QSaveFile>
@@ -928,9 +929,10 @@ void ApiClient::downloadVideoRenderFile(const QString &jobId, const QString &sav
 
 void ApiClient::fetchNeteasePlaylist(qint64 playlistId, NeteasePlaylistCb cb)
 {
-    QUrl url(QString::fromUtf8("%1/loser/playlist/track/all?id=%2").arg(Theme::kApiBase).arg(playlistId));
+    QUrl url(QString::fromUtf8("%1/loser/netease/playlist/track/all?id=%2").arg(Theme::kApiBase).arg(playlistId));
     QNetworkRequest req(url);
     req.setTransferTimeout(120000);
+    req.setRawHeader("Authorization", UserManager::instance().token().toUtf8());
 
     auto *reply = m_nam.get(req);
     connect(reply, &QNetworkReply::finished, this, [reply, cb, playlistId]() {
@@ -992,7 +994,7 @@ void ApiClient::fetchNeteasePlaylist(qint64 playlistId, NeteasePlaylistCb cb)
 
 void ApiClient::fetchQqPlaylist(const QString &disstid, QqPlaylistCb cb)
 {
-    QUrl url(QString::fromUtf8("%1/loser1/getSongListDetail?disstid=%2").arg(Theme::kApiBase, disstid));
+    QUrl url(QString::fromUtf8("%1/loser/qq/getSongListDetail?disstid=%2").arg(Theme::kApiBase, disstid));
     QNetworkRequest req(url);
     req.setTransferTimeout(120000);
 
@@ -1307,6 +1309,148 @@ void ApiClient::batchAddMusicToPlaylist(int playlistId, const QList<int> &musicI
         
         if (cb) cb(ok, result);
     });
+}
+
+// ─── 外部歌单导入（/loser/{source}/pull，SSE 进度） ────────────
+
+QNetworkReply *ApiClient::pullExternalPlaylist(const QString &source,
+                                               const QString &externalPlaylistId,
+                                               int targetPlaylistId,
+                                               const QString &targetPlaylistName,
+                                               ExternalPullCallbacks callbacks)
+{
+    const QString token = UserManager::instance().token();
+
+    QUrl url(QString::fromUtf8("%1/loser/%2/pull").arg(Theme::kApiBase, source));
+    QUrlQuery query;
+    if (source == QLatin1String("qq"))
+        query.addQueryItem(QStringLiteral("disstid"), externalPlaylistId);
+    else
+        query.addQueryItem(QStringLiteral("playlistId"), externalPlaylistId);
+
+    const QString trimmedName = targetPlaylistName.trimmed();
+    if (!trimmedName.isEmpty())
+        query.addQueryItem(QStringLiteral("targetPlaylistName"), trimmedName);
+    else
+        query.addQueryItem(QStringLiteral("targetPlaylistId"), QString::number(targetPlaylistId));
+
+    // EventSource 场景无法自定义请求头，后端同时支持 token 查询参数
+    if (!token.isEmpty())
+        query.addQueryItem(QStringLiteral("token"), token);
+    url.setQuery(query);
+
+    QNetworkRequest req(url);
+    req.setRawHeader("Accept", "text/event-stream");
+    if (!token.isEmpty())
+        req.setRawHeader("Authorization", token.toUtf8());
+    req.setTransferTimeout(0); // 导入可能持续很久，禁用传输超时
+
+    QNetworkReply *reply = m_nam.get(req);
+
+    auto buffer = std::make_shared<QByteArray>();
+    auto eventName = std::make_shared<QString>();
+    auto payload = std::make_shared<QByteArray>();
+    auto completed = std::make_shared<bool>(false);
+
+    auto dispatch = [eventName, payload, callbacks, completed]() {
+        if (payload->isEmpty() && eventName->isEmpty())
+            return;
+        const QString name = eventName->isEmpty() ? QStringLiteral("message") : *eventName;
+        const QJsonObject obj = QJsonDocument::fromJson(*payload).object();
+        payload->clear();
+        eventName->clear();
+
+        if (name == QLatin1String("start")) {
+            ExternalPullStart start;
+            start.source = obj.value(QStringLiteral("source")).toString();
+            start.total = obj.value(QStringLiteral("total")).toInt();
+            start.targetPlaylistId = obj.value(QStringLiteral("targetPlaylistId")).toInt();
+            start.targetPlaylistCreated = obj.value(QStringLiteral("targetPlaylistCreated")).toBool();
+            if (callbacks.onStart) callbacks.onStart(start);
+        } else if (name == QLatin1String("track")) {
+            ExternalPullTrack track;
+            track.index = obj.value(QStringLiteral("index")).toInt();
+            track.total = obj.value(QStringLiteral("total")).toInt();
+            track.sourceId = obj.value(QStringLiteral("sourceId")).toString();
+            track.title = obj.value(QStringLiteral("title")).toString();
+            track.artist = obj.value(QStringLiteral("artist")).toString();
+            track.status = obj.value(QStringLiteral("status")).toString();
+            track.musicId = obj.value(QStringLiteral("musicId")).toInt();
+            track.playlistAdded = obj.value(QStringLiteral("playlistAdded")).toBool();
+            track.message = obj.value(QStringLiteral("message")).toString();
+            if (callbacks.onTrack) callbacks.onTrack(track);
+        } else if (name == QLatin1String("progress")) {
+            ExternalPullProgress progress;
+            progress.index = obj.value(QStringLiteral("index")).toInt();
+            progress.total = obj.value(QStringLiteral("total")).toInt();
+            progress.bytes = static_cast<qint64>(obj.value(QStringLiteral("bytes")).toDouble());
+            progress.totalBytes = static_cast<qint64>(obj.value(QStringLiteral("totalBytes")).toDouble());
+            progress.percent = obj.value(QStringLiteral("percent")).toInt(-1);
+            if (callbacks.onProgress) callbacks.onProgress(progress);
+        } else if (name == QLatin1String("done")) {
+            ExternalPullSummary summary;
+            summary.total = obj.value(QStringLiteral("total")).toInt();
+            summary.imported = obj.value(QStringLiteral("imported")).toInt();
+            summary.existed = obj.value(QStringLiteral("existed")).toInt();
+            summary.failed = obj.value(QStringLiteral("failed")).toInt();
+            *completed = true;
+            if (callbacks.onDone) callbacks.onDone(summary);
+        } else if (name == QLatin1String("error")) {
+            *completed = true;
+            if (callbacks.onError)
+                callbacks.onError(obj.value(QStringLiteral("message")).toString());
+        }
+    };
+
+    connect(reply, &QNetworkReply::readyRead, this, [reply, buffer, eventName, payload, dispatch]() {
+        buffer->append(reply->readAll());
+        int newline;
+        while ((newline = buffer->indexOf('\n')) >= 0) {
+            QByteArray line = buffer->left(newline);
+            buffer->remove(0, newline + 1);
+            if (line.endsWith('\r'))
+                line.chop(1);
+            if (line.isEmpty()) {
+                dispatch();
+            } else if (line.startsWith(':')) {
+                // 心跳/注释帧，忽略
+            } else if (line.startsWith("event:")) {
+                *eventName = QString::fromUtf8(line.mid(6)).trimmed();
+            } else if (line.startsWith("data:")) {
+                if (!payload->isEmpty())
+                    payload->append('\n');
+                payload->append(line.mid(5).trimmed());
+            }
+        }
+    });
+
+    connect(reply, &QNetworkReply::finished, this, [reply, completed, callbacks]() {
+        reply->deleteLater();
+        if (*completed)
+            return;
+        *completed = true;
+
+        if (reply->error() != QNetworkReply::NoError) {
+            if (callbacks.onError)
+                callbacks.onError(reply->errorString());
+            return;
+        }
+
+        const QJsonObject obj = QJsonDocument::fromJson(reply->readAll()).object();
+        QString message = obj.value(QStringLiteral("msg")).toString();
+        if (message.isEmpty())
+            message = obj.value(QStringLiteral("message")).toString();
+        if (message.isEmpty()) {
+            const int status = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+            message = status >= 400
+                ? QStringLiteral("HTTP %1").arg(status)
+                : QStringLiteral("连接已中断");
+        }
+        if (callbacks.onError)
+            callbacks.onError(message);
+    });
+
+    return reply;
 }
 
 void ApiClient::batchAddFavorites(const QList<int> &musicIds, BatchAddMusicCb cb)
