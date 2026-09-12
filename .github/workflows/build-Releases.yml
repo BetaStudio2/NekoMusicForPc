@@ -170,8 +170,27 @@ jobs:
             Remove-Item $pluginsSub -Recurse -Force
           }
 
-          # MinGW 运行库兜底（NSIS 里是必选文件，缺了会直接编译失败）
-          foreach ($dll in @('libstdc++-6.dll', 'libgcc_s_seh-1.dll', 'libwinpthread-1.dll')) {
+          # windeployqt 只跟随 exe 的导入表；链接了但未被引用的模块（如 SvgWidgets/Concurrent）
+          # 它不会拷，但 NSIS 里是必选文件，这里从 Qt 的 bin 兜底补齐
+          $qtDlls = @(
+            'Qt6Core.dll', 'Qt6Gui.dll', 'Qt6Widgets.dll', 'Qt6Multimedia.dll',
+            'Qt6Network.dll', 'Qt6Sql.dll', 'Qt6Svg.dll', 'Qt6SvgWidgets.dll',
+            'Qt6Concurrent.dll'
+          )
+          foreach ($dll in $qtDlls) {
+            $dst = Join-Path $stage $dll
+            if (-not (Test-Path $dst)) {
+              $srcDll = Join-Path $env:QT_ROOT_DIR "bin\$dll"
+              if (Test-Path $srcDll) {
+                Copy-Item $srcDll $dst
+                Write-Host "  补拷 $dll（windeployqt 未部署）"
+              }
+            }
+          }
+
+          # MinGW 运行库兜底（同上）
+          $mingwDlls = @('libstdc++-6.dll', 'libgcc_s_seh-1.dll', 'libwinpthread-1.dll')
+          foreach ($dll in $mingwDlls) {
             $dst = Join-Path $stage $dll
             if (-not (Test-Path $dst)) {
               $srcDll = Join-Path $mingw.FullName "bin\$dll"
@@ -183,13 +202,7 @@ jobs:
           }
 
           # NSIS 脚本里这些是必选文件，缺失时在这里就报清楚，别等 makensis 中止
-          $required = @(
-            'NekoMusic.exe', 'platforms\qwindows.dll',
-            'Qt6Core.dll', 'Qt6Gui.dll', 'Qt6Widgets.dll', 'Qt6Multimedia.dll',
-            'Qt6Network.dll', 'Qt6Sql.dll', 'Qt6Svg.dll', 'Qt6SvgWidgets.dll',
-            'Qt6Concurrent.dll',
-            'libstdc++-6.dll', 'libgcc_s_seh-1.dll', 'libwinpthread-1.dll'
-          )
+          $required = @('NekoMusic.exe', 'platforms\qwindows.dll') + $qtDlls + $mingwDlls
           $missing = @($required | Where-Object { -not (Test-Path (Join-Path $stage $_)) })
           if ($missing.Count -gt 0) {
             Write-Host "---- $stage 内容 ----"
