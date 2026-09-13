@@ -24,6 +24,7 @@
 #include "ui/addtoplaylistdialog.h"
 #include "ui/neteaseimportdialog.h"
 #include "ui/qqimportdialog.h"
+#include "ui/kugouimportdialog.h"
 #include "ui/playlistpanel.h"
 #include "ui/toast.h"
 #include "ui/updatedialog.h"
@@ -716,6 +717,27 @@ void MainWindow::setupUi()
         }
         auto *dlg = new QqImportDialog(m_apiClient, this);
         connect(dlg, &QqImportDialog::importCompleted, this,
+                [this](int addedCount, int totalCount, int failCount, bool importedToFavorites) {
+            m_sidebar->refreshPlaylists();
+            if (importedToFavorites && m_favoritesPage)
+                m_favoritesPage->refresh();
+            Toast::show(this,
+                        I18n::instance().tr(QStringLiteral("importSuccess"))
+                            .arg(addedCount)
+                            .arg(totalCount)
+                            .arg(failCount),
+                        Toast::Success);
+        });
+        dlg->exec();
+        dlg->deleteLater();
+    });
+    connect(m_sidebar, &Sidebar::kugouImportRequested, this, [this]() {
+        if (!UserManager::instance().isLoggedIn()) {
+            Toast::show(this, I18n::instance().tr("loginRequired"), Toast::Error);
+            return;
+        }
+        auto *dlg = new KugouImportDialog(m_apiClient, this);
+        connect(dlg, &KugouImportDialog::importCompleted, this,
                 [this](int addedCount, int totalCount, int failCount, bool importedToFavorites) {
             m_sidebar->refreshPlaylists();
             if (importedToFavorites && m_favoritesPage)

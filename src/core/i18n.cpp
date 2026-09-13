@@ -589,6 +589,14 @@ static QMap<QString, QString> zhCN()
     m["emptyQqPlaylist"] = QStringLiteral("歌单为空");
     m["qqPlaylistInfo"] = QStringLiteral("歌单：%1（共 %2 首歌曲）");
 
+    // --- 酷狗音乐歌单导入 ---
+    m["importKugouPlaylist"] = QStringLiteral("导入酷狗音乐歌单");
+    m["importKugouDesc"] = QStringLiteral("输入酷狗音乐歌单分享链接或 ID，将歌曲导入到本地歌单");
+    m["inputKugouLink"] = QStringLiteral("输入酷狗音乐歌单链接或 ID...");
+    m["invalidKugouLink"] = QStringLiteral("无效的歌单链接或 ID");
+    m["emptyKugouPlaylist"] = QStringLiteral("歌单为空");
+    m["kugouPlaylistInfo"] = QStringLiteral("歌单：%1（共 %2 首歌曲）");
+
     // --- 异常与调试 ---
     m["emptyMusic"] = QStringLiteral("音乐数据为空");
     m["musicInPlaylist"] = QStringLiteral("音乐已在播放列表中");
@@ -950,6 +958,14 @@ static QMap<QString, QString> nyaCN()
     m["invalidQqLink"] = QStringLiteral("这个链接看不懂喵...给个正确的嘛~");
     m["emptyQqPlaylist"] = QStringLiteral("歌单空空的没有歌喵...");
     m["qqPlaylistInfo"] = QStringLiteral("歌单：%1（共 %2 首歌曲喵）");
+
+    // --- 酷狗音乐歌单导入喵~ ---
+    m["importKugouPlaylist"] = QStringLiteral("导入酷狗音乐歌单喵~");
+    m["importKugouDesc"] = QStringLiteral("把酷狗音乐歌单链接或 ID 告诉人家，人家帮你搬过来喵~");
+    m["inputKugouLink"] = QStringLiteral("输入酷狗音乐歌单链接或 ID 喵...");
+    m["invalidKugouLink"] = QStringLiteral("这个链接看不懂喵...给个正确的嘛~");
+    m["emptyKugouPlaylist"] = QStringLiteral("歌单空空的没有歌喵...");
+    m["kugouPlaylistInfo"] = QStringLiteral("歌单：%1（共 %2 首歌曲喵）");
     
     return m;
 }
@@ -1545,6 +1561,14 @@ static QMap<QString, QString> enUS()
     m["invalidQqLink"] = "Invalid playlist link or ID";
     m["emptyQqPlaylist"] = "Playlist is empty";
     m["qqPlaylistInfo"] = "Playlist: %1 (%2 songs)";
+
+    // --- Kugou Music Playlist Import ---
+    m["importKugouPlaylist"] = "Import Kugou Music Playlist";
+    m["importKugouDesc"] = "Enter Kugou Music playlist link or ID to import songs to local playlist";
+    m["inputKugouLink"] = "Enter Kugou Music playlist link or ID...";
+    m["invalidKugouLink"] = "Invalid playlist link or ID";
+    m["emptyKugouPlaylist"] = "Playlist is empty";
+    m["kugouPlaylistInfo"] = "Playlist: %1 (%2 songs)";
 
     return m;
 }

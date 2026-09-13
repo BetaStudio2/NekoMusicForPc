@@ -44,6 +44,7 @@ signals:
     void playlistCreateRequested();
     void neteaseImportRequested();
     void qqImportRequested();
+    void kugouImportRequested();
 
 protected:
     void paintEvent(QPaintEvent *) override;
@@ -76,6 +77,7 @@ private:
     QPushButton *m_createPlaylistBtn = nullptr;
     QPushButton *m_importNeteaseBtn = nullptr;
     QPushButton *m_importQqBtn = nullptr;
+    QPushButton *m_importKugouBtn = nullptr;
     QTimer *m_playlistRefreshTimer = nullptr;
     QList<int> m_pendingPlaylistCoverIds;
     int m_activePlaylistCoverRequests = 0;

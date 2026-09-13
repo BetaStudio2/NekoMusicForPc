@@ -1119,6 +1119,86 @@ void ApiClient::fetchQqPlaylist(const QString &disstid, QqPlaylistCb cb)
     });
 }
 
+void ApiClient::fetchKugouPlaylist(const QString &listId, KugouPlaylistCb cb)
+{
+    QUrl url(QString::fromUtf8("%1/loser/kugou/getSongListDetail").arg(Theme::kApiBase));
+    QUrlQuery query;
+    query.addQueryItem(QStringLiteral("listid"), listId);
+    url.setQuery(query);
+    QNetworkRequest req(url);
+    req.setTransferTimeout(120000);
+
+    auto *reply = m_nam.get(req);
+    connect(reply, &QNetworkReply::finished, this, [reply, cb, listId]() {
+        reply->deleteLater();
+        KugouPlaylistInfo info;
+        info.listId = listId;
+
+        if (reply->error() != QNetworkReply::NoError) {
+            qDebug() << "[酷狗歌单] 请求失败:" << reply->errorString();
+            if (cb)
+                cb(false, reply->errorString(), info);
+            return;
+        }
+
+        const QByteArray data = reply->readAll();
+        const auto doc = QJsonDocument::fromJson(data);
+        const auto root = doc.object();
+        const auto response = root.value(QStringLiteral("response")).toObject();
+        if (response.isEmpty()) {
+            QString msg = root.value(QStringLiteral("error")).toString();
+            if (msg.isEmpty())
+                msg = QStringLiteral("响应格式错误");
+            if (cb)
+                cb(false, msg, info);
+            return;
+        }
+
+        const int code = response.value(QStringLiteral("code")).toInt(-1);
+        if (code != 0) {
+            const QString msg = QStringLiteral("拉取歌单失败 (code=%1)").arg(code);
+            qDebug() << "[酷狗歌单] API 返回错误:" << code;
+            if (cb)
+                cb(false, msg, info);
+            return;
+        }
+
+        info.listId = response.value(QStringLiteral("listid")).toString();
+        if (info.listId.isEmpty())
+            info.listId = listId;
+        info.name = response.value(QStringLiteral("name")).toString().trimmed();
+
+        const auto songlist = response.value(QStringLiteral("songlist")).toArray();
+        for (const auto &trackVal : songlist) {
+            const auto track = trackVal.toObject();
+            NeteaseTrack t;
+            t.name = track.value(QStringLiteral("name")).toString().trimmed();
+
+            const auto singers = track.value(QStringLiteral("singer")).toArray();
+            QStringList artistNames;
+            for (const auto &singerVal : singers) {
+                const QString name =
+                    singerVal.toObject().value(QStringLiteral("name")).toString().trimmed();
+                if (!name.isEmpty())
+                    artistNames.append(name);
+            }
+            t.artist = artistNames.join(QStringLiteral(" / "));
+
+            if (!t.name.isEmpty())
+                info.tracks.append(t);
+        }
+
+        const int songnum = response.value(QStringLiteral("songnum")).toInt();
+        info.trackCount = info.tracks.isEmpty() ? songnum : info.tracks.size();
+
+        qDebug() << "[酷狗歌单] 获取成功, 歌单:" << info.name
+                 << ", 曲目数:" << info.tracks.size()
+                 << ", 标注曲目数:" << info.trackCount;
+        if (cb)
+            cb(true, QString(), info);
+    });
+}
+
 void ApiClient::batchSearchMusic(const QList<BatchSearchItem> &items, BatchSearchCb cb)
 {
     if (items.isEmpty()) {
@@ -1363,6 +1443,8 @@ QNetworkReply *ApiClient::pullExternalPlaylist(const QString &source,
     QUrlQuery query;
     if (source == QLatin1String("qq"))
         query.addQueryItem(QStringLiteral("disstid"), externalPlaylistId);
+    else if (source == QLatin1String("kugou"))
+        query.addQueryItem(QStringLiteral("listid"), externalPlaylistId);
     else
         query.addQueryItem(QStringLiteral("playlistId"), externalPlaylistId);
 

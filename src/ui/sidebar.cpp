@@ -235,6 +235,16 @@ void Sidebar::setupUi()
     });
     lay->addWidget(m_importQqBtn);
 
+    m_importKugouBtn = new QPushButton(I18n::instance().tr("importKugouPlaylist"), container);
+    m_importKugouBtn->setObjectName("sbCreatePlaylist");
+    m_importKugouBtn->setFixedHeight(36);
+    m_importKugouBtn->setCursor(Qt::PointingHandCursor);
+    m_importKugouBtn->setToolTip(I18n::instance().tr("importKugouDesc"));
+    connect(m_importKugouBtn, &QPushButton::clicked, this, [this]() {
+        emit kugouImportRequested();
+    });
+    lay->addWidget(m_importKugouBtn);
+
     // 收藏歌单分隔线
     auto *favDiv = new QWidget(container);
     favDiv->setObjectName("sbDivider");
@@ -656,6 +666,10 @@ void Sidebar::retranslate()
     if (m_importQqBtn) {
         m_importQqBtn->setText(I18n::instance().tr("importQqPlaylist"));
         m_importQqBtn->setToolTip(I18n::instance().tr("importQqDesc"));
+    }
+    if (m_importKugouBtn) {
+        m_importKugouBtn->setText(I18n::instance().tr("importKugouPlaylist"));
+        m_importKugouBtn->setToolTip(I18n::instance().tr("importKugouDesc"));
     }
 }
 
