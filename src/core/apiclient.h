@@ -149,6 +149,16 @@ public:
     using QqPlaylistCb = std::function<void(bool ok, const QString &message, const QqPlaylistInfo &playlist)>;
     void fetchQqPlaylist(const QString &disstid, QqPlaylistCb cb);
 
+    // ─── 酷狗音乐歌单导入 ────────────────────────────────────
+    struct KugouPlaylistInfo {
+        QString listId;
+        QString name;
+        int trackCount = 0;
+        QList<NeteaseTrack> tracks;
+    };
+    using KugouPlaylistCb = std::function<void(bool ok, const QString &message, const KugouPlaylistInfo &playlist)>;
+    void fetchKugouPlaylist(const QString &listId, KugouPlaylistCb cb);
+
     // ─── 外部歌单导入（/loser/{source}/pull，SSE 进度） ────────────
     struct ExternalPullStart {
         QString source;
