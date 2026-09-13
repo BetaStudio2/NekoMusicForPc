@@ -221,7 +221,7 @@ static QMap<QString, QString> zhCN()
     m["qrLogin"] = QStringLiteral("扫码登录");
     m["qrLoginTitle"] = QStringLiteral("扫码登录");
     m["qrLoginBack"] = QStringLiteral("账号密码登录");
-    m["qrLoginHint"] = QStringLiteral("打开手机端 NekoMusic「我的 → 扫一扫喵」，扫描上方二维码");
+    m["qrLoginHint"] = QStringLiteral("打开手机端 NekoMusic，点「我的」页右上角的「扫一扫」，扫描上方二维码");
     m["qrLoginLoading"] = QStringLiteral("正在生成二维码…");
     m["qrLoginPending"] = QStringLiteral("正在等待扫码…");
     m["qrLoginScanned"] = QStringLiteral("已扫码，请在手机上确认");
@@ -709,7 +709,7 @@ static QMap<QString, QString> nyaCN()
     m["qrLogin"] = QStringLiteral("喵码登录喵");
     m["qrLoginTitle"] = QStringLiteral("扫喵码登录喵");
     m["qrLoginBack"] = QStringLiteral("用暗号登录喵");
-    m["qrLoginHint"] = QStringLiteral("用手机上的 NekoMusic 打开「我的 → 扫一扫喵」，对准上面的喵码喵");
+    m["qrLoginHint"] = QStringLiteral("打开手机上的 NekoMusic，点「我的」右上角的「扫一扫喵」，对准上面的喵码喵");
     m["qrLoginLoading"] = QStringLiteral("正在画喵码…");
     m["qrLoginPending"] = QStringLiteral("等指挥官扫喵码喵…");
     m["qrLoginScanned"] = QStringLiteral("扫到啦！在手机上点确认喵～");
@@ -1130,7 +1130,7 @@ static QMap<QString, QString> enUS()
     m["qrLogin"] = "Scan QR Code";
     m["qrLoginTitle"] = "Scan QR to Log In";
     m["qrLoginBack"] = "Use Password";
-    m["qrLoginHint"] = "Open the NekoMusic mobile app, go to Me - Scan, and scan the code above";
+    m["qrLoginHint"] = "Open NekoMusic on your phone, tap Scan at the top-right of the Me tab, then scan the code above";
     m["qrLoginLoading"] = "Generating QR code…";
     m["qrLoginPending"] = "Waiting for scan…";
     m["qrLoginScanned"] = "Scanned. Please confirm on your phone.";
