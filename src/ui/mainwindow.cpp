@@ -1094,6 +1094,8 @@ void MainWindow::setupUi()
             [this](const QList<MusicInfo> &songs) {
                 if (songs.isEmpty())
                     return;
+                PlaylistManager::instance().clearPlaylist();
+                PlaylistManager::instance().addAllToPlaylist(songs);
                 const MusicInfo &first = songs.first();
                 playMusicById(first.id, first.title, first.artist, first.coverUrl);
             });
