@@ -10,6 +10,7 @@
 #include "core/apiclient.h"
 #include "core/usermanager.h"
 #include "core/i18n.h"
+#include "core/vipqrcode.h"
 #include "theme/theme.h"
 #include "theme/thememanager.h"
 
@@ -21,6 +22,8 @@
 #include <QStackedWidget>
 #include <QGraphicsDropShadowEffect>
 #include <QTimer>
+#include <QNetworkReply>
+#include <QColor>
 
 LoginDialog::LoginDialog(QWidget *parent)
     : QDialog(parent)
@@ -43,7 +46,10 @@ LoginDialog::LoginDialog(QWidget *parent)
     setGraphicsEffect(shadow);
 }
 
-LoginDialog::~LoginDialog() = default;
+LoginDialog::~LoginDialog()
+{
+    stopQrSession();
+}
 
 void LoginDialog::applyDialogTheme()
 {
@@ -61,11 +67,20 @@ void LoginDialog::applyDialogTheme()
             m_msgLabel->show();
         }
     }
+    if (m_qrImageLabel)
+        m_qrImageLabel->setStyleSheet(QStringLiteral(
+            "QLabel#qrImageBox { background: #FFFFFF; border-radius: 12px; }"));
+    if (m_qrTipLabel)
+        m_qrTipLabel->setStyleSheet(AuthDialogChrome::bodyStyleSheet(p));
 }
 
 void LoginDialog::updateDialogSize()
 {
-    const int minH = m_isLoginMode ? 420 : 540;
+    int minH = 420;
+    if (m_page == Page::Register)
+        minH = 540;
+    else if (m_page == Page::Qr)
+        minH = 520;
     adjustSize();
     const int h = qMax(minH, sizeHint().height());
     setMinimumHeight(minH);
@@ -170,9 +185,37 @@ void LoginDialog::setupUi()
     m_regCodeEdit->setFixedHeight(AuthDialogChrome::kFieldHeight);
     regLayout->addWidget(m_regCodeEdit);
 
+    auto *qrWidget = new QWidget(m_card);
+    auto *qrLayout = new QVBoxLayout(qrWidget);
+    qrLayout->setContentsMargins(0, 0, 0, 0);
+    qrLayout->setSpacing(AuthDialogChrome::kFieldSpacing);
+
+    m_qrImageLabel = new QLabel(qrWidget);
+    m_qrImageLabel->setObjectName(QStringLiteral("qrImageBox"));
+    m_qrImageLabel->setAlignment(Qt::AlignCenter);
+    m_qrImageLabel->setFixedSize(228, 228);
+    qrLayout->addWidget(m_qrImageLabel, 0, Qt::AlignHCenter);
+
+    m_qrTipLabel = new QLabel(I18n::instance().tr("qrLoginHint"), qrWidget);
+    m_qrTipLabel->setAlignment(Qt::AlignCenter);
+    m_qrTipLabel->setWordWrap(true);
+    qrLayout->addWidget(m_qrTipLabel);
+
+    m_qrHintLabel = new QLabel(qrWidget);
+    m_qrHintLabel->setAlignment(Qt::AlignCenter);
+    m_qrHintLabel->setWordWrap(true);
+    qrLayout->addWidget(m_qrHintLabel);
+
+    m_qrRefreshBtn = new QPushButton(I18n::instance().tr("qrLoginRefresh"), qrWidget);
+    m_qrRefreshBtn->setObjectName("dialogBtn");
+    m_qrRefreshBtn->setFixedHeight(AuthDialogChrome::kFieldHeight);
+    connect(m_qrRefreshBtn, &QPushButton::clicked, this, &LoginDialog::refreshQrSession);
+    qrLayout->addWidget(m_qrRefreshBtn);
+
     m_stack = new QStackedWidget(m_card);
     m_stack->addWidget(loginWidget);
     m_stack->addWidget(regWidget);
+    m_stack->addWidget(qrWidget);
     m_stack->setCurrentIndex(0);
     mainLayout->addWidget(m_stack);
 
@@ -182,9 +225,9 @@ void LoginDialog::setupUi()
     m_submitBtn->setObjectName("dialogBtn");
     m_submitBtn->setFixedHeight(AuthDialogChrome::kPrimaryBtnHeight);
     connect(m_submitBtn, &QPushButton::clicked, this, [this]() {
-        if (m_isLoginMode)
+        if (m_page == Page::Login)
             doLogin();
-        else
+        else if (m_page == Page::Register)
             doRegister();
     });
     mainLayout->addWidget(m_submitBtn);
@@ -201,6 +244,13 @@ void LoginDialog::setupUi()
     connect(m_switchBtn, &QPushButton::clicked, this, &LoginDialog::switchMode);
     linksLay->addWidget(m_switchBtn);
 
+    m_qrLoginBtn = new QPushButton(I18n::instance().tr("qrLogin"), linksWrap);
+    m_qrLoginBtn->setObjectName("dialogLinkBtn");
+    m_qrLoginBtn->setFixedHeight(AuthDialogChrome::kLinkBtnHeight);
+    m_qrLoginBtn->setCursor(Qt::PointingHandCursor);
+    connect(m_qrLoginBtn, &QPushButton::clicked, this, &LoginDialog::showQrMode);
+    linksLay->addWidget(m_qrLoginBtn);
+
     m_forgotBtn = new QPushButton(I18n::instance().tr("forgotPassword"), linksWrap);
     m_forgotBtn->setObjectName("dialogLinkBtn");
     m_forgotBtn->setFixedHeight(AuthDialogChrome::kLinkBtnHeight);
@@ -212,28 +262,166 @@ void LoginDialog::setupUi()
     outer->addWidget(m_card);
 }
 
-void LoginDialog::switchMode()
+void LoginDialog::applyMode()
 {
-    m_isLoginMode = !m_isLoginMode;
-    m_msgLabel->clear();
-    applyDialogTheme();
+    const bool qr = (m_page == Page::Qr);
 
-    if (m_isLoginMode) {
+    if (m_page == Page::Login)
         m_stack->setCurrentIndex(0);
-        m_submitBtn->setText(I18n::instance().tr("login"));
-        m_switchBtn->setText(I18n::instance().tr("register"));
-        m_forgotBtn->show();
-        if (m_titleLabel)
-            m_titleLabel->setText(I18n::instance().tr("login"));
-    } else {
+    else if (m_page == Page::Register)
         m_stack->setCurrentIndex(1);
+    else
+        m_stack->setCurrentIndex(2);
+
+    m_submitBtn->setVisible(!qr);
+    m_forgotBtn->setVisible(m_page == Page::Login);
+    m_switchBtn->setVisible(!qr);
+    m_qrLoginBtn->setText(qr ? I18n::instance().tr("qrLoginBack")
+                             : I18n::instance().tr("qrLogin"));
+
+    if (m_titleLabel) {
+        if (qr)
+            m_titleLabel->setText(I18n::instance().tr("qrLoginTitle"));
+        else
+            m_titleLabel->setText(I18n::instance().tr(m_page == Page::Login ? "login" : "register"));
+    }
+
+    if (m_page == Page::Register) {
         m_submitBtn->setText(I18n::instance().tr("register"));
         m_switchBtn->setText(I18n::instance().tr("login"));
-        m_forgotBtn->hide();
-        if (m_titleLabel)
-            m_titleLabel->setText(I18n::instance().tr("register"));
+    } else if (m_page == Page::Login) {
+        m_submitBtn->setText(I18n::instance().tr("login"));
+        m_switchBtn->setText(I18n::instance().tr("register"));
     }
+
+    applyDialogTheme();
     updateDialogSize();
+}
+
+void LoginDialog::switchMode()
+{
+    m_page = (m_page == Page::Register) ? Page::Login : Page::Register;
+    stopQrSession();
+    m_msgLabel->clear();
+    applyMode();
+}
+
+void LoginDialog::showQrMode()
+{
+    if (m_page == Page::Qr) {
+        m_page = Page::Login;
+        stopQrSession();
+        applyMode();
+        return;
+    }
+
+    m_page = Page::Qr;
+    m_msgLabel->clear();
+    applyMode();
+    refreshQrSession();
+}
+
+void LoginDialog::refreshQrSession()
+{
+    stopQrSession();
+    if (m_page != Page::Qr)
+        return;
+
+    const int generation = m_qrGeneration;
+    m_qrImageLabel->clear();
+    m_qrRefreshBtn->setEnabled(false);
+    setQrHint(I18n::instance().tr("qrLoginLoading"), Theme::kTextSub);
+
+    m_api->createQrLoginSession(
+        [this, generation](bool ok, const QString &message, const ApiClient::QrLoginSession &session) {
+            QTimer::singleShot(0, this, [this, generation, ok, message, session]() {
+                if (generation != m_qrGeneration || m_page != Page::Qr)
+                    return;
+
+                if (!ok) {
+                    m_qrRefreshBtn->setEnabled(true);
+                    setQrHint(message.isEmpty() ? I18n::instance().tr("qrLoginFailed") : message,
+                              Theme::kSakura);
+                    return;
+                }
+
+                const QPixmap qr = VipQrCode::pixmapFromText(session.qrContent, 204);
+                if (qr.isNull()) {
+                    m_qrRefreshBtn->setEnabled(true);
+                    setQrHint(I18n::instance().tr("qrLoginFailed"), Theme::kSakura);
+                    return;
+                }
+
+                m_qrImageLabel->setPixmap(qr);
+                m_qrRefreshBtn->setEnabled(true);
+                setQrHint(I18n::instance().tr("qrLoginPending"), Theme::kTextSub);
+                startQrWatch(session.sessionId, generation);
+            });
+        });
+}
+
+void LoginDialog::startQrWatch(const QString &sessionId, int generation)
+{
+    ApiClient::QrLoginSseCallbacks callbacks;
+
+    callbacks.onStatus = [this, generation](const ApiClient::QrLoginStatus &status) {
+        QTimer::singleShot(0, this, [this, generation, status]() {
+            if (generation != m_qrGeneration || m_page != Page::Qr)
+                return;
+
+            if (status.status == QLatin1String("pending")) {
+                setQrHint(I18n::instance().tr("qrLoginPending"), Theme::kTextSub);
+            } else if (status.status == QLatin1String("scanned")) {
+                setQrHint(I18n::instance().tr("qrLoginScanned"), Theme::kMint);
+            } else if (status.status == QLatin1String("confirmed")) {
+                if (status.token.isEmpty() || status.user.isEmpty()) {
+                    m_qrImageLabel->clear();
+                    setQrHint(I18n::instance().tr("qrLoginFailed"), Theme::kSakura);
+                    return;
+                }
+                UserManager::instance().setLoginInfo(status.token, status.user);
+                accept();
+            } else if (status.status == QLatin1String("canceled")) {
+                m_qrImageLabel->clear();
+                setQrHint(I18n::instance().tr("qrLoginCanceled"), Theme::kSakura);
+            } else {
+                m_qrImageLabel->clear();
+                setQrHint(I18n::instance().tr("qrLoginExpired"), Theme::kSakura);
+            }
+        });
+    };
+
+    callbacks.onError = [this, generation](const QString &) {
+        QTimer::singleShot(0, this, [this, generation]() {
+            if (generation != m_qrGeneration || m_page != Page::Qr)
+                return;
+            m_qrImageLabel->clear();
+            setQrHint(I18n::instance().tr("qrLoginConnectionLost"), Theme::kSakura);
+        });
+    };
+
+    m_qrReply = m_api->watchQrLoginStatus(sessionId, callbacks);
+}
+
+void LoginDialog::stopQrSession()
+{
+    ++m_qrGeneration; // 让在途回调失效
+
+    if (!m_qrReply)
+        return;
+    QNetworkReply *reply = m_qrReply;
+    m_qrReply = nullptr;
+    if (!reply->isFinished())
+        reply->abort();
+}
+
+void LoginDialog::setQrHint(const QString &text, const QString &color)
+{
+    if (!m_qrHintLabel)
+        return;
+    m_qrHintLabel->setText(text);
+    m_qrHintLabel->setStyleSheet(
+        QStringLiteral("QLabel { color: %1; font-size: 13px; min-height: 20px; }").arg(color));
 }
 
 void LoginDialog::doLogin()
@@ -344,10 +532,10 @@ void LoginDialog::onLoginResult(bool success, const QString &message,
                                  const QString &token, const QVariantMap &user)
 {
     m_submitBtn->setEnabled(true);
-    if (m_isLoginMode) {
-        m_submitBtn->setText(I18n::instance().tr("login"));
-    } else {
+    if (m_page == Page::Register) {
         m_submitBtn->setText(I18n::instance().tr("register"));
+    } else {
+        m_submitBtn->setText(I18n::instance().tr("login"));
     }
 
     if (success) {

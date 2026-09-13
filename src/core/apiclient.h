@@ -201,6 +201,32 @@ public:
                                         const QString &targetPlaylistName,
                                         ExternalPullCallbacks callbacks);
 
+    // ─── 扫码登录（/api/user/qrlogin/*，SSE 状态推送） ────────────
+    struct QrLoginSession {
+        QString sessionId;
+        QString qrContent;   // nekomusic://qrlogin?sid=xxx
+        int expiresIn = 0;
+    };
+    using QrLoginCreateCb =
+        std::function<void(bool ok, const QString &message, const QrLoginSession &session)>;
+    /** 新建扫码会话（无需登录），成功后可拿 qrContent 渲染二维码。 */
+    void createQrLoginSession(QrLoginCreateCb cb);
+
+    struct QrLoginStatus {
+        QString status;      // pending / scanned / confirmed / canceled / expired
+        QString token;       // 仅 confirmed 帧携带
+        QVariantMap user;    // 仅 confirmed 帧携带
+    };
+    struct QrLoginSseCallbacks {
+        std::function<void(const QrLoginStatus &)> onStatus;
+        std::function<void(const QString &)> onError;
+    };
+    /**
+     * 订阅扫码状态（SSE 长连接）：状态一变就回调，confirmed 帧带一次性 token 与用户信息。
+     * 终态推送后服务端主动关闭连接。返回底层请求，可用于取消。
+     */
+    QNetworkReply *watchQrLoginStatus(const QString &sessionId, QrLoginSseCallbacks callbacks);
+
     struct BatchSearchItem {
         QString title;
         QString artist;

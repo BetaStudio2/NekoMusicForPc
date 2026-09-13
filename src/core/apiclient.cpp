@@ -25,6 +25,44 @@
 
 ApiClient::ApiClient(QObject *parent) : QObject(parent) {}
 
+namespace {
+
+/**
+ * 解析 SSE 增量字节流，把每个完整帧（event/data）派发给 onEvent。
+ * @param buffer    未消费的原始字节，会被就地裁剪
+ * @param eventName 跨块累积的事件名
+ * @param payload   跨块累积的数据体
+ */
+void consumeSseChunk(QByteArray &buffer, QString &eventName, QByteArray &payload,
+                     const std::function<void(const QString &, const QByteArray &)> &onEvent)
+{
+    int newline;
+    while ((newline = buffer.indexOf('\n')) >= 0) {
+        QByteArray line = buffer.left(newline);
+        buffer.remove(0, newline + 1);
+        if (line.endsWith('\r'))
+            line.chop(1);
+
+        if (line.isEmpty()) {
+            if (payload.isEmpty() && eventName.isEmpty())
+                continue;
+            onEvent(eventName.isEmpty() ? QStringLiteral("message") : eventName, payload);
+            eventName.clear();
+            payload.clear();
+        } else if (line.startsWith(':')) {
+            // 心跳/注释帧，忽略
+        } else if (line.startsWith("event:")) {
+            eventName = QString::fromUtf8(line.mid(6)).trimmed();
+        } else if (line.startsWith("data:")) {
+            if (!payload.isEmpty())
+                payload.append('\n');
+            payload.append(line.mid(5).trimmed());
+        }
+    }
+}
+
+} // namespace
+
 // 现有函数
 void ApiClient::fetchRanking(MusicListCb cb) {
     QUrl url(QString::fromUtf8("%1/api/music/ranking")
@@ -1445,6 +1483,98 @@ QNetworkReply *ApiClient::pullExternalPlaylist(const QString &source,
             message = status >= 400
                 ? QStringLiteral("HTTP %1").arg(status)
                 : QStringLiteral("连接已中断");
+        }
+        if (callbacks.onError)
+            callbacks.onError(message);
+    });
+
+    return reply;
+}
+
+// ─── 扫码登录（/api/user/qrlogin/*，SSE 状态推送） ────────────
+
+void ApiClient::createQrLoginSession(QrLoginCreateCb cb)
+{
+    QUrl url(QString::fromUtf8("%1/api/user/qrlogin/create").arg(Theme::kApiBase));
+    QNetworkRequest req(url);
+    req.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+
+    auto *reply = m_nam.post(req, QByteArrayLiteral("{}"));
+    connect(reply, &QNetworkReply::finished, this, [reply, cb]() {
+        reply->deleteLater();
+        QrLoginSession session;
+        if (reply->error() != QNetworkReply::NoError) {
+            if (cb) cb(false, reply->errorString(), session);
+            return;
+        }
+
+        const QJsonObject root = QJsonDocument::fromJson(reply->readAll()).object();
+        const QJsonObject data = root.value(QStringLiteral("data")).toObject();
+        session.sessionId = data.value(QStringLiteral("sessionId")).toString();
+        session.qrContent = data.value(QStringLiteral("qrContent")).toString();
+        session.expiresIn = data.value(QStringLiteral("expiresIn")).toInt();
+
+        const bool ok = root.value(QStringLiteral("success")).toBool() && !session.sessionId.isEmpty();
+        QString message = root.value(QStringLiteral("message")).toString();
+        if (cb) cb(ok, message, session);
+    });
+}
+
+QNetworkReply *ApiClient::watchQrLoginStatus(const QString &sessionId, QrLoginSseCallbacks callbacks)
+{
+    QUrl url(QString::fromUtf8("%1/api/user/qrlogin/status").arg(Theme::kApiBase));
+    QUrlQuery query;
+    query.addQueryItem(QStringLiteral("sessionId"), sessionId);
+    url.setQuery(query);
+
+    QNetworkRequest req(url);
+    req.setRawHeader("Accept", "text/event-stream");
+    req.setTransferTimeout(0); // SSE 长连接，禁用传输超时
+
+    QNetworkReply *reply = m_nam.get(req);
+
+    auto buffer = std::make_shared<QByteArray>();
+    auto eventName = std::make_shared<QString>();
+    auto payload = std::make_shared<QByteArray>();
+    auto terminal = std::make_shared<bool>(false); // 已收到终态，服务端随后关闭连接属正常
+
+    connect(reply, &QNetworkReply::readyRead, this,
+            [reply, buffer, eventName, payload, terminal, callbacks]() {
+                buffer->append(reply->readAll());
+                consumeSseChunk(*buffer, *eventName, *payload,
+                                [terminal, callbacks](const QString &name, const QByteArray &data) {
+                                    if (name != QLatin1String("status"))
+                                        return;
+                                    const QJsonObject obj = QJsonDocument::fromJson(data).object();
+                                    QrLoginStatus status;
+                                    status.status = obj.value(QStringLiteral("status")).toString();
+                                    status.token = obj.value(QStringLiteral("token")).toString();
+                                    status.user =
+                                        obj.value(QStringLiteral("user")).toObject().toVariantMap();
+                                    if (status.status == QLatin1String("confirmed")
+                                        || status.status == QLatin1String("canceled")
+                                        || status.status == QLatin1String("expired")) {
+                                        *terminal = true;
+                                    }
+                                    if (callbacks.onStatus)
+                                        callbacks.onStatus(status);
+                                });
+            });
+
+    connect(reply, &QNetworkReply::finished, this, [reply, terminal, callbacks]() {
+        reply->deleteLater();
+        if (*terminal || reply->error() == QNetworkReply::OperationCanceledError)
+            return;
+
+        QString message = reply->errorString();
+        const QByteArray body = reply->readAll();
+        if (!body.isEmpty()) {
+            const QJsonObject obj = QJsonDocument::fromJson(body).object();
+            QString fromBody = obj.value(QStringLiteral("msg")).toString();
+            if (fromBody.isEmpty())
+                fromBody = obj.value(QStringLiteral("message")).toString();
+            if (!fromBody.isEmpty())
+                message = fromBody;
         }
         if (callbacks.onError)
             callbacks.onError(message);

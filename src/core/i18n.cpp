@@ -218,6 +218,18 @@ static QMap<QString, QString> zhCN()
 
     // --- 账户 & 登录注册 ---
     m["login"] = QStringLiteral("登录");
+    m["qrLogin"] = QStringLiteral("扫码登录");
+    m["qrLoginTitle"] = QStringLiteral("扫码登录");
+    m["qrLoginBack"] = QStringLiteral("账号密码登录");
+    m["qrLoginHint"] = QStringLiteral("打开手机端 NekoMusic「我的 → 扫一扫喵」，扫描上方二维码");
+    m["qrLoginLoading"] = QStringLiteral("正在生成二维码…");
+    m["qrLoginPending"] = QStringLiteral("正在等待扫码…");
+    m["qrLoginScanned"] = QStringLiteral("已扫码，请在手机上确认");
+    m["qrLoginCanceled"] = QStringLiteral("已在手机上取消登录");
+    m["qrLoginExpired"] = QStringLiteral("二维码已过期，请点击刷新");
+    m["qrLoginFailed"] = QStringLiteral("二维码生成失败，请点击刷新");
+    m["qrLoginConnectionLost"] = QStringLiteral("连接已断开，请点击刷新");
+    m["qrLoginRefresh"] = QStringLiteral("刷新二维码");
     m["logout"] = QStringLiteral("退出登录");
     m["register"] = QStringLiteral("注册");
     m["email"] = QStringLiteral("邮箱");
@@ -694,6 +706,18 @@ static QMap<QString, QString> nyaCN()
     m["hot_music"] = QStringLiteral("火热音乐喵~");
     m["latest_music"] = QStringLiteral("新鲜出炉喵~");
     m["login"] = QStringLiteral("指挥官，欢迎回来喵！");
+    m["qrLogin"] = QStringLiteral("喵码登录喵");
+    m["qrLoginTitle"] = QStringLiteral("扫喵码登录喵");
+    m["qrLoginBack"] = QStringLiteral("用暗号登录喵");
+    m["qrLoginHint"] = QStringLiteral("用手机上的 NekoMusic 打开「我的 → 扫一扫喵」，对准上面的喵码喵");
+    m["qrLoginLoading"] = QStringLiteral("正在画喵码…");
+    m["qrLoginPending"] = QStringLiteral("等指挥官扫喵码喵…");
+    m["qrLoginScanned"] = QStringLiteral("扫到啦！在手机上点确认喵～");
+    m["qrLoginCanceled"] = QStringLiteral("指挥官在手机上取消了喵…");
+    m["qrLoginExpired"] = QStringLiteral("喵码过期了喵，点一下刷新吧");
+    m["qrLoginFailed"] = QStringLiteral("喵码画不出来喵，点一下刷新吧");
+    m["qrLoginConnectionLost"] = QStringLiteral("连接断掉了喵，点一下刷新吧");
+    m["qrLoginRefresh"] = QStringLiteral("换一张喵码");
     m["logout"] = QStringLiteral("要离开了喵？人家会想你的喵...");
     m["register"] = QStringLiteral("加入 Neko 家族喵~");
     m["email"] = QStringLiteral("联络暗号(邮箱)喵~");
@@ -1103,6 +1127,18 @@ static QMap<QString, QString> enUS()
 
     // --- Account & Auth ---
     m["login"] = "Login";
+    m["qrLogin"] = "Scan QR Code";
+    m["qrLoginTitle"] = "Scan QR to Log In";
+    m["qrLoginBack"] = "Use Password";
+    m["qrLoginHint"] = "Open the NekoMusic mobile app, go to Me - Scan, and scan the code above";
+    m["qrLoginLoading"] = "Generating QR code…";
+    m["qrLoginPending"] = "Waiting for scan…";
+    m["qrLoginScanned"] = "Scanned. Please confirm on your phone.";
+    m["qrLoginCanceled"] = "Canceled on your phone";
+    m["qrLoginExpired"] = "QR code expired. Click refresh.";
+    m["qrLoginFailed"] = "Failed to generate QR code. Click refresh.";
+    m["qrLoginConnectionLost"] = "Connection lost. Click refresh.";
+    m["qrLoginRefresh"] = "Refresh QR Code";
     m["logout"] = "Logout";
     m["register"] = "Register";
     m["email"] = "Email";

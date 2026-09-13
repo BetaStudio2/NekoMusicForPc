@@ -14,6 +14,7 @@ class QStackedWidget;
 class QWidget;
 class ApiClient;
 class QTimer;
+class QNetworkReply;
 
 class LoginDialog : public QDialog
 {
@@ -24,10 +25,19 @@ public:
     ~LoginDialog() override;
 
 private:
+    /** 当前页面：账号密码登录 / 注册 / 扫码登录 */
+    enum class Page { Login, Register, Qr };
+
     void setupUi();
     void applyDialogTheme();
     void updateDialogSize();
+    void applyMode();
     void switchMode();
+    void showQrMode();
+    void refreshQrSession();
+    void startQrWatch(const QString &sessionId, int generation);
+    void stopQrSession();
+    void setQrHint(const QString &text, const QString &color);
     void doLogin();
     void doRegister();
     void doSendVerificationCode();
@@ -50,8 +60,16 @@ private:
     QPushButton *m_switchBtn = nullptr;
     QPushButton *m_sendCodeBtn = nullptr;
     QPushButton *m_forgotBtn = nullptr;
+    QPushButton *m_qrLoginBtn = nullptr;
     QLabel *m_msgLabel = nullptr;
+    QLabel *m_qrImageLabel = nullptr;
+    QLabel *m_qrTipLabel = nullptr;
+    QLabel *m_qrHintLabel = nullptr;
+    QPushButton *m_qrRefreshBtn = nullptr;
     ApiClient *m_api = nullptr;
-    bool m_isLoginMode = true;
+    QNetworkReply *m_qrReply = nullptr;
+    Page m_page = Page::Login;
+    /** 递增即作废在途的二维码请求/SSE 回调 */
+    int m_qrGeneration = 0;
     int m_countdown = 0;
 };
