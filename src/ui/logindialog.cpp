@@ -310,7 +310,6 @@ void LoginDialog::refreshQrSession()
     stopQrSession();
 
     const int generation = m_qrGeneration;
-    m_qrImageLabel->clear();
 
     m_api->createQrLoginSession(
         [this, generation](bool ok, const QString &message, const ApiClient::QrLoginSession &session) {
@@ -350,8 +349,12 @@ void LoginDialog::startQrWatch(const QString &sessionId, int generation)
                 }
                 UserManager::instance().setLoginInfo(status.token, status.user);
                 accept();
-            } else if (status.status == QLatin1String("canceled")
-                       || status.status == QLatin1String("expired")) {
+            } else if (status.status == QLatin1String("expired")) {
+                QTimer::singleShot(0, this, [this, generation]() {
+                    if (generation == m_qrGeneration)
+                        refreshQrSession();
+                });
+            } else if (status.status == QLatin1String("canceled")) {
                 m_qrImageLabel->clear();
             }
         });
@@ -361,7 +364,10 @@ void LoginDialog::startQrWatch(const QString &sessionId, int generation)
         QTimer::singleShot(0, this, [this, generation]() {
             if (generation != m_qrGeneration)
                 return;
-            m_qrImageLabel->clear();
+            QTimer::singleShot(1500, this, [this, generation]() {
+                if (generation == m_qrGeneration)
+                    refreshQrSession();
+            });
         });
     };
 
