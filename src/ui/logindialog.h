@@ -37,7 +37,6 @@ private:
     void refreshQrSession();
     void startQrWatch(const QString &sessionId, int generation);
     void stopQrSession();
-    void setQrHint(const QString &text, const QString &color);
     void doLogin();
     void doRegister();
     void doSendVerificationCode();
@@ -48,6 +47,7 @@ private:
 
     QWidget *m_card = nullptr;
     QLabel *m_titleLabel = nullptr;
+    QLabel *m_subtitleLabel = nullptr;
     QTimer *m_countdownTimer = nullptr;
     QStackedWidget *m_stack = nullptr;
     QLineEdit *m_loginUserEdit = nullptr;
@@ -60,12 +60,9 @@ private:
     QPushButton *m_switchBtn = nullptr;
     QPushButton *m_sendCodeBtn = nullptr;
     QPushButton *m_forgotBtn = nullptr;
-    QPushButton *m_qrLoginBtn = nullptr;
     QLabel *m_msgLabel = nullptr;
     QLabel *m_qrImageLabel = nullptr;
     QLabel *m_qrTipLabel = nullptr;
-    QLabel *m_qrHintLabel = nullptr;
-    QPushButton *m_qrRefreshBtn = nullptr;
     ApiClient *m_api = nullptr;
     QNetworkReply *m_qrReply = nullptr;
     Page m_page = Page::Login;

@@ -19,8 +19,13 @@ QPixmap pixmapFromText(const QString &text, int pixelSize)
         return {};
 
     try {
-        const qrcodegen::QrCode qr = qrcodegen::QrCode::encodeText(
-            utf8.constData(), qrcodegen::QrCode::Ecc::MEDIUM);
+        const qrcodegen::QrCode qr = [&]() {
+            try {
+                return qrcodegen::QrCode::encodeText(utf8.constData(), qrcodegen::QrCode::Ecc::MEDIUM);
+            } catch (...) {
+                return qrcodegen::QrCode::encodeText(utf8.constData(), qrcodegen::QrCode::Ecc::LOW);
+            }
+        }();
         const int modules = qr.getSize();
         if (modules <= 0)
             return {};

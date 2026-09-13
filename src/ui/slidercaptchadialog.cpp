@@ -17,6 +17,7 @@
 #include <QPushButton>
 #include <QTimer>
 #include <QVBoxLayout>
+#include <QStyle>
 
 SliderCaptchaDialog::SliderCaptchaDialog(ApiClient *api, QWidget *parent)
     : QDialog(parent)
@@ -36,7 +37,7 @@ SliderCaptchaDialog::SliderCaptchaDialog(ApiClient *api, QWidget *parent)
     shadow->setColor(QColor(0, 0, 0, 80));
     setGraphicsEffect(shadow);
 
-    setFixedWidth(AuthDialogChrome::kDialogWidth);
+    setFixedWidth(AuthDialogChrome::kCompactDialogWidth);
     updateDialogSize();
 
     loadChallenge();
@@ -59,21 +60,23 @@ void SliderCaptchaDialog::setupUi()
     auto *headerRow = new QHBoxLayout();
     headerRow->setContentsMargins(0, 0, 0, 0);
     headerRow->addStretch();
-    m_closeBtn = new QPushButton(QStringLiteral("×"), m_card);
+    m_closeBtn = new QPushButton(m_card);
     m_closeBtn->setObjectName(QStringLiteral("dialogCloseBtn"));
     m_closeBtn->setFixedSize(34, 34);
+    m_closeBtn->setIcon(style()->standardIcon(QStyle::SP_TitleBarCloseButton));
+    m_closeBtn->setToolTip(I18n::instance().tr(QStringLiteral("close")));
     m_closeBtn->setCursor(Qt::PointingHandCursor);
     connect(m_closeBtn, &QPushButton::clicked, this, &QDialog::reject);
     headerRow->addWidget(m_closeBtn);
     mainLayout->addLayout(headerRow);
 
     m_titleLabel = new QLabel(I18n::instance().tr(QStringLiteral("captchaSecurityTitle")), m_card);
-    m_titleLabel->setAlignment(Qt::AlignCenter);
+    m_titleLabel->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
     mainLayout->addWidget(m_titleLabel);
 
     m_descLabel = new QLabel(I18n::instance().tr(QStringLiteral("captchaSecurityDesc")), m_card);
     m_descLabel->setWordWrap(true);
-    m_descLabel->setAlignment(Qt::AlignCenter);
+    m_descLabel->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
     mainLayout->addWidget(m_descLabel);
 
     m_stage = new QWidget(m_card);
@@ -117,7 +120,8 @@ void SliderCaptchaDialog::applyDialogTheme()
 {
     const AuthDialogChrome::Palette p = AuthDialogChrome::currentPalette();
     if (m_card)
-        m_card->setStyleSheet(AuthDialogChrome::cardStyleSheet(p));
+        m_card->setStyleSheet(AuthDialogChrome::cardStyleSheet(p)
+                               + AuthDialogChrome::controlsStyleSheet(p));
     if (m_titleLabel)
         m_titleLabel->setStyleSheet(AuthDialogChrome::titleStyleSheet(p));
     if (m_descLabel)
@@ -133,7 +137,7 @@ void SliderCaptchaDialog::updateDialogSize()
     adjustSize();
     const int h = qMax(minH, sizeHint().height());
     setMinimumHeight(minH);
-    resize(AuthDialogChrome::kDialogWidth, h);
+    resize(AuthDialogChrome::kCompactDialogWidth, h);
 }
 
 bool SliderCaptchaDialog::decodeDataUrlToPixmap(const QString &dataUrl, QPixmap *out)

@@ -8,15 +8,17 @@
 
 namespace AuthDialogChrome {
 
-constexpr int kDialogWidth = 440;
-constexpr int kOuterPad = 24;
-constexpr int kCardPadH = 28;
-constexpr int kCardPadV = 26;
-constexpr int kSectionSpacing = 20;
-constexpr int kFieldSpacing = 14;
-constexpr int kFieldHeight = 44;
-constexpr int kPrimaryBtnHeight = 46;
-constexpr int kLinkBtnHeight = 38;
+constexpr int kDialogWidth = 820;
+constexpr int kCompactDialogWidth = 420;
+constexpr int kDialogHeight = 460;
+constexpr int kOuterPad = 12;
+constexpr int kCardPadH = 42;
+constexpr int kCardPadV = 24;
+constexpr int kSectionSpacing = 12;
+constexpr int kFieldSpacing = 8;
+constexpr int kFieldHeight = 52;
+constexpr int kPrimaryBtnHeight = 52;
+constexpr int kLinkBtnHeight = 32;
 
 struct Palette {
     QString cardBg;
@@ -24,25 +26,31 @@ struct Palette {
     QString titleColor;
     QString bodyColor;
     QString msgColor;
+    QString accent;
+    QString accentHover;
 };
 
 inline Palette palette(bool dark)
 {
     if (dark) {
         return {
-            QStringLiteral("rgba(36, 31, 49, 245)"),
-            QStringLiteral("rgba(230, 57, 80, 60)"),
-            QString::fromUtf8(Theme::kLavender),
-            QString::fromUtf8(Theme::kTextSub),
-            QString::fromUtf8(Theme::kSakura),
+            QStringLiteral("#202124"),
+            QStringLiteral("#3C4043"),
+            QStringLiteral("#E8EAED"),
+            QStringLiteral("#9AA0A6"),
+            QStringLiteral("#F28B82"),
+            QStringLiteral("#8AB4F8"),
+            QStringLiteral("#A8C7FA"),
         };
     }
     return {
-        QStringLiteral("rgba(255, 255, 255, 0.98)"),
-        QStringLiteral("rgba(240, 94, 122, 0.28)"),
-        QStringLiteral("#6F42C1"),
+        QStringLiteral("#FFFFFF"),
+        QStringLiteral("#DADCE0"),
+        QStringLiteral("#202124"),
         QStringLiteral("rgba(33, 37, 41, 0.72)"),
-        QStringLiteral("#D84B63"),
+        QStringLiteral("#B3261E"),
+        QStringLiteral("#1A73E8"),
+        QStringLiteral("#185ABC"),
     };
 }
 
@@ -57,7 +65,7 @@ inline QString cardStyleSheet(const Palette &p)
                "QWidget#authDialogCard {"
                "  background: %1;"
                "  border: 1px solid %2;"
-               "  border-radius: 16px;"
+               "  border-radius: 14px;"
                "}")
         .arg(p.cardBg, p.cardBorder);
 }
@@ -65,8 +73,15 @@ inline QString cardStyleSheet(const Palette &p)
 inline QString titleStyleSheet(const Palette &p)
 {
     return QStringLiteral(
-               "QLabel { color: %1; font-size: 22px; font-weight: bold; padding: 2px 0 10px 0; }")
+               "QLabel { color: %1; font-size: 25px; font-weight: 700; padding: 0; }")
         .arg(p.titleColor);
+}
+
+inline QString subtitleStyleSheet(const Palette &p)
+{
+    return QStringLiteral(
+               "QLabel { color: %1; font-size: 13px; padding: 0; }")
+        .arg(p.bodyColor);
 }
 
 inline QString bodyStyleSheet(const Palette &p)
@@ -77,6 +92,28 @@ inline QString bodyStyleSheet(const Palette &p)
 inline QString msgStyleSheet(const QString &color)
 {
     return QStringLiteral("QLabel { color: %1; font-size: 13px; min-height: 20px; }").arg(color);
+}
+
+inline QString controlsStyleSheet(const Palette &p)
+{
+    return QStringLiteral(
+               "QLineEdit#dialogEdit { background: transparent; color: %1; border: 1px solid %2;"
+               " padding: 0 16px; border-radius: 12px; font-size: 14px; }"
+               "QLineEdit#dialogEdit:focus { border: 2px solid %3; }"
+               "QPushButton#dialogBtn { background: %4; color: white; border: none;"
+               " border-radius: 12px; font-size: 14px; font-weight: 700; }"
+               "QPushButton#dialogBtn:hover { background: %5; }"
+               "QPushButton#dialogBtn:disabled { background: rgba(128,128,128,90); color: rgba(255,255,255,150); }"
+               "QPushButton#dialogSecondaryBtn { background: transparent; color: %3; border: 1px solid %3;"
+               " border-radius: 12px; font-size: 14px; font-weight: 600; }"
+               "QPushButton#dialogSecondaryBtn:hover { background: rgba(26,115,232,18); }"
+               "QPushButton#dialogLinkBtn { background: transparent; border: none; color: %6; font-size: 13px; }"
+               "QPushButton#dialogLinkBtn:hover { color: %3; }"
+               "QPushButton#dialogCloseBtn { background: transparent; border: none; font-size: 25px; color: %6; }"
+               "QPushButton#dialogCloseBtn:hover { color: %3; }"
+               "QLabel#authBrandName { color: %1; font-size: 16px; font-weight: 700; }"
+               "QLabel#authFieldLabel { color: %7; font-size: 12px; font-weight: 600; padding-top: 2px; }")
+        .arg(p.titleColor, p.cardBorder, p.accent, p.accent, p.accentHover, p.bodyColor, p.bodyColor);
 }
 
 } // namespace AuthDialogChrome

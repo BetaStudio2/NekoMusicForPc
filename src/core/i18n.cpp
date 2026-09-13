@@ -218,6 +218,9 @@ static QMap<QString, QString> zhCN()
 
     // --- 账户 & 登录注册 ---
     m["login"] = QStringLiteral("登录");
+    m["loginSubtitle"] = QStringLiteral("登录 NekoMusic，继续享受你的音乐空间");
+    m["registerSubtitle"] = QStringLiteral("创建账号，开启你的专属音乐空间");
+    m["qrLoginSubtitle"] = QStringLiteral("使用手机扫码，快速安全地登录");
     m["qrLogin"] = QStringLiteral("扫码登录");
     m["qrLoginTitle"] = QStringLiteral("扫码登录");
     m["qrLoginBack"] = QStringLiteral("账号密码登录");
@@ -226,10 +229,7 @@ static QMap<QString, QString> zhCN()
     m["qrLoginPending"] = QStringLiteral("正在等待扫码…");
     m["qrLoginScanned"] = QStringLiteral("已扫码，请在手机上确认");
     m["qrLoginCanceled"] = QStringLiteral("已在手机上取消登录");
-    m["qrLoginExpired"] = QStringLiteral("二维码已过期，请点击刷新");
-    m["qrLoginFailed"] = QStringLiteral("二维码生成失败，请点击刷新");
     m["qrLoginConnectionLost"] = QStringLiteral("连接已断开，请点击刷新");
-    m["qrLoginRefresh"] = QStringLiteral("刷新二维码");
     m["logout"] = QStringLiteral("退出登录");
     m["register"] = QStringLiteral("注册");
     m["email"] = QStringLiteral("邮箱");
@@ -258,6 +258,20 @@ static QMap<QString, QString> zhCN()
     m["notLoggedIn"] = QStringLiteral("未登录");
     m["goToLogin"] = QStringLiteral("去登录");
     m["forgotPassword"] = QStringLiteral("忘记密码?");
+    m["forgotPasswordTitle"] = QStringLiteral("找回密码");
+    m["forgotPasswordEmailHint"] = QStringLiteral("请输入注册时的邮箱地址");
+    m["forgotPasswordCodeHint"] = QStringLiteral("请输入邮箱中的验证码");
+    m["newPassword"] = QStringLiteral("新密码(6-30位)");
+    m["confirmPassword"] = QStringLiteral("确认新密码");
+    m["resetPassword"] = QStringLiteral("重置密码");
+    m["backToLogin"] = QStringLiteral("返回登录");
+    m["passwordLengthError"] = QStringLiteral("密码长度必须在6-30位之间");
+    m["passwordMismatch"] = QStringLiteral("两次输入的密码不一致");
+    m["passwordResetSuccess"] = QStringLiteral("密码重置成功,请登录");
+    m["passwordTooLong"] = QStringLiteral("密码长度不能超过128位");
+    m["inputTooLong"] = QStringLiteral("输入内容超出长度限制");
+    m["loadingShort"] = QStringLiteral("处理中…");
+    m["countdownSeconds"] = QStringLiteral("%1秒");
     m["welcome"] = QStringLiteral("欢迎回来");
     m["welcomeSubtitle"] = QStringLiteral("发现好音乐，享受每一刻");
     m["goodMorning"] = QStringLiteral("早上好");
@@ -706,6 +720,9 @@ static QMap<QString, QString> nyaCN()
     m["hot_music"] = QStringLiteral("火热音乐喵~");
     m["latest_music"] = QStringLiteral("新鲜出炉喵~");
     m["login"] = QStringLiteral("指挥官，欢迎回来喵！");
+    m["loginSubtitle"] = QStringLiteral("登录 NekoMusic，继续享受你的音乐空间喵~");
+    m["registerSubtitle"] = QStringLiteral("创建账号，开启你的专属音乐空间喵~");
+    m["qrLoginSubtitle"] = QStringLiteral("使用手机扫码，快速安全地登录喵~");
     m["qrLogin"] = QStringLiteral("喵码登录喵");
     m["qrLoginTitle"] = QStringLiteral("扫喵码登录喵");
     m["qrLoginBack"] = QStringLiteral("用暗号登录喵");
@@ -714,7 +731,6 @@ static QMap<QString, QString> nyaCN()
     m["qrLoginPending"] = QStringLiteral("等指挥官扫喵码喵…");
     m["qrLoginScanned"] = QStringLiteral("扫到啦！在手机上点确认喵～");
     m["qrLoginCanceled"] = QStringLiteral("指挥官在手机上取消了喵…");
-    m["qrLoginExpired"] = QStringLiteral("喵码过期了喵，点一下刷新吧");
     m["qrLoginFailed"] = QStringLiteral("喵码画不出来喵，点一下刷新吧");
     m["qrLoginConnectionLost"] = QStringLiteral("连接断掉了喵，点一下刷新吧");
     m["qrLoginRefresh"] = QStringLiteral("换一张喵码");
@@ -751,6 +767,20 @@ static QMap<QString, QString> nyaCN()
     m["musicCount"] = QStringLiteral("首音符喵~");
     m["goToLogin"] = QStringLiteral("快去登录嘛喵~");
     m["forgotPassword"] = QStringLiteral("弄丢暗号了吗喵？");
+    m["forgotPasswordTitle"] = QStringLiteral("找回暗号喵~");
+    m["forgotPasswordEmailHint"] = QStringLiteral("请输入注册时的邮箱地址喵~");
+    m["forgotPasswordCodeHint"] = QStringLiteral("请输入邮箱中的验证码喵~");
+    m["newPassword"] = QStringLiteral("新暗号(6-30位)喵~");
+    m["confirmPassword"] = QStringLiteral("确认新暗号喵~");
+    m["resetPassword"] = QStringLiteral("重置暗号喵~");
+    m["backToLogin"] = QStringLiteral("返回登录喵~");
+    m["passwordLengthError"] = QStringLiteral("暗号长度必须在6-30位之间喵~");
+    m["passwordMismatch"] = QStringLiteral("两次输入的暗号不一致喵~");
+    m["passwordResetSuccess"] = QStringLiteral("暗号重置成功，请登录喵~");
+    m["passwordTooLong"] = QStringLiteral("暗号长度不能超过128位喵~");
+    m["inputTooLong"] = QStringLiteral("输入内容太长了喵~");
+    m["loadingShort"] = QStringLiteral("处理中喵…");
+    m["countdownSeconds"] = QStringLiteral("%1秒喵");
     m["fillAllFields"] = QStringLiteral("指挥官笨蛋！要把空位填满才行喵~");
     m["pleaseEnterEmail"] = QStringLiteral("不告诉人家邮箱的话，没法继续了喵~");
     m["registerNeedUsernameForCode"] = QStringLiteral("发验证码前先把用户名填好喵，不然邮件里不知道喊你什么喵~");
@@ -1127,6 +1157,9 @@ static QMap<QString, QString> enUS()
 
     // --- Account & Auth ---
     m["login"] = "Login";
+    m["loginSubtitle"] = "Log in to NekoMusic to continue listening";
+    m["registerSubtitle"] = "Create an account for your personal music space";
+    m["qrLoginSubtitle"] = "Scan with your phone to log in securely";
     m["qrLogin"] = "Scan QR Code";
     m["qrLoginTitle"] = "Scan QR to Log In";
     m["qrLoginBack"] = "Use Password";
@@ -1168,6 +1201,20 @@ static QMap<QString, QString> enUS()
     m["notLoggedIn"] = "Not Logged In";
     m["goToLogin"] = "Go to Login";
     m["forgotPassword"] = "Forgot Password?";
+    m["forgotPasswordTitle"] = "Reset your password";
+    m["forgotPasswordEmailHint"] = "Enter the email address used to register";
+    m["forgotPasswordCodeHint"] = "Enter the verification code from your email";
+    m["newPassword"] = "New password (6-30 characters)";
+    m["confirmPassword"] = "Confirm new password";
+    m["resetPassword"] = "Reset password";
+    m["backToLogin"] = "Back to login";
+    m["passwordLengthError"] = "Password must be 6-30 characters";
+    m["passwordMismatch"] = "The passwords do not match";
+    m["passwordResetSuccess"] = "Password reset. Please log in.";
+    m["passwordTooLong"] = "Password cannot exceed 128 characters";
+    m["inputTooLong"] = "Some input is too long";
+    m["loadingShort"] = "Working...";
+    m["countdownSeconds"] = "%1s";
     m["welcome"] = "Welcome Back";
     m["welcomeSubtitle"] = "Discover great music, enjoy every moment";
     m["goodMorning"] = "Good Morning";
