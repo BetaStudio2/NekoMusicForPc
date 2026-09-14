@@ -5,6 +5,7 @@
 #include <QList>
 #include <QString>
 #include "core/musicinfo.h"
+#include "core/shufflebag.h"
 
 class PlaylistManager : public QObject {
     Q_OBJECT
@@ -37,8 +38,9 @@ public:
     // Navigation
     int currentIndex() const { return m_currentIndex; }
     void setCurrentIndex(int index);
-    int nextIndex() const;
-    int previousIndex() const;
+    // 随机模式下会消费洗牌袋游标，故不能是 const
+    int nextIndex();
+    int previousIndex();
 
 signals:
     void playlistChanged();
@@ -54,9 +56,18 @@ private:
 
     int findIndexByLocalId(int localId) const;
 
+    /** 当前队列的曲目稳定标识（去重、保序）。 */
+    QStringList poolKeys() const;
+    int indexOfKey(const QString &key) const;
+    /** 队列增删后同步洗牌袋。 */
+    void syncShufflePool();
+    /** 持久化洗牌袋游标与历史。 */
+    void persistShuffleState();
+
     QList<MusicInfo> m_playlist;
     int m_currentIndex = -1;
     QString m_playMode = "list"; // list, single, random
+    ShuffleBag m_shuffleBag;
 };
 
 #endif // PLAYLISTMANAGER_H

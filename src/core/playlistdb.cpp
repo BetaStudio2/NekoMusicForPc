@@ -551,6 +551,30 @@ void PlaylistDatabase::setQueuePlayMode(const QString& mode) {
     }
 }
 
+QString PlaylistDatabase::getQueueStateValue(const QString& key, const QString& defaultValue) {
+    QMutexLocker locker(&m_mutex);
+
+    QSqlQuery query;
+    query.prepare("SELECT value FROM play_queue_state WHERE key = :key");
+    query.bindValue(":key", key);
+    if (query.exec() && query.next())
+        return query.value(0).toString();
+    return defaultValue;
+}
+
+void PlaylistDatabase::setQueueStateValue(const QString& key, const QString& value) {
+    QMutexLocker locker(&m_mutex);
+
+    QSqlQuery query;
+    query.prepare("INSERT OR REPLACE INTO play_queue_state (key, value) VALUES (:key, :value)");
+    query.bindValue(":key", key);
+    query.bindValue(":value", value);
+
+    if (!query.exec()) {
+        qWarning() << "Failed to set queue state" << key << ":" << query.lastError().text();
+    }
+}
+
 // ─── Recent Play Methods ──────────────────────────────────────────────
 
 void PlaylistDatabase::recordRecentPlay(const MusicInfo& music) {

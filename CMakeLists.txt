@@ -180,6 +180,7 @@ set(SOURCES
         src/core/audioquality.cpp
         src/core/embeddedlyrics.cpp
         src/core/playlistmanager.cpp
+        src/core/shufflebag.cpp
         src/core/landevicemanager.cpp
         src/core/updatechecker.cpp
         src/core/linuxinstallbackend.cpp

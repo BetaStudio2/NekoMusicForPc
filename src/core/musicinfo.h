@@ -3,6 +3,7 @@
 
 #include <QtGlobal>
 #include <QString>
+#include <QFileInfo>
 
 struct MusicInfo {
     int id = 0;
@@ -22,5 +23,19 @@ struct MusicInfo {
 
     bool isLocalFile() const { return !localPath.isEmpty(); }
 };
+
+/**
+ * 曲目稳定标识：本地文件用规范化路径、在线曲目用 id。
+ *
+ * 供播放队列去重与随机播放洗牌袋使用——用 id 而不是队列下标，
+ * 这样播放列表增删后，已经洗好的顺序不会指向错误的歌。
+ */
+inline QString musicKeyOf(const MusicInfo &info) {
+    if (info.isLocalFile()) {
+        const QString canonical = QFileInfo(info.localPath).canonicalFilePath();
+        return QStringLiteral("L:") + (canonical.isEmpty() ? info.localPath : canonical);
+    }
+    return QStringLiteral("R:") + QString::number(info.id);
+}
 
 #endif // MUSICINFO_H

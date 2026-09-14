@@ -862,7 +862,7 @@ void MainWindow::setupUi()
         // 所有模式都调用 playNext()：
         // - single: nextIndex() 返回相同索引，重新播放当前歌曲
         // - list:   nextIndex() 返回下一首，列表循环
-        // - random: nextIndex() 返回随机不同索引，随机播放
+        // - random: nextIndex() 由洗牌袋给出，一轮内每首歌只播一次
         playNext();
     });
 
@@ -1873,6 +1873,10 @@ void MainWindow::playNext()
     if (manager.count() == 0) return;
 
     int nextIdx = manager.nextIndex();
+    if (nextIdx < 0 || nextIdx >= manager.count()) {
+        qWarning() << "[MainWindow] playNext: 无法取得下一首，队列大小:" << manager.count();
+        return;
+    }
     const MusicInfo info = manager.playlist()[nextIdx];
     manager.setCurrentIndex(nextIdx);
 
@@ -1928,6 +1932,10 @@ void MainWindow::playPrevious()
     const quint64 playSeq = m_enginePlaySeq;
 
     int prevIdx = manager.previousIndex();
+    if (prevIdx < 0 || prevIdx >= manager.count()) {
+        qWarning() << "[MainWindow] playPrevious: 无法取得上一首，队列大小:" << manager.count();
+        return;
+    }
     const MusicInfo info = manager.playlist()[prevIdx];
 
     qDebug() << "[切歌] 上一曲:" << info.title << "-" << info.artist << "(ID:" << info.id << ")";

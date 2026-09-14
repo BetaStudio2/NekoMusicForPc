@@ -51,6 +51,10 @@ public:
     QString getQueuePlayMode();
     void setQueuePlayMode(const QString& mode);
 
+    /** play_queue_state 通用读写（随机播放洗牌袋状态等）。 */
+    QString getQueueStateValue(const QString& key, const QString& defaultValue = QString());
+    void setQueueStateValue(const QString& key, const QString& value);
+
     // Recent Play Operations
     void recordRecentPlay(const MusicInfo& music);
     QList<MusicInfo> getRecentPlays(int limit = 65535);
