@@ -15,6 +15,7 @@
 #include "theme/thememanager.h"
 #include "ui/svgicon.h"
 #include "ui/scrollareafix.h"
+#include "ui/songcontextmenu.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -243,6 +244,9 @@ void SearchPage::setupUi()
     m_songList = new SongListWidget(songsPage);
     m_songList->onSongActivate = [this](const MusicInfo &info) { emit playMusic(info); };
     m_songList->onSongPlayNext = [this](const MusicInfo &info) { emit playMusic(info); };
+    m_songList->onSongContextMenu = [this](const MusicInfo &info, const QPoint &pos) {
+        showSongContextMenu(info, pos);
+    };
     m_songList->onUnfavorite = [this](int id) { emit favoriteRequested(id); };
     m_songList->onDownload = [this](const MusicInfo &info) { emit downloadRequested(info); };
     m_songList->isFavorited = [this](int id) { return m_favoritedIds.contains(id); };
@@ -825,6 +829,19 @@ void SearchPage::onSongListScrolled(int scrollTop)
     const int viewH = m_songList ? m_songList->height() : 0;
     if (viewH > 0 && scrollTop + viewH >= contentH - 120)
         fetchMusicResults(true);
+}
+
+void SearchPage::showSongContextMenu(const MusicInfo &info, const QPoint &globalPos)
+{
+    if (info.id <= 0 && info.localPath.isEmpty())
+        return;
+
+    SongContextMenuPopup::Entry nextEntry;
+    nextEntry.iconName = "PlayNext";
+    nextEntry.label = I18n::instance().tr(QStringLiteral("playNext"));
+    nextEntry.action = [this, info]() { emit playNextRequested(info); };
+
+    SongContextMenuPopup::showAt(window() ? window() : this, globalPos, {nextEntry});
 }
 
 int SearchPage::currentPlayingMusicId() const

@@ -18,6 +18,14 @@ public:
 
     void addToPlaylist(const MusicInfo& music);
     void addAllToPlaylist(const QList<MusicInfo>& musicList);
+    /**
+     * 「下一首播放」：把曲目插到当前曲目之后，并强制下一首为它。
+     *
+     * 单曲循环 / 随机播放同样生效——随机模式不消耗洗牌袋游标，而是把该曲
+     * 从待播队列摘掉，保证本轮不会再随到。队列里还没有正在播放的曲目时，
+     * 该曲直接成为当前曲目并返回 false（调用方需要自行起播）。
+     */
+    bool playNext(const MusicInfo& music);
     void replacePlaylist(const QList<MusicInfo>& musicList, int currentIndex = 0);
     void removeFromPlaylist(int localId);
     void clearPlaylist();
@@ -67,6 +75,8 @@ private:
     QList<MusicInfo> m_playlist;
     int m_currentIndex = -1;
     QString m_playMode = "list"; // list, single, random
+    /** 待播放的「下一首播放」曲目 key；非空时 nextIndex() 优先返回它。 */
+    QString m_forcedNextKey;
     ShuffleBag m_shuffleBag;
 };
 

@@ -8,6 +8,7 @@
 #include <QWidget>
 #include <QList>
 #include <QSet>
+#include <QPoint>
 #include <QVariantMap>
 
 #include "core/musicinfo.h"
@@ -39,6 +40,8 @@ public:
 
 signals:
     void playMusic(const MusicInfo &info);
+    /** 右键「下一首播放」 */
+    void playNextRequested(const MusicInfo &info);
     void downloadRequested(const MusicInfo &info);
     void downloadAllRequested(const QList<MusicInfo> &songs);
     void openPlaylist(int playlistId);
@@ -73,6 +76,7 @@ private:
     void applyArtistResults();
 
     void onSongListScrolled(int scrollTop);
+    void showSongContextMenu(const MusicInfo &info, const QPoint &globalPos);
     int currentPlayingMusicId() const;
 
     static MusicInfo musicFromMap(const QVariantMap &item);

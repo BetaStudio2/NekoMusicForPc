@@ -929,6 +929,7 @@ void MainWindow::setupUi()
     connect(m_searchPage, &SearchPage::playMusic, this, [this](const MusicInfo &info) {
         playMusicFromInfo(info);
     });
+    connect(m_searchPage, &SearchPage::playNextRequested, this, &MainWindow::queueAsNextTrack);
     connect(m_searchPage, &SearchPage::favoriteRequested, this, &MainWindow::toggleFavorite);
     connect(m_searchPage, &SearchPage::playPauseRequested, this,
             &MainWindow::togglePlaybackForSystemUi);
@@ -1112,6 +1113,8 @@ void MainWindow::setupUi()
     connect(m_playlistDetailPage, &PlaylistDetailPage::playMusic, this, [this](const MusicInfo &info) {
         playMusicFromInfo(info);
     });
+    connect(m_playlistDetailPage, &PlaylistDetailPage::playNextRequested, this,
+            &MainWindow::queueAsNextTrack);
     connect(m_playlistDetailPage, &PlaylistDetailPage::playAllRequested, this,
             [this](const QList<MusicInfo> &songs) {
                 if (songs.isEmpty())
@@ -1415,6 +1418,24 @@ void MainWindow::playMusicFromInfo(const MusicInfo &info)
         return;
     }
     playMusicById(info.id, info.title, info.artist, info.coverUrl);
+}
+
+void MainWindow::queueAsNextTrack(const MusicInfo &info)
+{
+    if (info.id <= 0 && info.localPath.isEmpty())
+        return;
+
+    const bool queued = PlaylistManager::instance().playNext(info);
+    if (m_playlistPanel && m_playlistPanel->isDrawerOpen())
+        m_playlistPanel->refresh();
+
+    if (!queued) {
+        // 队列里还没有正在播放的曲目：直接起播，否则「下一首」无从谈起
+        playMusicFromInfo(info);
+        return;
+    }
+
+    Toast::show(this, I18n::instance().tr(QStringLiteral("playNextAdded")), Toast::Success);
 }
 
 void MainWindow::openAudioFileFromPath(const QString &path)

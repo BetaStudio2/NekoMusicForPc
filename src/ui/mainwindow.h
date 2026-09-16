@@ -91,6 +91,8 @@ private:
     void showPlaylistDetailPage(int localId);
     void playMusicById(int musicId, const QString &title, const QString &artist, const QString &coverUrl = QString());
     void playMusicFromInfo(const MusicInfo &info);
+    /** 「下一首播放」：把曲目插到当前曲目之后并强制下一首为它 */
+    void queueAsNextTrack(const MusicInfo &info);
     void playLocalMusicInfo(const MusicInfo &info);
     void createTrayIcon();
     void createPlaylist();

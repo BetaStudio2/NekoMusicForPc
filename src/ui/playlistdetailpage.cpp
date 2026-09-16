@@ -764,15 +764,26 @@ void PlaylistDetailPage::toggleCollectPlaylist()
 
 void PlaylistDetailPage::showSongContextMenu(const MusicInfo &info, const QPoint &globalPos)
 {
-    if (!m_isUserPlaylist || m_playlistId <= 0 || info.id <= 0)
+    if (info.id <= 0 && info.localPath.isEmpty())
         return;
 
-    SongContextMenuPopup::Entry entry;
-    entry.iconName = "Delete";
-    entry.label = I18n::instance().tr(QStringLiteral("removeFromPlaylist"));
-    entry.action = [this, info]() { removeSongFromPlaylist(info); };
+    QList<SongContextMenuPopup::Entry> entries;
 
-    SongContextMenuPopup::showAt(window() ? window() : this, globalPos, {entry});
+    SongContextMenuPopup::Entry nextEntry;
+    nextEntry.iconName = "PlayNext";
+    nextEntry.label = I18n::instance().tr(QStringLiteral("playNext"));
+    nextEntry.action = [this, info]() { emit playNextRequested(info); };
+    entries.append(nextEntry);
+
+    if (m_isUserPlaylist && m_playlistId > 0 && info.id > 0) {
+        SongContextMenuPopup::Entry removeEntry;
+        removeEntry.iconName = "Delete";
+        removeEntry.label = I18n::instance().tr(QStringLiteral("removeFromPlaylist"));
+        removeEntry.action = [this, info]() { removeSongFromPlaylist(info); };
+        entries.append(removeEntry);
+    }
+
+    SongContextMenuPopup::showAt(window() ? window() : this, globalPos, entries);
 }
 
 void PlaylistDetailPage::removeSongFromPlaylist(const MusicInfo &info)

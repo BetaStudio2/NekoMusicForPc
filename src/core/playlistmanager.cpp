@@ -96,15 +96,57 @@ void PlaylistManager::replacePlaylist(const QList<MusicInfo>& musicList, int cur
     m_currentIndex = m_playlist.isEmpty()
         ? -1
         : qBound(0, currentIndex, m_playlist.size() - 1);
+    m_forcedNextKey.clear();
     PlaylistDatabase::instance().setQueueMusic(m_playlist, m_currentIndex);
     syncShufflePool();
     emit playlistChanged();
     emit currentIndexChanged(m_currentIndex);
 }
 
+bool PlaylistManager::playNext(const MusicInfo& music) {
+    const QString key = musicKeyOf(music);
+    if (key.isEmpty())
+        return false;
+
+    const bool hasCurrent = m_currentIndex >= 0 && m_currentIndex < m_playlist.size();
+
+    int index = indexOfKey(key);
+    if (index < 0) {
+        m_playlist.append(music);
+        index = m_playlist.size() - 1;
+    }
+
+    if (!hasCurrent) {
+        // 队列里没有正在播放的曲目：它直接成为当前曲目，由调用方负责起播
+        m_currentIndex = index;
+        m_forcedNextKey.clear();
+        PlaylistDatabase::instance().setQueueMusic(m_playlist, m_currentIndex);
+        syncShufflePool();
+        emit playlistChanged();
+        emit currentIndexChanged(m_currentIndex);
+        return false;
+    }
+
+    if (index != m_currentIndex) {
+        // 插到当前曲目之后：后插入的「下一首播放」排在先插入的前面
+        const MusicInfo item = m_playlist.takeAt(index);
+        if (index < m_currentIndex)
+            --m_currentIndex;
+        m_playlist.insert(m_currentIndex + 1, item);
+    }
+    m_forcedNextKey = key;
+
+    PlaylistDatabase::instance().setQueueMusic(m_playlist, m_currentIndex);
+    syncShufflePool();
+    emit playlistChanged();
+    return true;
+}
+
 void PlaylistManager::removeFromPlaylist(int localId) {
     int index = findIndexByLocalId(localId);
     if (index >= 0) {
+        if (musicKeyOf(m_playlist.at(index)) == m_forcedNextKey)
+            m_forcedNextKey.clear();
         m_playlist.removeAt(index);
         if (m_currentIndex >= m_playlist.size()) {
             m_currentIndex = m_playlist.isEmpty() ? -1 : m_playlist.size() - 1;
@@ -118,6 +160,7 @@ void PlaylistManager::removeFromPlaylist(int localId) {
 void PlaylistManager::clearPlaylist() {
     m_playlist.clear();
     m_currentIndex = -1;
+    m_forcedNextKey.clear();
     m_shuffleBag.reset();
     PlaylistDatabase::instance().clearQueue();
     persistShuffleState();
@@ -161,6 +204,21 @@ void PlaylistManager::setCurrentIndex(int index) {
 
 int PlaylistManager::nextIndex() {
     if (m_playlist.isEmpty()) return -1;
+
+    // 「下一首播放」的曲目优先级最高：单曲循环 / 随机播放也必须先播它
+    if (!m_forcedNextKey.isEmpty()) {
+        const QString forcedKey = m_forcedNextKey;
+        m_forcedNextKey.clear();
+        const int forcedIndex = indexOfKey(forcedKey);
+        if (forcedIndex >= 0) {
+            if (m_playMode == "random") {
+                // 从洗牌袋待播队列摘掉并记入历史，避免本轮重复随到
+                m_shuffleBag.onUserPicked(forcedKey, poolKeys());
+                persistShuffleState();
+            }
+            return forcedIndex;
+        }
+    }
 
     if (m_playMode == "single") {
         return m_currentIndex;

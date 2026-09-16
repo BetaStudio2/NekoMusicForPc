@@ -35,6 +35,8 @@ public:
 
 signals:
     void playMusic(const MusicInfo &info);
+    /** 右键「下一首播放」 */
+    void playNextRequested(const MusicInfo &info);
     void playAllRequested(const QList<MusicInfo> &songs);
     void downloadRequested(const MusicInfo &info);
     void downloadAllRequested(const QList<MusicInfo> &songs);
