@@ -602,7 +602,7 @@ long QrCode::getPenaltyScore() const {
 			} else {
 				finderPenaltyAddHistory(runX, runHistory);
 				if (!runColor)
-					result += finderPenaltyCountPatterns(runHistory) * PENALTY_N3;
+					result += static_cast<long>(finderPenaltyCountPatterns(runHistory)) * PENALTY_N3;
 				runColor = module(x, y);
 				runX = 1;
 			}
@@ -624,12 +624,12 @@ long QrCode::getPenaltyScore() const {
 			} else {
 				finderPenaltyAddHistory(runY, runHistory);
 				if (!runColor)
-					result += finderPenaltyCountPatterns(runHistory) * PENALTY_N3;
+					result += static_cast<long>(finderPenaltyCountPatterns(runHistory)) * PENALTY_N3;
 				runColor = module(x, y);
 				runY = 1;
 			}
 		}
-		result += finderPenaltyTerminateAndCount(runColor, runY, runHistory) * PENALTY_N3;
+		result += static_cast<long>(finderPenaltyTerminateAndCount(runColor, runY, runHistory)) * PENALTY_N3;
 	}
 	
 	// 2*2 blocks of modules having same color
