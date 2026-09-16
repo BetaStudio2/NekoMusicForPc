@@ -76,7 +76,7 @@ jobs:
           echo "file=$DEB" >> "$GITHUB_OUTPUT"
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: linux-deb
           path: ${{ steps.pack.outputs.file }}
@@ -264,7 +264,7 @@ jobs:
           "file=$($exe.FullName)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: windows-exe
           path: ${{ steps.pack.outputs.file }}
@@ -333,7 +333,7 @@ jobs:
           fi
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: macos-pkg
           path: ${{ steps.pack.outputs.file }}
