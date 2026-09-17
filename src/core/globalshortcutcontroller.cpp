@@ -43,7 +43,7 @@ public:
         m_shortcuts.clear();
 
         auto bind = [this, &onAction](const QKeySequence &seq, AppShortcuts::Action action) {
-            if (seq.isEmpty())
+            if (seq.isEmpty() || !AppShortcuts::isActionSupported(action))
                 return;
             auto *sc = new QShortcut(seq, m_parent);
             sc->setContext(Qt::ApplicationShortcut);
@@ -55,6 +55,7 @@ public:
         bind(app.sequence(AppShortcuts::PlayPause), AppShortcuts::PlayPause);
         bind(app.sequence(AppShortcuts::NextTrack), AppShortcuts::NextTrack);
         bind(app.sequence(AppShortcuts::PreviousTrack), AppShortcuts::PreviousTrack);
+        bind(app.sequence(AppShortcuts::MicSync), AppShortcuts::MicSync);
     }
 
     void stop()
@@ -155,6 +156,9 @@ bool GlobalShortcutController::installInAppFallback()
             break;
         case AppShortcuts::PreviousTrack:
             emit previousTrackTriggered();
+            break;
+        case AppShortcuts::MicSync:
+            emit micSyncTriggered();
             break;
         default:
             break;
@@ -286,6 +290,9 @@ void GlobalShortcutController::dispatchAction(const QString &portalId)
         break;
     case AppShortcuts::PreviousTrack:
         emit previousTrackTriggered();
+        break;
+    case AppShortcuts::MicSync:
+        emit micSyncTriggered();
         break;
     default:
         break;

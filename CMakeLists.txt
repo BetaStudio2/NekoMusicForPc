@@ -139,6 +139,7 @@ set(SOURCES
         src/ui/svgicon.cpp
         src/ui/settingspage.cpp
         src/ui/shortcutcapturebutton.cpp
+        src/ui/toggleswitch.cpp
         src/ui/toast.cpp
         src/ui/recentpage.cpp
         src/ui/downloadpage.cpp
@@ -165,6 +166,7 @@ set(SOURCES
         src/core/apiclient.cpp
         src/core/i18n.cpp
         src/core/appshortcuts.cpp
+        src/core/micsynccontroller.cpp
         src/core/shellbackdropsettings.cpp
         src/core/globalshortcutcontroller.cpp
         src/core/listmetaformat.cpp
@@ -214,6 +216,7 @@ set(HEADERS
         src/ui/svgicon.h
         src/ui/settingspage.h
         src/ui/shortcutcapturebutton.h
+        src/ui/toggleswitch.h
         src/ui/recentpage.h
         src/ui/downloadpage.h
         src/ui/logindialog.h
@@ -239,6 +242,7 @@ set(HEADERS
         src/core/httpprotocollabel.h
         src/core/i18n.h
         src/core/appshortcuts.h
+        src/core/micsynccontroller.h
         src/core/shellbackdropsettings.h
         src/core/globalshortcutcontroller.h
         src/core/covercache.h
@@ -278,6 +282,7 @@ if(NEKO_TARGET_WINDOWS)
     list(APPEND SOURCES src/core/systemmediacontroller_win.cpp)
     list(APPEND SOURCES src/core/defaultmusicappchecker_win.cpp)
     list(APPEND SOURCES src/core/globalshortcutcontroller_win.cpp)
+    list(APPEND SOURCES src/core/micsynccontroller_stub.cpp)
     set_source_files_properties(
         src/core/globalshortcutportal_linux.h
         src/core/globalshortcutportal_linux.cpp
@@ -287,14 +292,17 @@ if(NEKO_TARGET_WINDOWS)
 elseif(NEKO_TARGET_APPLE)
     list(APPEND SOURCES src/core/systemmediacontroller_mac.mm)
     list(APPEND SOURCES src/core/defaultmusicappchecker_mac.mm)
+    list(APPEND SOURCES src/core/micsynccontroller_stub.cpp)
 elseif(NEKO_TARGET_UNIX)
     list(APPEND SOURCES src/core/systemmediacontroller_linux.cpp)
     list(APPEND SOURCES src/core/defaultmusicappchecker_linux.cpp)
     list(APPEND SOURCES src/core/globalshortcutportal_linux.cpp)
     list(APPEND SOURCES src/core/globalshortcutcontroller_linux.cpp)
+    list(APPEND SOURCES src/core/micsynccontroller_linux.cpp)
 else()
     list(APPEND SOURCES src/core/systemmediacontroller_stub.cpp)
     list(APPEND SOURCES src/core/defaultmusicappchecker_stub.cpp)
+    list(APPEND SOURCES src/core/micsynccontroller_stub.cpp)
 endif()
 
 if(WIN32)

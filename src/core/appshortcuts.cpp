@@ -1,6 +1,7 @@
 #include "appshortcuts.h"
 
 #include "core/i18n.h"
+#include "core/micsynccontroller.h"
 
 #include <QKeyCombination>
 #include <QSettings>
@@ -32,6 +33,8 @@ QKeySequence AppShortcuts::defaultSequence(Action action)
         return QKeySequence(QStringLiteral("Ctrl+Alt+Right"));
     case PreviousTrack:
         return QKeySequence(QStringLiteral("Ctrl+Alt+Left"));
+    case MicSync:
+        return QKeySequence(QStringLiteral("F2"));
     case ActionCount:
         break;
     }
@@ -47,6 +50,8 @@ QString AppShortcuts::portalShortcutId(Action action)
         return QStringLiteral("next_track");
     case PreviousTrack:
         return QStringLiteral("previous_track");
+    case MicSync:
+        return QStringLiteral("mic_sync");
     case ActionCount:
         break;
     }
@@ -62,10 +67,19 @@ QString AppShortcuts::actionLabel(Action action)
         return I18n::instance().tr(QStringLiteral("shortcutNextTrack"));
     case PreviousTrack:
         return I18n::instance().tr(QStringLiteral("shortcutPreviousTrack"));
+    case MicSync:
+        return I18n::instance().tr(QStringLiteral("shortcutMicSync"));
     case ActionCount:
         break;
     }
     return {};
+}
+
+bool AppShortcuts::isActionSupported(Action action)
+{
+    if (action == MicSync)
+        return MicSyncController::isSupported();
+    return true;
 }
 
 AppShortcuts::Action AppShortcuts::actionFromPortalId(const QString &id)
@@ -131,6 +145,8 @@ QString portalKeyFromQtKey(int key)
     default:
         break;
     }
+    if (key >= Qt::Key_F1 && key <= Qt::Key_F35)
+        return QStringLiteral("F%1").arg(key - Qt::Key_F1 + 1);
     return {};
 }
 
@@ -173,6 +189,8 @@ QString AppShortcuts::settingsKey(Action action)
         return QStringLiteral("nextTrack");
     case PreviousTrack:
         return QStringLiteral("previousTrack");
+    case MicSync:
+        return QStringLiteral("micSync");
     case ActionCount:
         break;
     }

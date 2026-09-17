@@ -6,8 +6,10 @@
 #include "settingspage.h"
 #include "core/i18n.h"
 #include "core/appshortcuts.h"
+#include "core/micsynccontroller.h"
 #include "core/shellbackdropsettings.h"
 #include "ui/shortcutcapturebutton.h"
+#include "ui/toggleswitch.h"
 #include "ui/toast.h"
 #include "theme/theme.h"
 #include "theme/thememanager.h"
@@ -270,6 +272,48 @@ void SettingsPage::setupUi()
     QWidget *shortcutsCard = createSettingsCard(container, &shortcutsLay);
     QWidget *shortcutsBody = static_cast<GlassWidget *>(shortcutsCard)->contentWidget();
 
+    m_micSyncSectionLabel = new QLabel(I18n::instance().tr("micSyncSection"), shortcutsBody);
+    m_micSyncSectionLabel->setObjectName("settingsLabel");
+    shortcutsLay->addWidget(m_micSyncSectionLabel);
+
+    auto *micSyncRow = new QHBoxLayout();
+    m_micSyncEnableLabel = new QLabel(I18n::instance().tr("micSyncEnable"), shortcutsBody);
+    m_micSyncEnableLabel->setObjectName("settingsLabel");
+    micSyncRow->addWidget(m_micSyncEnableLabel);
+    micSyncRow->addStretch();
+
+    m_micSyncToggle = new ToggleSwitch(shortcutsBody);
+    m_micSyncToggle->setChecked(MicSyncController::instance().isEnabled());
+    connect(m_micSyncToggle, &QAbstractButton::toggled, this, [](bool on) {
+        MicSyncController::instance().setEnabled(on);
+    });
+    micSyncRow->addWidget(m_micSyncToggle);
+    shortcutsLay->addLayout(micSyncRow);
+
+    m_micSyncHintLabel = new QLabel(shortcutsBody);
+    m_micSyncHintLabel->setObjectName("settingsInfo");
+    m_micSyncHintLabel->setWordWrap(true);
+    shortcutsLay->addWidget(m_micSyncHintLabel);
+
+    auto *micSyncDivider = new QFrame(shortcutsBody);
+    micSyncDivider->setFrameShape(QFrame::HLine);
+    micSyncDivider->setObjectName("settingsDivider");
+    shortcutsLay->addWidget(micSyncDivider);
+
+    auto &micSync = MicSyncController::instance();
+    connect(&micSync, &MicSyncController::enabledChanged, this, [this](bool on) {
+        if (m_micSyncToggle)
+            m_micSyncToggle->setChecked(on);
+    });
+    connect(&micSync, &MicSyncController::failed, this, [this](const QString &reason) {
+        if (m_micSyncToggle)
+            m_micSyncToggle->setChecked(MicSyncController::instance().isEnabled());
+        Toast::show(window(), reason, Toast::Error, 5000);
+    });
+    connect(&AppShortcuts::instance(), &AppShortcuts::shortcutsChanged, this, [this]() {
+        refreshMicSyncRow();
+    });
+
     m_shortcutsSectionLabel = new QLabel(I18n::instance().tr("shortcuts"), shortcutsBody);
     m_shortcutsSectionLabel->setObjectName("settingsLabel");
     shortcutsLay->addWidget(m_shortcutsSectionLabel);
@@ -280,6 +324,8 @@ void SettingsPage::setupUi()
                      &m_shortcutPrevBtn, &m_shortcutResetPrevBtn);
     setupShortcutRow(shortcutsLay, shortcutsBody, AppShortcuts::NextTrack, &m_shortcutNextLabel,
                      &m_shortcutNextBtn, &m_shortcutResetNextBtn);
+    setupShortcutRow(shortcutsLay, shortcutsBody, AppShortcuts::MicSync, &m_shortcutMicSyncLabel,
+                     &m_shortcutMicSyncBtn, &m_shortcutResetMicSyncBtn);
 
     m_shortcutResetAllBtn = new QPushButton(I18n::instance().tr("shortcutResetAll"), shortcutsBody);
     m_shortcutResetAllBtn->setObjectName("settingsLinkBtn");
@@ -359,6 +405,7 @@ void SettingsPage::setupUi()
     outer->setContentsMargins(0, 0, 0, 0);
     outer->addWidget(scroll);
     updateTabBarGeometry();
+    refreshMicSyncRow();
 }
 
 void SettingsPage::setupPersonalizationSection(QVBoxLayout *cardLay, QWidget *cardBody)
@@ -549,6 +596,9 @@ void SettingsPage::setupShortcutRow(QVBoxLayout *parentLayout, QWidget *cardBody
     case AppShortcuts::PreviousTrack:
         labelKey = QStringLiteral("shortcutPreviousTrack");
         break;
+    case AppShortcuts::MicSync:
+        labelKey = QStringLiteral("shortcutMicSync");
+        break;
     default:
         break;
     }
@@ -599,6 +649,32 @@ void SettingsPage::applyShortcutChange(AppShortcuts::Action action, const QKeySe
     AppShortcuts::instance().setSequence(action, seq);
 }
 
+void SettingsPage::refreshMicSyncRow()
+{
+    if (m_micSyncSectionLabel)
+        m_micSyncSectionLabel->setText(I18n::instance().tr("micSyncSection"));
+    if (m_micSyncEnableLabel)
+        m_micSyncEnableLabel->setText(I18n::instance().tr("micSyncEnable"));
+    if (!m_micSyncToggle)
+        return;
+
+    const bool supported = MicSyncController::isSupported();
+    m_micSyncToggle->setEnabled(supported);
+    m_micSyncToggle->setChecked(MicSyncController::instance().isEnabled());
+
+    if (m_micSyncHintLabel) {
+        if (supported) {
+            const QString seq = AppShortcuts::instance()
+                                    .sequence(AppShortcuts::MicSync)
+                                    .toString(QKeySequence::NativeText);
+            m_micSyncHintLabel->setText(
+                I18n::instance().tr("micSyncHint").arg(MicSyncController::deviceName(), seq));
+        } else {
+            m_micSyncHintLabel->setText(I18n::instance().tr("micSyncUnsupportedHint"));
+        }
+    }
+}
+
 void SettingsPage::refreshShortcutEditors()
 {
     if (m_shortcutPlayPauseBtn)
@@ -607,6 +683,8 @@ void SettingsPage::refreshShortcutEditors()
         m_shortcutPrevBtn->setKeySequence(AppShortcuts::instance().sequence(AppShortcuts::PreviousTrack));
     if (m_shortcutNextBtn)
         m_shortcutNextBtn->setKeySequence(AppShortcuts::instance().sequence(AppShortcuts::NextTrack));
+    if (m_shortcutMicSyncBtn)
+        m_shortcutMicSyncBtn->setKeySequence(AppShortcuts::instance().sequence(AppShortcuts::MicSync));
 }
 
 void SettingsPage::retranslate()
@@ -669,6 +747,8 @@ void SettingsPage::retranslate()
         m_shortcutPrevLabel->setText(I18n::instance().tr("shortcutPreviousTrack"));
     if (m_shortcutNextLabel)
         m_shortcutNextLabel->setText(I18n::instance().tr("shortcutNextTrack"));
+    if (m_shortcutMicSyncLabel)
+        m_shortcutMicSyncLabel->setText(I18n::instance().tr("shortcutMicSync"));
     if (m_shortcutResetAllBtn)
         m_shortcutResetAllBtn->setText(I18n::instance().tr("shortcutResetAll"));
     if (m_shortcutResetPlayPauseBtn)
@@ -677,6 +757,9 @@ void SettingsPage::retranslate()
         m_shortcutResetPrevBtn->setText(I18n::instance().tr("shortcutResetDefault"));
     if (m_shortcutResetNextBtn)
         m_shortcutResetNextBtn->setText(I18n::instance().tr("shortcutResetDefault"));
+    if (m_shortcutResetMicSyncBtn)
+        m_shortcutResetMicSyncBtn->setText(I18n::instance().tr("shortcutResetDefault"));
+    refreshMicSyncRow();
     refreshShortcutEditors();
 }
 

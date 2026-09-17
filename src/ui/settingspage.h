@@ -18,6 +18,7 @@ class QStackedWidget;
 class QVBoxLayout;
 class QWidget;
 class ShortcutCaptureButton;
+class ToggleSwitch;
 
 class SettingsPage : public QWidget
 {
@@ -46,6 +47,7 @@ private:
     void applyShortcutChange(AppShortcuts::Action action, const QKeySequence &seq,
                              ShortcutCaptureButton *editor);
     void refreshShortcutEditors();
+    void refreshMicSyncRow();
     void setupPersonalizationSection(QVBoxLayout *cardLay, QWidget *cardBody);
     void updateBackdropOptionRows();
     void refreshBackdropPathLabel();
@@ -74,17 +76,24 @@ private:
     QPushButton *m_backdropPickColorBtn = nullptr;
     QLabel *m_backdropColorSwatch = nullptr;
     QLabel *m_langLabel = nullptr;
+    QLabel *m_micSyncSectionLabel = nullptr;
+    QLabel *m_micSyncEnableLabel = nullptr;
+    ToggleSwitch *m_micSyncToggle = nullptr;
+    QLabel *m_micSyncHintLabel = nullptr;
     QLabel *m_shortcutsSectionLabel = nullptr;
     QLabel *m_shortcutPlayPauseLabel = nullptr;
     QLabel *m_shortcutPrevLabel = nullptr;
     QLabel *m_shortcutNextLabel = nullptr;
+    QLabel *m_shortcutMicSyncLabel = nullptr;
     ShortcutCaptureButton *m_shortcutPlayPauseBtn = nullptr;
     ShortcutCaptureButton *m_shortcutPrevBtn = nullptr;
     ShortcutCaptureButton *m_shortcutNextBtn = nullptr;
+    ShortcutCaptureButton *m_shortcutMicSyncBtn = nullptr;
     QPushButton *m_shortcutResetAllBtn = nullptr;
     QPushButton *m_shortcutResetPlayPauseBtn = nullptr;
     QPushButton *m_shortcutResetPrevBtn = nullptr;
     QPushButton *m_shortcutResetNextBtn = nullptr;
+    QPushButton *m_shortcutResetMicSyncBtn = nullptr;
     QLabel *m_aboutLabel = nullptr;
     QLabel *m_versionLabel = nullptr;
     QLabel *m_systemLabel = nullptr;

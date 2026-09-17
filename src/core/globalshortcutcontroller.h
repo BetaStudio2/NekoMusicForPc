@@ -51,6 +51,7 @@ signals:
     void playPauseTriggered();
     void nextTrackTriggered();
     void previousTrackTriggered();
+    void micSyncTriggered();
     void bindingStateChanged(bool active, Backend backend);
     void bindingFailed(const QString &reason);
 

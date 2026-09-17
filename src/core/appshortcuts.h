@@ -13,6 +13,7 @@ public:
         PlayPause = 0,
         NextTrack,
         PreviousTrack,
+        MicSync,
         ActionCount
     };
     Q_ENUM(Action)
@@ -30,6 +31,8 @@ public:
     static QString settingsKey(Action action);
     static QString portalShortcutId(Action action);
     static QString actionLabel(Action action);
+    /** 当前平台是否支持该动作（例如麦克风同步目前仅 Linux 可用）。 */
+    static bool isActionSupported(Action action);
     static QString toPortalTrigger(const QKeySequence &seq);
     static AppShortcuts::Action actionFromPortalId(const QString &id);
 

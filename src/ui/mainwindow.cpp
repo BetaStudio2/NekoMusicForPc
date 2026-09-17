@@ -54,6 +54,7 @@
 #include "core/defaultmusicappchecker.h"
 #include "core/appshortcuts.h"
 #include "core/globalshortcutcontroller.h"
+#include "core/micsynccontroller.h"
 #include "core/shellbackdropsettings.h"
 
 #include <QApplication>
@@ -2253,6 +2254,15 @@ void MainWindow::createTrayIcon()
         QAction *previousAction = new QAction("上一首", this);
         QAction *playPauseAction = new QAction("播放/暂停", this);
         QAction *nextAction = new QAction("下一首", this);
+        QAction *micSyncAction = new QAction(I18n::instance().tr(QStringLiteral("micSyncSection")), this);
+        micSyncAction->setCheckable(true);
+        micSyncAction->setChecked(MicSyncController::instance().isEnabled());
+        micSyncAction->setEnabled(MicSyncController::isSupported());
+        connect(micSyncAction, &QAction::triggered, this, []() {
+            MicSyncController::instance().toggle();
+        });
+        connect(&MicSyncController::instance(), &MicSyncController::enabledChanged, micSyncAction,
+                &QAction::setChecked);
         QAction *showAction = new QAction("显示主窗口", this);
         QAction *quitAction = new QAction("退出", this);
         
@@ -2265,6 +2275,7 @@ void MainWindow::createTrayIcon()
         m_trayMenu->addAction(previousAction);
         m_trayMenu->addAction(playPauseAction);
         m_trayMenu->addAction(nextAction);
+        m_trayMenu->addAction(micSyncAction);
         m_trayMenu->addSeparator();
         m_trayMenu->addAction(showAction);
         m_trayMenu->addSeparator();
@@ -2721,6 +2732,25 @@ void MainWindow::setupKeyboardShortcuts()
     connect(&global, &GlobalShortcutController::nextTrackTriggered, this, &MainWindow::playNext);
     connect(&global, &GlobalShortcutController::previousTrackTriggered, this,
             &MainWindow::playPrevious);
+    connect(&global, &GlobalShortcutController::micSyncTriggered, this, []() {
+        MicSyncController::instance().toggle();
+    });
+
+    auto &micSync = MicSyncController::instance();
+    connect(&micSync, &MicSyncController::enabledChanged, this, [this](bool enabled) {
+        if (enabled) {
+            Toast::show(this,
+                        I18n::instance().tr(QStringLiteral("micSyncEnabled"))
+                            .arg(MicSyncController::deviceName()),
+                        Toast::Success, 5200);
+        } else {
+            Toast::show(this, I18n::instance().tr(QStringLiteral("micSyncDisabled")), Toast::Info);
+        }
+    });
+    connect(&micSync, &MicSyncController::failed, this, [this](const QString &reason) {
+        Toast::show(this, reason, Toast::Error, 5200);
+    });
+
     connect(&AppShortcuts::instance(), &AppShortcuts::shortcutsChanged, &global,
             &GlobalShortcutController::scheduleRebindAfterSettingsChange);
     connect(&global, &GlobalShortcutController::bindingFailed, this,

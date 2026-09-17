@@ -59,6 +59,8 @@ PortalShortcutList buildPortalShortcutList()
     PortalShortcutList shortcuts;
     for (int i = 0; i < AppShortcuts::ActionCount; ++i) {
         const auto action = static_cast<AppShortcuts::Action>(i);
+        if (!AppShortcuts::isActionSupported(action))
+            continue;
         const QKeySequence seq = AppShortcuts::instance().sequence(action);
         if (seq.isEmpty())
             continue;

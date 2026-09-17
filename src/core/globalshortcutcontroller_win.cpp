@@ -175,6 +175,8 @@ public:
         const AppShortcuts &app = AppShortcuts::instance();
         for (int i = 0; i < AppShortcuts::ActionCount; ++i) {
             const auto action = static_cast<AppShortcuts::Action>(i);
+            if (!AppShortcuts::isActionSupported(action))
+                continue;
             const QKeySequence sequence = app.sequence(action);
             if (sequence.isEmpty())
                 continue;
