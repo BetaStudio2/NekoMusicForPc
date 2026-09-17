@@ -3,6 +3,7 @@
 #include <QObject>
 #include <QMediaPlayer>
 #include <QAudioOutput>
+#include <QAudioDevice>
 #include <QUrl>
 
 #include "core/musicinfo.h"
@@ -31,6 +32,9 @@ public:
     void pause();
     void stop();
     void setVolume(float volume);
+    /** 当前音频输出设备（麦克风同步会临时切到虚拟声卡，关闭时还原）。 */
+    QAudioDevice outputDevice() const;
+    void setOutputDevice(const QAudioDevice &device);
     float volume() const;
     void setPosition(qint64 position);
     void fadeIn();

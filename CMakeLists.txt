@@ -282,7 +282,7 @@ if(NEKO_TARGET_WINDOWS)
     list(APPEND SOURCES src/core/systemmediacontroller_win.cpp)
     list(APPEND SOURCES src/core/defaultmusicappchecker_win.cpp)
     list(APPEND SOURCES src/core/globalshortcutcontroller_win.cpp)
-    list(APPEND SOURCES src/core/micsynccontroller_stub.cpp)
+    list(APPEND SOURCES src/core/micsynccontroller_win.cpp)
     set_source_files_properties(
         src/core/globalshortcutportal_linux.h
         src/core/globalshortcutportal_linux.cpp

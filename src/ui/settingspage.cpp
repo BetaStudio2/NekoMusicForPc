@@ -663,15 +663,12 @@ void SettingsPage::refreshMicSyncRow()
     m_micSyncToggle->setChecked(MicSyncController::instance().isEnabled());
 
     if (m_micSyncHintLabel) {
-        if (supported) {
-            const QString seq = AppShortcuts::instance()
-                                    .sequence(AppShortcuts::MicSync)
-                                    .toString(QKeySequence::NativeText);
-            m_micSyncHintLabel->setText(
-                I18n::instance().tr("micSyncHint").arg(MicSyncController::deviceName(), seq));
-        } else {
-            m_micSyncHintLabel->setText(I18n::instance().tr("micSyncUnsupportedHint"));
-        }
+        const QString seq = AppShortcuts::instance()
+                                .sequence(AppShortcuts::MicSync)
+                                .toString(QKeySequence::NativeText);
+        m_micSyncHintLabel->setText(
+            I18n::instance().tr(MicSyncController::hintKey())
+                .arg(MicSyncController::deviceName(), seq));
     }
 }
 

@@ -139,6 +139,13 @@ static QMap<QString, QString> zhCN()
         "语音 / 会议 / 直播软件无需手动改设置即可同步听到。关闭后自动还原原来的麦克风。"
         "当前快捷键：%2（可在下方修改）。");
     m["micSyncUnsupportedHint"] = QStringLiteral("当前平台暂不支持麦克风同步，目前仅 Linux 可用。");
+    m["micSyncHintWindows"] = QStringLiteral(
+        "开启后会把本应用的播放输出切到虚拟声卡；在语音 / 会议 / 直播软件里把输入设备选为「%1」，"
+        "即可同步听到播放的音乐。关闭后自动切回原来的输出设备。需要先安装 VB-Audio Virtual Cable "
+        "或 VoiceMeeter。当前快捷键：%2（可在下方修改）。");
+    m["micSyncWindowsNoCable"] = QStringLiteral(
+        "未检测到虚拟声卡。Windows 需要先安装 VB-Audio Virtual Cable 或 VoiceMeeter，"
+        "才能把播放声音合并进麦克风。");
     m["playModeList"] = QStringLiteral("列表循环");
     m["playModeSingle"] = QStringLiteral("单曲循环");
     m["playModeRandom"] = QStringLiteral("随机播放");
@@ -867,6 +874,13 @@ static QMap<QString, QString> nyaCN()
         "语音 / 会议 / 直播软件不用改设置就能听到喵。关掉后会还原原来的麦克风喵。"
         "现在的快捷键是 %2，可以在下面改喵。");
     m["micSyncUnsupportedHint"] = QStringLiteral("这个平台还不支持麦克风同步喵，现在只有 Linux 能用喵。");
+    m["micSyncHintWindows"] = QStringLiteral(
+        "开起来后会把本应用的播放输出切到虚拟声卡喵；在语音 / 会议 / 直播软件里把输入设备选成「%1」，"
+        "就能同步听到歌喵。关掉后会自动切回原来的输出设备喵。要先装 VB-Audio Virtual Cable 或 "
+        "VoiceMeeter 喵。现在的快捷键是 %2，可以在下面改喵。");
+    m["micSyncWindowsNoCable"] = QStringLiteral(
+        "没找到虚拟声卡喵。Windows 上要先装 VB-Audio Virtual Cable 或 VoiceMeeter，"
+        "才能把播放声音合并进麦克风喵。");
     m["showWindow"] = QStringLiteral("快现身喵~");
     m["exitApp"] = QStringLiteral("残忍离去喵...");
 
@@ -1130,6 +1144,13 @@ static QMap<QString, QString> enUS()
         "Disabling restores the original microphone. Current shortcut: %2 (editable below).";
     m["micSyncUnsupportedHint"] =
         "Microphone sync is not supported on this platform yet; currently Linux only.";
+    m["micSyncHintWindows"] =
+        "When enabled, this app's playback is routed to a virtual audio cable. Select \"%1\" as the input "
+        "device in your voice / meeting / streaming app to hear the music; disabling restores the previous "
+        "output device. Requires VB-Audio Virtual Cable or VoiceMeeter. Current shortcut: %2 (editable below).";
+    m["micSyncWindowsNoCable"] =
+        "No virtual audio cable detected. Windows needs VB-Audio Virtual Cable or VoiceMeeter to merge "
+        "playback into the microphone.";
     m["playModeList"] = "List Loop";
     m["playModeSingle"] = "Single Loop";
     m["playModeRandom"] = "Random";

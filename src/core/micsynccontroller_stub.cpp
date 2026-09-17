@@ -1,8 +1,24 @@
 #include "micsynccontroller.h"
 
+#include "core/playerengine.h"
+
 bool nekoMicSyncBackendAvailable()
 {
     return false;
+}
+
+void nekoMicSyncBackendSetPlayer(PlayerEngine *)
+{
+}
+
+QString nekoMicSyncBackendDeviceLabel()
+{
+    return QStringLiteral("NekoMusicMic");
+}
+
+QString nekoMicSyncBackendHintKey()
+{
+    return QStringLiteral("micSyncUnsupportedHint");
 }
 
 bool nekoMicSyncBackendStart(QString *error)

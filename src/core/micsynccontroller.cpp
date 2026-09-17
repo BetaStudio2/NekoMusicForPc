@@ -1,13 +1,17 @@
 #include "micsynccontroller.h"
 
 #include "core/i18n.h"
+#include "core/playerengine.h"
 
 #include <QCoreApplication>
 
-/** 平台后端：Linux 为 pactl，其它平台为 stub。 */
+/** 平台后端：Linux 为 pactl loopback，Windows 为虚拟声卡，其它平台为 stub。 */
 bool nekoMicSyncBackendAvailable();
 bool nekoMicSyncBackendStart(QString *error);
 void nekoMicSyncBackendStop();
+void nekoMicSyncBackendSetPlayer(PlayerEngine *engine);
+QString nekoMicSyncBackendDeviceLabel();
+QString nekoMicSyncBackendHintKey();
 
 MicSyncController &MicSyncController::instance()
 {
@@ -39,9 +43,20 @@ bool MicSyncController::isSupported()
     return nekoMicSyncBackendAvailable();
 }
 
+void MicSyncController::setPlayerEngine(PlayerEngine *engine)
+{
+    m_playerEngine = engine;
+    nekoMicSyncBackendSetPlayer(engine);
+}
+
 QString MicSyncController::deviceName()
 {
-    return QStringLiteral("NekoMusicMic");
+    return nekoMicSyncBackendDeviceLabel();
+}
+
+QString MicSyncController::hintKey()
+{
+    return nekoMicSyncBackendHintKey();
 }
 
 void MicSyncController::setEnabled(bool enabled)

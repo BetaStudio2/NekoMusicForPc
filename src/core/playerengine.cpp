@@ -32,6 +32,20 @@ PlayerEngine::PlayerEngine(QObject *parent)
 
 PlayerEngine::~PlayerEngine() = default;
 
+QAudioDevice PlayerEngine::outputDevice() const
+{
+    return m_audioOutput ? m_audioOutput->device() : QAudioDevice();
+}
+
+void PlayerEngine::setOutputDevice(const QAudioDevice &device)
+{
+    if (!m_audioOutput || device.isNull())
+        return;
+    if (m_audioOutput->device() == device)
+        return;
+    m_audioOutput->setDevice(device);
+}
+
 void PlayerEngine::cancelFade()
 {
     if (m_fadeTimer) {

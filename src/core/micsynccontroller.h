@@ -11,6 +11,8 @@
  * 语音 / 会议 / 直播等软件把它选作麦克风即可听到正在播放的音乐。
  * Linux 走 PulseAudio / PipeWire 的 null-sink + loopback + remap-source。
  */
+class PlayerEngine;
+
 class MicSyncController final : public QObject
 {
     Q_OBJECT
@@ -18,13 +20,18 @@ class MicSyncController final : public QObject
 public:
     static MicSyncController &instance();
 
+    /** 供 Windows 后端切换播放器输出设备使用（Linux 忽略）。 */
+    void setPlayerEngine(PlayerEngine *engine);
+
     /** 当前平台是否支持（Linux 且存在 pactl）。 */
     static bool isSupported();
 
     bool isEnabled() const { return m_enabled; }
 
-    /** 虚拟麦克风在系统中显示的名字，供 UI 提示用户选择。 */
+    /** 混音后麦克风在系统中显示的名字，供 UI 提示用户选择。 */
     static QString deviceName();
+    /** 各平台使用说明的文案 key。 */
+    static QString hintKey();
 
 public slots:
     void setEnabled(bool enabled);
@@ -38,5 +45,6 @@ private:
     explicit MicSyncController(QObject *parent = nullptr);
     ~MicSyncController() override;
 
+    PlayerEngine *m_playerEngine = nullptr;
     bool m_enabled = false;
 };

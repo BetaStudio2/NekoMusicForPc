@@ -2726,6 +2726,7 @@ void MainWindow::togglePlaybackForSystemUi()
 void MainWindow::setupKeyboardShortcuts()
 {
     auto &global = GlobalShortcutController::instance();
+    MicSyncController::instance().setPlayerEngine(m_engine);
     global.setHostWindow(windowHandle());
     connect(&global, &GlobalShortcutController::playPauseTriggered, this,
             &MainWindow::togglePlaybackForSystemUi);

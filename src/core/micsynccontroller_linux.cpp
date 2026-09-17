@@ -165,6 +165,22 @@ bool nekoMicSyncBackendAvailable()
     return pactlAvailable();
 }
 
+void nekoMicSyncBackendSetPlayer(PlayerEngine *)
+{
+    // Linux 通过 PulseAudio/PipeWire 混音，无需改动播放器输出设备。
+}
+
+QString nekoMicSyncBackendDeviceLabel()
+{
+    return QStringLiteral("NekoMusicMic");
+}
+
+QString nekoMicSyncBackendHintKey()
+{
+    return pactlAvailable() ? QStringLiteral("micSyncHint")
+                            : QStringLiteral("micSyncUnsupportedHint");
+}
+
 bool nekoMicSyncBackendStart(QString *error)
 {
     auto fail = [error](const QString &message) {
