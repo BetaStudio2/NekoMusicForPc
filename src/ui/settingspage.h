@@ -78,9 +78,6 @@ private:
     QLabel *m_shortcutPlayPauseLabel = nullptr;
     QLabel *m_shortcutPrevLabel = nullptr;
     QLabel *m_shortcutNextLabel = nullptr;
-    QLabel *m_shortcutHintLabel = nullptr;
-    QLabel *m_shortcutStatusLabel = nullptr;
-    QPushButton *m_shortcutConfigureBtn = nullptr;
     ShortcutCaptureButton *m_shortcutPlayPauseBtn = nullptr;
     ShortcutCaptureButton *m_shortcutPrevBtn = nullptr;
     ShortcutCaptureButton *m_shortcutNextBtn = nullptr;

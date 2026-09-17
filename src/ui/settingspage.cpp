@@ -6,7 +6,6 @@
 #include "settingspage.h"
 #include "core/i18n.h"
 #include "core/appshortcuts.h"
-#include "core/globalshortcutcontroller.h"
 #include "core/shellbackdropsettings.h"
 #include "ui/shortcutcapturebutton.h"
 #include "ui/toast.h"
@@ -291,36 +290,6 @@ void SettingsPage::setupUi()
         refreshShortcutEditors();
     });
     shortcutsLay->addWidget(m_shortcutResetAllBtn, 0, Qt::AlignLeft);
-
-    m_shortcutStatusLabel = new QLabel(GlobalShortcutController::instance().statusText(), shortcutsBody);
-    m_shortcutStatusLabel->setObjectName("settingsInfo");
-    m_shortcutStatusLabel->setWordWrap(true);
-    shortcutsLay->addWidget(m_shortcutStatusLabel);
-
-    m_shortcutConfigureBtn = new QPushButton(I18n::instance().tr("shortcutOpenSystemSettings"), shortcutsBody);
-    m_shortcutConfigureBtn->setObjectName("settingsLinkBtn");
-    m_shortcutConfigureBtn->setCursor(Qt::PointingHandCursor);
-    m_shortcutConfigureBtn->setFlat(true);
-    connect(m_shortcutConfigureBtn, &QPushButton::clicked, this, []() {
-        GlobalShortcutController::instance().openSystemConfigureUi();
-    });
-    shortcutsLay->addWidget(m_shortcutConfigureBtn, 0, Qt::AlignLeft);
-
-    connect(&GlobalShortcutController::instance(), &GlobalShortcutController::bindingStateChanged, this,
-            [this](bool, GlobalShortcutController::Backend) {
-                if (m_shortcutStatusLabel)
-                    m_shortcutStatusLabel->setText(GlobalShortcutController::instance().statusText());
-            });
-
-    m_shortcutHintLabel = new QLabel(I18n::instance().tr("shortcutWaylandHint"), shortcutsBody);
-    m_shortcutHintLabel->setObjectName("settingsInfo");
-    m_shortcutHintLabel->setWordWrap(true);
-    shortcutsLay->addWidget(m_shortcutHintLabel);
-#if defined(Q_OS_WIN)
-    // Windows 直接全局注册，无 portal 授权流程，也无需去系统设置
-    m_shortcutConfigureBtn->hide();
-    m_shortcutHintLabel->hide();
-#endif
     shortcutsLay->addStretch();
 
     QVBoxLayout *aboutLay = nullptr;
@@ -700,12 +669,6 @@ void SettingsPage::retranslate()
         m_shortcutPrevLabel->setText(I18n::instance().tr("shortcutPreviousTrack"));
     if (m_shortcutNextLabel)
         m_shortcutNextLabel->setText(I18n::instance().tr("shortcutNextTrack"));
-    if (m_shortcutHintLabel)
-        m_shortcutHintLabel->setText(I18n::instance().tr("shortcutWaylandHint"));
-    if (m_shortcutStatusLabel)
-        m_shortcutStatusLabel->setText(GlobalShortcutController::instance().statusText());
-    if (m_shortcutConfigureBtn)
-        m_shortcutConfigureBtn->setText(I18n::instance().tr("shortcutOpenSystemSettings"));
     if (m_shortcutResetAllBtn)
         m_shortcutResetAllBtn->setText(I18n::instance().tr("shortcutResetAll"));
     if (m_shortcutResetPlayPauseBtn)
