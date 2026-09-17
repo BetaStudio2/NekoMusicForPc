@@ -316,6 +316,11 @@ void SettingsPage::setupUi()
     m_shortcutHintLabel->setObjectName("settingsInfo");
     m_shortcutHintLabel->setWordWrap(true);
     shortcutsLay->addWidget(m_shortcutHintLabel);
+#if defined(Q_OS_WIN)
+    // Windows 直接全局注册，无 portal 授权流程，也无需去系统设置
+    m_shortcutConfigureBtn->hide();
+    m_shortcutHintLabel->hide();
+#endif
     shortcutsLay->addStretch();
 
     QVBoxLayout *aboutLay = nullptr;

@@ -277,6 +277,7 @@ set(HEADERS
 if(NEKO_TARGET_WINDOWS)
     list(APPEND SOURCES src/core/systemmediacontroller_win.cpp)
     list(APPEND SOURCES src/core/defaultmusicappchecker_win.cpp)
+    list(APPEND SOURCES src/core/globalshortcutcontroller_win.cpp)
     set_source_files_properties(
         src/core/globalshortcutportal_linux.h
         src/core/globalshortcutportal_linux.cpp
@@ -389,11 +390,12 @@ if(APPLE)
     )
 endif()
 if(WIN32)
-    # MSVC 使用 Shlwapi.lib；MinGW 交叉编译使用 libshlwapi.a（小写 -lshlwapi）
+    # MSVC 用 Shlwapi.lib；MinGW 交叉编译用 libshlwapi.a（小写 -lshlwapi）
+    # user32 提供全局快捷键所需的 RegisterHotKey/UnregisterHotKey
     if(MINGW)
-        target_link_libraries(${PROJECT_NAME} PRIVATE shlwapi advapi32)
+        target_link_libraries(${PROJECT_NAME} PRIVATE shlwapi advapi32 user32)
     else()
-        target_link_libraries(${PROJECT_NAME} PRIVATE Shlwapi Advapi32)
+        target_link_libraries(${PROJECT_NAME} PRIVATE Shlwapi Advapi32 User32)
     endif()
 endif()
 

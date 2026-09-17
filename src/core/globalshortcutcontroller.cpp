@@ -10,6 +10,11 @@
 #include <QWindow>
 #include <functional>
 
+#if defined(Q_OS_WIN)
+// 交叉编译时 Qt 目标宏由编译器给出，Windows 后端源文件只在 NEKO_TARGET_WINDOWS 下参与编译
+#include "globalshortcutcontroller_win.h"
+#endif
+
 #if defined(Q_OS_LINUX) && !defined(Q_OS_ANDROID)
 struct GlobalShortcutControllerBackendImpl;
 class GlobalShortcutController;
@@ -92,6 +97,9 @@ GlobalShortcutController::GlobalShortcutController(QObject *parent)
 #if defined(Q_OS_LINUX) && !defined(Q_OS_ANDROID)
     nekoGlobalShortcutLinuxInitPortal(m_impl, this);
 #endif
+#if defined(Q_OS_WIN)
+    nekoGlobalShortcutWinInit(m_impl, this);
+#endif
 
     m_settingsRebindTimer = new QTimer(this);
     m_settingsRebindTimer->setSingleShot(true);
@@ -132,30 +140,39 @@ void GlobalShortcutController::activateBackend(Backend backend, bool active)
     emit bindingStateChanged(active, backend);
 }
 
+bool GlobalShortcutController::installInAppFallback()
+{
+    if (!m_impl->fallback)
+        return false;
+
+    m_impl->fallback->reload([this](AppShortcuts::Action action) {
+        switch (action) {
+        case AppShortcuts::PlayPause:
+            emit playPauseTriggered();
+            break;
+        case AppShortcuts::NextTrack:
+            emit nextTrackTriggered();
+            break;
+        case AppShortcuts::PreviousTrack:
+            emit previousTrackTriggered();
+            break;
+        default:
+            break;
+        }
+    });
+    if (!m_impl->fallback->hasShortcuts())
+        return false;
+
+    activateBackend(Backend::InAppFallback, true);
+    return true;
+}
+
 void GlobalShortcutController::tryFallbackAfterPortalFailure(const QString &reason)
 {
-    if (m_impl->fallback) {
-        m_impl->fallback->reload([this](AppShortcuts::Action action) {
-            switch (action) {
-            case AppShortcuts::PlayPause:
-                emit playPauseTriggered();
-                break;
-            case AppShortcuts::NextTrack:
-                emit nextTrackTriggered();
-                break;
-            case AppShortcuts::PreviousTrack:
-                emit previousTrackTriggered();
-                break;
-            default:
-                break;
-            }
-        });
-        if (m_impl->fallback->hasShortcuts()) {
-            activateBackend(Backend::InAppFallback, true);
-            emit bindingFailed(I18n::instance().tr(QStringLiteral("shortcutGlobalPortalFailed"))
-                                   .arg(reason));
-            return;
-        }
+    if (installInAppFallback()) {
+        emit bindingFailed(I18n::instance().tr(QStringLiteral("shortcutGlobalPortalFailed"))
+                               .arg(reason));
+        return;
     }
 
     m_active = false;
@@ -163,10 +180,31 @@ void GlobalShortcutController::tryFallbackAfterPortalFailure(const QString &reas
     emit bindingFailed(reason);
 }
 
+void GlobalShortcutController::tryFallbackAfterWinFailure(const QString &reason)
+{
+    if (installInAppFallback()) {
+        emit bindingFailed(I18n::instance().tr(QStringLiteral("shortcutGlobalWinFailed")).arg(reason));
+        return;
+    }
+
+    m_active = false;
+    m_backend = Backend::None;
+    emit bindingFailed(reason);
+}
+
+void GlobalShortcutController::notifyBindingFailure(const QString &reason)
+{
+    emit bindingFailed(reason);
+}
+
 void GlobalShortcutController::start(bool requestConfigureUi)
 {
 #if defined(Q_OS_LINUX) && !defined(Q_OS_ANDROID)
     if (nekoGlobalShortcutLinuxStartPortal(m_impl, this, requestConfigureUi))
+        return;
+#endif
+#if defined(Q_OS_WIN)
+    if (nekoGlobalShortcutWinStart(m_impl, this))
         return;
 #endif
 
@@ -206,6 +244,9 @@ void GlobalShortcutController::stop()
 #if defined(Q_OS_LINUX) && !defined(Q_OS_ANDROID)
     nekoGlobalShortcutLinuxStopPortal(m_impl);
 #endif
+#if defined(Q_OS_WIN)
+    nekoGlobalShortcutWinStop(m_impl);
+#endif
     if (m_impl->fallback)
         m_impl->fallback->stop();
 
@@ -225,6 +266,8 @@ QString GlobalShortcutController::statusText() const
     switch (m_backend) {
     case Backend::Portal:
         return I18n::instance().tr(QStringLiteral("shortcutGlobalPortalActive"));
+    case Backend::WinRegister:
+        return I18n::instance().tr(QStringLiteral("shortcutGlobalWinActive"));
     case Backend::InAppFallback:
         return I18n::instance().tr(QStringLiteral("shortcutGlobalFallbackActive"));
     default:

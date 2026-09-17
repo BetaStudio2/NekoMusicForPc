@@ -7,7 +7,7 @@ class QWidget;
 class QTimer;
 class AppShortcuts;
 
-/** 全局播放快捷键：Wayland 走 xdg-desktop-portal GlobalShortcuts，X11 可回退本地抓取。 */
+/** 全局播放快捷键：Windows 走 RegisterHotKey，Wayland 走 xdg-desktop-portal GlobalShortcuts。 */
 class GlobalShortcutController final : public QObject
 {
     Q_OBJECT
@@ -16,6 +16,7 @@ public:
     enum class Backend {
         None,
         Portal,
+        WinRegister,
         X11Grab,
         InAppFallback
     };
@@ -32,10 +33,13 @@ public:
     void stop();
     void openSystemConfigureUi();
 
-    /** 供 Linux portal 胶水层调用 */
+    /** 供平台胶水层调用 */
     void prepareHostWindowForPortal();
     void activateBackend(Backend backend, bool active);
     void tryFallbackAfterPortalFailure(const QString &reason);
+    void tryFallbackAfterWinFailure(const QString &reason);
+    /** 平台后端部分注册失败：仅上报，不改变当前后端 */
+    void notifyBindingFailure(const QString &reason);
     void dispatchAction(const QString &portalId);
     void reportPortalConfigureFailed(const QString &reason);
 
@@ -52,6 +56,7 @@ signals:
 
 private:
     explicit GlobalShortcutController(QObject *parent = nullptr);
+    bool installInAppFallback();
     void performSettingsRebind();
 
     QWindow *m_hostWindow = nullptr;
