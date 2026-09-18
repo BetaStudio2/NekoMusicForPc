@@ -52,10 +52,10 @@ public:
         };
 
         const AppShortcuts &app = AppShortcuts::instance();
-        bind(app.sequence(AppShortcuts::PlayPause), AppShortcuts::PlayPause);
-        bind(app.sequence(AppShortcuts::NextTrack), AppShortcuts::NextTrack);
-        bind(app.sequence(AppShortcuts::PreviousTrack), AppShortcuts::PreviousTrack);
-        bind(app.sequence(AppShortcuts::MicSync), AppShortcuts::MicSync);
+        for (int i = 0; i < AppShortcuts::ActionCount; ++i) {
+            const auto action = static_cast<AppShortcuts::Action>(i);
+            bind(app.sequence(action), action);
+        }
     }
 
     void stop()
@@ -159,6 +159,9 @@ bool GlobalShortcutController::installInAppFallback()
             break;
         case AppShortcuts::MicSync:
             emit micSyncTriggered();
+            break;
+        case AppShortcuts::ToggleDesktopLyrics:
+            emit desktopLyricsToggleTriggered();
             break;
         default:
             break;
@@ -293,6 +296,9 @@ void GlobalShortcutController::dispatchAction(const QString &portalId)
         break;
     case AppShortcuts::MicSync:
         emit micSyncTriggered();
+        break;
+    case AppShortcuts::ToggleDesktopLyrics:
+        emit desktopLyricsToggleTriggered();
         break;
     default:
         break;

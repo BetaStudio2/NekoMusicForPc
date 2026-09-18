@@ -52,6 +52,7 @@ signals:
     void nextTrackTriggered();
     void previousTrackTriggered();
     void micSyncTriggered();
+    void desktopLyricsToggleTriggered();
     void bindingStateChanged(bool active, Backend backend);
     void bindingFailed(const QString &reason);
 

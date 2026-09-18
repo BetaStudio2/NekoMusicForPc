@@ -128,6 +128,7 @@ static QMap<QString, QString> zhCN()
     m["shortcutGlobalWinFailed"] = QStringLiteral("全局快捷键注册失败：%1（已回退为窗口内快捷键）");
     m["shortcutGlobalWinPartialFailed"] = QStringLiteral("部分全局快捷键未生效（可能被其他程序占用）：%1");
     m["shortcutMicSync"] = QStringLiteral("麦克风同步（把播放声音送到麦克风）");
+    m["shortcutToggleDesktopLyrics"] = QStringLiteral("桌面歌词开关");
     m["micSyncEnabled"] = QStringLiteral("麦克风同步已开启：播放声音已合并进麦克风「%1」，通话 / 会议软件用默认输入即可听到");
     m["micSyncDisabled"] = QStringLiteral("麦克风同步已关闭，默认麦克风已还原");
     m["micSyncFailed"] = QStringLiteral("麦克风同步开启失败：%1");
@@ -137,12 +138,12 @@ static QMap<QString, QString> zhCN()
     m["micSyncHint"] = QStringLiteral(
         "开启后会把正在播放的音乐合并进默认麦克风（%1），并接管系统默认输入设备；"
         "语音 / 会议 / 直播软件无需手动改设置即可同步听到。关闭后自动还原原来的麦克风。"
-        "当前快捷键：%2（可在下方修改）。");
+        "当前快捷键：%2（可在「快捷键」设置中修改）。");
     m["micSyncUnsupportedHint"] = QStringLiteral("当前平台暂不支持麦克风同步，目前仅 Linux 可用。");
     m["micSyncHintWindows"] = QStringLiteral(
         "开启后会把本应用的播放输出切到虚拟声卡；在语音 / 会议 / 直播软件里把输入设备选为「%1」，"
         "即可同步听到播放的音乐。关闭后自动切回原来的输出设备。需要先安装 VB-Audio Virtual Cable "
-        "或 VoiceMeeter。当前快捷键：%2（可在下方修改）。");
+        "或 VoiceMeeter。当前快捷键：%2（可在「快捷键」设置中修改）。");
     m["micSyncWindowsNoCable"] = QStringLiteral(
         "未检测到虚拟声卡。Windows 需要先安装 VB-Audio Virtual Cable 或 VoiceMeeter，"
         "才能把播放声音合并进麦克风。");
@@ -863,6 +864,7 @@ static QMap<QString, QString> nyaCN()
     m["shortcutGlobalWinFailed"] = QStringLiteral("全局快捷键注册失败啦：%1（先退回窗口内用喵）");
     m["shortcutGlobalWinPartialFailed"] = QStringLiteral("有几个全局快捷键没生效喵（可能被别的程序抢了）：%1");
     m["shortcutMicSync"] = QStringLiteral("麦克风同步喵（把歌送到麦克风里）");
+    m["shortcutToggleDesktopLyrics"] = QStringLiteral("桌面歌词开关喵");
     m["micSyncEnabled"] = QStringLiteral("麦克风同步开好啦：歌已经合并进麦克风「%1」喵，通话软件用默认输入就能听到喵~");
     m["micSyncDisabled"] = QStringLiteral("麦克风同步关掉啦喵，默认麦克风还原了喵");
     m["micSyncFailed"] = QStringLiteral("麦克风同步开不起来喵：%1");
@@ -872,12 +874,12 @@ static QMap<QString, QString> nyaCN()
     m["micSyncHint"] = QStringLiteral(
         "开起来后会把正在放的歌合并进默认麦克风（%1）喵，还会接管系统默认输入；"
         "语音 / 会议 / 直播软件不用改设置就能听到喵。关掉后会还原原来的麦克风喵。"
-        "现在的快捷键是 %2，可以在下面改喵。");
+        "现在的快捷键是 %2，可以在「快捷键」设置里改喵。");
     m["micSyncUnsupportedHint"] = QStringLiteral("这个平台还不支持麦克风同步喵，现在只有 Linux 能用喵。");
     m["micSyncHintWindows"] = QStringLiteral(
         "开起来后会把本应用的播放输出切到虚拟声卡喵；在语音 / 会议 / 直播软件里把输入设备选成「%1」，"
         "就能同步听到歌喵。关掉后会自动切回原来的输出设备喵。要先装 VB-Audio Virtual Cable 或 "
-        "VoiceMeeter 喵。现在的快捷键是 %2，可以在下面改喵。");
+        "VoiceMeeter 喵。现在的快捷键是 %2，可以在「快捷键」设置里改喵。");
     m["micSyncWindowsNoCable"] = QStringLiteral(
         "没找到虚拟声卡喵。Windows 上要先装 VB-Audio Virtual Cable 或 VoiceMeeter，"
         "才能把播放声音合并进麦克风喵。");
@@ -1130,6 +1132,7 @@ static QMap<QString, QString> enUS()
     m["shortcutGlobalWinPartialFailed"] =
         "Some global shortcuts are inactive (possibly taken by another app): %1";
     m["shortcutMicSync"] = "Microphone Sync (route playback into the mic)";
+    m["shortcutToggleDesktopLyrics"] = "Toggle Desktop Lyrics";
     m["micSyncEnabled"] =
         "Microphone sync on — playback is now merged into mic \"%1\"; voice/meeting apps just use the default input";
     m["micSyncDisabled"] = "Microphone sync off — the original microphone was restored";
@@ -1141,13 +1144,14 @@ static QMap<QString, QString> enUS()
     m["micSyncHint"] =
         "When enabled, the playing music is merged into your default microphone (%1) and the system default "
         "input is switched to it, so voice / meeting / streaming apps pick it up without manual setup. "
-        "Disabling restores the original microphone. Current shortcut: %2 (editable below).";
+        "Disabling restores the original microphone. Current shortcut: %2 (editable in Shortcuts settings).";
     m["micSyncUnsupportedHint"] =
         "Microphone sync is not supported on this platform yet; currently Linux only.";
     m["micSyncHintWindows"] =
         "When enabled, this app's playback is routed to a virtual audio cable. Select \"%1\" as the input "
         "device in your voice / meeting / streaming app to hear the music; disabling restores the previous "
-        "output device. Requires VB-Audio Virtual Cable or VoiceMeeter. Current shortcut: %2 (editable below).";
+        "output device. Requires VB-Audio Virtual Cable or VoiceMeeter. Current shortcut: %2 (editable in "
+        "Shortcuts settings).";
     m["micSyncWindowsNoCable"] =
         "No virtual audio cable detected. Windows needs VB-Audio Virtual Cable or VoiceMeeter to merge "
         "playback into the microphone.";

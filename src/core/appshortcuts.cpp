@@ -35,6 +35,8 @@ QKeySequence AppShortcuts::defaultSequence(Action action)
         return QKeySequence(QStringLiteral("Ctrl+Alt+Left"));
     case MicSync:
         return QKeySequence(QStringLiteral("F2"));
+    case ToggleDesktopLyrics:
+        return QKeySequence(QStringLiteral("F1"));
     case ActionCount:
         break;
     }
@@ -52,6 +54,8 @@ QString AppShortcuts::portalShortcutId(Action action)
         return QStringLiteral("previous_track");
     case MicSync:
         return QStringLiteral("mic_sync");
+    case ToggleDesktopLyrics:
+        return QStringLiteral("toggle_desktop_lyrics");
     case ActionCount:
         break;
     }
@@ -69,6 +73,8 @@ QString AppShortcuts::actionLabel(Action action)
         return I18n::instance().tr(QStringLiteral("shortcutPreviousTrack"));
     case MicSync:
         return I18n::instance().tr(QStringLiteral("shortcutMicSync"));
+    case ToggleDesktopLyrics:
+        return I18n::instance().tr(QStringLiteral("shortcutToggleDesktopLyrics"));
     case ActionCount:
         break;
     }
@@ -191,6 +197,8 @@ QString AppShortcuts::settingsKey(Action action)
         return QStringLiteral("previousTrack");
     case MicSync:
         return QStringLiteral("micSync");
+    case ToggleDesktopLyrics:
+        return QStringLiteral("toggleDesktopLyrics");
     case ActionCount:
         break;
     }

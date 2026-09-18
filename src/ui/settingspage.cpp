@@ -228,6 +228,50 @@ void SettingsPage::setupUi()
     });
     langRow->addWidget(m_langCombo);
     generalLay->addLayout(langRow);
+
+    auto *generalDivider = new QFrame(generalBody);
+    generalDivider->setFrameShape(QFrame::HLine);
+    generalDivider->setObjectName("settingsDivider");
+    generalLay->addWidget(generalDivider);
+
+    // 麦克风同步（快捷键可在「快捷键」设置中修改）
+    m_micSyncSectionLabel = new QLabel(I18n::instance().tr("micSyncSection"), generalBody);
+    m_micSyncSectionLabel->setObjectName("settingsLabel");
+    generalLay->addWidget(m_micSyncSectionLabel);
+
+    auto *micSyncRow = new QHBoxLayout();
+    m_micSyncEnableLabel = new QLabel(I18n::instance().tr("micSyncEnable"), generalBody);
+    m_micSyncEnableLabel->setObjectName("settingsLabel");
+    micSyncRow->addWidget(m_micSyncEnableLabel);
+    micSyncRow->addStretch();
+
+    m_micSyncToggle = new ToggleSwitch(generalBody);
+    m_micSyncToggle->setChecked(MicSyncController::instance().isEnabled());
+    connect(m_micSyncToggle, &QAbstractButton::toggled, this, [](bool on) {
+        MicSyncController::instance().setEnabled(on);
+    });
+    micSyncRow->addWidget(m_micSyncToggle);
+    generalLay->addLayout(micSyncRow);
+
+    m_micSyncHintLabel = new QLabel(generalBody);
+    m_micSyncHintLabel->setObjectName("settingsInfo");
+    m_micSyncHintLabel->setWordWrap(true);
+    generalLay->addWidget(m_micSyncHintLabel);
+
+    auto &micSync = MicSyncController::instance();
+    connect(&micSync, &MicSyncController::enabledChanged, this, [this](bool on) {
+        if (m_micSyncToggle)
+            m_micSyncToggle->setChecked(on);
+    });
+    connect(&micSync, &MicSyncController::failed, this, [this](const QString &reason) {
+        if (m_micSyncToggle)
+            m_micSyncToggle->setChecked(MicSyncController::instance().isEnabled());
+        Toast::show(window(), reason, Toast::Error, 5000);
+    });
+    connect(&AppShortcuts::instance(), &AppShortcuts::shortcutsChanged, this, [this]() {
+        refreshMicSyncRow();
+    });
+
     generalLay->addStretch();
 
     QVBoxLayout *appearanceLay = nullptr;
@@ -272,48 +316,6 @@ void SettingsPage::setupUi()
     QWidget *shortcutsCard = createSettingsCard(container, &shortcutsLay);
     QWidget *shortcutsBody = static_cast<GlassWidget *>(shortcutsCard)->contentWidget();
 
-    m_micSyncSectionLabel = new QLabel(I18n::instance().tr("micSyncSection"), shortcutsBody);
-    m_micSyncSectionLabel->setObjectName("settingsLabel");
-    shortcutsLay->addWidget(m_micSyncSectionLabel);
-
-    auto *micSyncRow = new QHBoxLayout();
-    m_micSyncEnableLabel = new QLabel(I18n::instance().tr("micSyncEnable"), shortcutsBody);
-    m_micSyncEnableLabel->setObjectName("settingsLabel");
-    micSyncRow->addWidget(m_micSyncEnableLabel);
-    micSyncRow->addStretch();
-
-    m_micSyncToggle = new ToggleSwitch(shortcutsBody);
-    m_micSyncToggle->setChecked(MicSyncController::instance().isEnabled());
-    connect(m_micSyncToggle, &QAbstractButton::toggled, this, [](bool on) {
-        MicSyncController::instance().setEnabled(on);
-    });
-    micSyncRow->addWidget(m_micSyncToggle);
-    shortcutsLay->addLayout(micSyncRow);
-
-    m_micSyncHintLabel = new QLabel(shortcutsBody);
-    m_micSyncHintLabel->setObjectName("settingsInfo");
-    m_micSyncHintLabel->setWordWrap(true);
-    shortcutsLay->addWidget(m_micSyncHintLabel);
-
-    auto *micSyncDivider = new QFrame(shortcutsBody);
-    micSyncDivider->setFrameShape(QFrame::HLine);
-    micSyncDivider->setObjectName("settingsDivider");
-    shortcutsLay->addWidget(micSyncDivider);
-
-    auto &micSync = MicSyncController::instance();
-    connect(&micSync, &MicSyncController::enabledChanged, this, [this](bool on) {
-        if (m_micSyncToggle)
-            m_micSyncToggle->setChecked(on);
-    });
-    connect(&micSync, &MicSyncController::failed, this, [this](const QString &reason) {
-        if (m_micSyncToggle)
-            m_micSyncToggle->setChecked(MicSyncController::instance().isEnabled());
-        Toast::show(window(), reason, Toast::Error, 5000);
-    });
-    connect(&AppShortcuts::instance(), &AppShortcuts::shortcutsChanged, this, [this]() {
-        refreshMicSyncRow();
-    });
-
     m_shortcutsSectionLabel = new QLabel(I18n::instance().tr("shortcuts"), shortcutsBody);
     m_shortcutsSectionLabel->setObjectName("settingsLabel");
     shortcutsLay->addWidget(m_shortcutsSectionLabel);
@@ -326,6 +328,9 @@ void SettingsPage::setupUi()
                      &m_shortcutNextBtn, &m_shortcutResetNextBtn);
     setupShortcutRow(shortcutsLay, shortcutsBody, AppShortcuts::MicSync, &m_shortcutMicSyncLabel,
                      &m_shortcutMicSyncBtn, &m_shortcutResetMicSyncBtn);
+    setupShortcutRow(shortcutsLay, shortcutsBody, AppShortcuts::ToggleDesktopLyrics,
+                     &m_shortcutDesktopLyricsLabel, &m_shortcutDesktopLyricsBtn,
+                     &m_shortcutResetDesktopLyricsBtn);
 
     m_shortcutResetAllBtn = new QPushButton(I18n::instance().tr("shortcutResetAll"), shortcutsBody);
     m_shortcutResetAllBtn->setObjectName("settingsLinkBtn");
@@ -599,6 +604,9 @@ void SettingsPage::setupShortcutRow(QVBoxLayout *parentLayout, QWidget *cardBody
     case AppShortcuts::MicSync:
         labelKey = QStringLiteral("shortcutMicSync");
         break;
+    case AppShortcuts::ToggleDesktopLyrics:
+        labelKey = QStringLiteral("shortcutToggleDesktopLyrics");
+        break;
     default:
         break;
     }
@@ -682,6 +690,9 @@ void SettingsPage::refreshShortcutEditors()
         m_shortcutNextBtn->setKeySequence(AppShortcuts::instance().sequence(AppShortcuts::NextTrack));
     if (m_shortcutMicSyncBtn)
         m_shortcutMicSyncBtn->setKeySequence(AppShortcuts::instance().sequence(AppShortcuts::MicSync));
+    if (m_shortcutDesktopLyricsBtn)
+        m_shortcutDesktopLyricsBtn->setKeySequence(
+            AppShortcuts::instance().sequence(AppShortcuts::ToggleDesktopLyrics));
 }
 
 void SettingsPage::retranslate()
@@ -746,6 +757,8 @@ void SettingsPage::retranslate()
         m_shortcutNextLabel->setText(I18n::instance().tr("shortcutNextTrack"));
     if (m_shortcutMicSyncLabel)
         m_shortcutMicSyncLabel->setText(I18n::instance().tr("shortcutMicSync"));
+    if (m_shortcutDesktopLyricsLabel)
+        m_shortcutDesktopLyricsLabel->setText(I18n::instance().tr("shortcutToggleDesktopLyrics"));
     if (m_shortcutResetAllBtn)
         m_shortcutResetAllBtn->setText(I18n::instance().tr("shortcutResetAll"));
     if (m_shortcutResetPlayPauseBtn)
@@ -756,6 +769,8 @@ void SettingsPage::retranslate()
         m_shortcutResetNextBtn->setText(I18n::instance().tr("shortcutResetDefault"));
     if (m_shortcutResetMicSyncBtn)
         m_shortcutResetMicSyncBtn->setText(I18n::instance().tr("shortcutResetDefault"));
+    if (m_shortcutResetDesktopLyricsBtn)
+        m_shortcutResetDesktopLyricsBtn->setText(I18n::instance().tr("shortcutResetDefault"));
     refreshMicSyncRow();
     refreshShortcutEditors();
 }

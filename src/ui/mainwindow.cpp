@@ -2736,6 +2736,10 @@ void MainWindow::setupKeyboardShortcuts()
     connect(&global, &GlobalShortcutController::micSyncTriggered, this, []() {
         MicSyncController::instance().toggle();
     });
+    connect(&global, &GlobalShortcutController::desktopLyricsToggleTriggered, this, [this]() {
+        const bool enabled = QSettings().value(QStringLiteral("desktopLyrics"), false).toBool();
+        applyDesktopLyricsEnabled(!enabled, true);
+    });
 
     auto &micSync = MicSyncController::instance();
     connect(&micSync, &MicSyncController::enabledChanged, this, [this](bool enabled) {

@@ -14,6 +14,7 @@ public:
         NextTrack,
         PreviousTrack,
         MicSync,
+        ToggleDesktopLyrics,
         ActionCount
     };
     Q_ENUM(Action)
