@@ -257,7 +257,7 @@ static QMap<QString, QString> zhCN()
     m["register"] = QStringLiteral("注册");
     m["email"] = QStringLiteral("邮箱");
     m["password"] = QStringLiteral("密码");
-    m["username"] = QStringLiteral("用户名");
+    m["username"] = QStringLiteral("昵称");
     m["nickname"] = QStringLiteral("昵称");
     m["emailOrName"] = QStringLiteral("邮箱/名称");
     m["verificationCode"] = QStringLiteral("验证码");
@@ -265,7 +265,7 @@ static QMap<QString, QString> zhCN()
     m["getCode"] = QStringLiteral("获取验证码");
     m["sendCode"] = QStringLiteral("发送验证码");
     m["resendCode"] = QStringLiteral("重新发送");
-    m["registerNeedUsernameForCode"] = QStringLiteral("发送验证码前请先填写用户名");
+    m["registerNeedUsernameForCode"] = QStringLiteral("发送验证码前请先填写昵称");
     m["captchaSecurityTitle"] = QStringLiteral("安全验证");
     m["captchaSecurityDesc"] =
         QStringLiteral("拖动下方滑块对齐拼图，松开后自动校验；验证通过后将向你的邮箱发送验证码。");
@@ -438,7 +438,7 @@ static QMap<QString, QString> zhCN()
     m["codeRequired"] = QStringLiteral("请输入验证码");
     m["nameRequired"] = QStringLiteral("请输入昵称");
     m["inputNameRequired"] = QStringLiteral("请输入歌单名称");
-    m["fillUsernameAndPassword"] = QStringLiteral("请填写用户名和密码");
+    m["fillUsernameAndPassword"] = QStringLiteral("请填写昵称和密码");
     m["fillEmail"] = QStringLiteral("请填写邮箱");
     m["fillVerificationCode"] = QStringLiteral("请填写验证码");
     m["fillAllFields"] = QStringLiteral("请填写所有字段");
@@ -816,7 +816,7 @@ static QMap<QString, QString> nyaCN()
     m["countdownSeconds"] = QStringLiteral("%1秒喵");
     m["fillAllFields"] = QStringLiteral("指挥官笨蛋！要把空位填满才行喵~");
     m["pleaseEnterEmail"] = QStringLiteral("不告诉人家邮箱的话，没法继续了喵~");
-    m["registerNeedUsernameForCode"] = QStringLiteral("发验证码前先把用户名填好喵，不然邮件里不知道喊你什么喵~");
+    m["registerNeedUsernameForCode"] = QStringLiteral("发验证码前先把昵称填好喵，不然邮件里不知道喊你什么喵~");
     m["captchaSecurityTitle"] = QStringLiteral("安全小考验喵~");
     m["captchaSecurityDesc"] =
         QStringLiteral("把滑块拖到拼图刚好对上，松手就会自动检查喵~ 过了就给邮箱发验证码喵~");

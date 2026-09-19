@@ -248,7 +248,7 @@ void TitleBar::setupUi()
     lay->addWidget(m_vipPill, 0, Qt::AlignVCenter);
     lay->addSpacing(8);
 
-    // 账号胶囊：头像 + 用户名 + 下拉提示
+    // 账号胶囊：头像 + 昵称 + 下拉提示
     m_avatarWidget = new QWidget(this);
     m_avatarWidget->setObjectName("tbAvatarWidget");
     m_avatarWidget->setCursor(Qt::PointingHandCursor);
