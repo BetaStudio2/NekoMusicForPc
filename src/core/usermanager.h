@@ -39,6 +39,9 @@ public:
     /// 设置登录信息
     void setLoginInfo(const QString &token, const QVariantMap &userInfo);
 
+    /// 更新本地缓存的昵称（服务端已修改成功后调用）
+    void setUsername(const QString &username);
+
     /// 登出
     void logout();
 

@@ -30,6 +30,17 @@ void UserManager::setLoginInfo(const QString &token, const QVariantMap &userInfo
     emit vipStatusChanged();
 }
 
+void UserManager::setUsername(const QString &username)
+{
+    if (username.isEmpty())
+        return;
+    if (m_userInfo.value(QStringLiteral("username")).toString() == username)
+        return;
+    m_userInfo[QStringLiteral("username")] = username;
+    saveToSettings();
+    emit loginStateChanged();
+}
+
 void UserManager::setVipStatus(bool isVip)
 {
     updateVipStatus(isVip, m_vipExpiresAt);

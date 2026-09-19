@@ -652,6 +652,38 @@ QTextEdit:focus {
     color: #E08FA0;
 }
 
+#settingsInput {
+    background: rgba(33, 37, 41, 0.06);
+    border: 1px solid rgba(17, 24, 39, 0.22);
+    border-radius: 10px;
+    padding: 0 12px;
+    color: #212529;
+    font-size: 13px;
+}
+
+#settingsInput:focus {
+    border: 1px solid rgba(240, 94, 122, 0.6);
+}
+
+#settingsPrimaryBtn {
+    background: #D84B63;
+    border: none;
+    border-radius: 10px;
+    padding: 7px 18px;
+    color: #FFFFFF;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+#settingsPrimaryBtn:hover {
+    background: #E85C74;
+}
+
+#settingsPrimaryBtn:disabled {
+    background: rgba(216, 75, 99, 0.35);
+    color: rgba(255, 255, 255, 0.6);
+}
+
 #settingsDivider {
     background: rgba(240, 94, 122, 0.3);
     max-height: 1px;

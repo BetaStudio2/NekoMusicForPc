@@ -259,6 +259,9 @@ static QMap<QString, QString> zhCN()
     m["password"] = QStringLiteral("密码");
     m["username"] = QStringLiteral("昵称");
     m["nickname"] = QStringLiteral("昵称");
+    m["nicknamePlaceholder"] = QStringLiteral("请输入新昵称（1-20字）");
+    m["nicknameUpdated"] = QStringLiteral("昵称修改成功");
+    m["nicknameUpdateFailed"] = QStringLiteral("昵称修改失败，请稍后重试");
     m["emailOrName"] = QStringLiteral("邮箱/名称");
     m["verificationCode"] = QStringLiteral("验证码");
     m["verifyCode"] = QStringLiteral("验证码");
@@ -277,6 +280,7 @@ static QMap<QString, QString> zhCN()
     m["captchaVerifyFail"] = QStringLiteral("位置不正确或已失效，请换一张重试");
     m["registerTime"] = QStringLiteral("注册时间");
     m["accountInfo"] = QStringLiteral("账号信息");
+    m["account"] = QStringLiteral("账号");
     m["accountSettings"] = QStringLiteral("账号设置");
     m["notLoggedIn"] = QStringLiteral("未登录");
     m["goToLogin"] = QStringLiteral("去登录");
@@ -547,6 +551,9 @@ static QMap<QString, QString> zhCN()
     m["vipCenterTitle"] = QStringLiteral("会员中心");
     m["vipStatusActive"] = QStringLiteral("尊贵 VIP");
     m["vipStatusExpires"] = QStringLiteral("到期：%1");
+    m["vipStatusLabel"] = QStringLiteral("会员状态");
+    m["vipStatusInactive"] = QStringLiteral("非会员");
+    m["nicknameEmpty"] = QStringLiteral("昵称不能为空");
     m["vipOpenMembership"] = QStringLiteral("开通会员");
     m["vipPricingLoadFailed"] = QStringLiteral("价目表加载失败");
     m["vipPayNoUrl"] = QStringLiteral("没有拿到支付链接");
@@ -697,6 +704,11 @@ static QMap<QString, QString> nyaCN()
     m["myPlaylistsTitle"] = QStringLiteral("指挥官的秘密歌单喵~");
     m["favorites"] = QStringLiteral("最最最喜欢的喵！");
     m["myFavorites"] = QStringLiteral("我最喜欢的音乐喵~");
+    m["username"] = QStringLiteral("昵称");
+    m["nickname"] = QStringLiteral("昵称");
+    m["nicknamePlaceholder"] = QStringLiteral("输入新昵称喵（1-20字）");
+    m["nicknameUpdated"] = QStringLiteral("昵称换好啦喵~");
+    m["nicknameUpdateFailed"] = QStringLiteral("昵称没换成喵，待会儿再试试喵~");
     m["favoritePageSongCount"] = QStringLiteral("共 %1 首歌喵");
     m["listColTitle"] = QStringLiteral("标题");
     m["listColAlbum"] = QStringLiteral("专辑");
@@ -768,6 +780,14 @@ static QMap<QString, QString> nyaCN()
     m["qrLoginConnectionLost"] = QStringLiteral("连接断掉了喵，点一下刷新吧");
     m["qrLoginRefresh"] = QStringLiteral("换一张喵码");
     m["logout"] = QStringLiteral("要离开了喵？人家会想你的喵...");
+    m["accountInfo"] = QStringLiteral("账号信息喵");
+    m["account"] = QStringLiteral("账号喵");
+    m["registerTime"] = QStringLiteral("注册时间喵");
+    m["vipStatusLabel"] = QStringLiteral("会员状态喵");
+    m["vipStatusActive"] = QStringLiteral("尊贵 VIP 喵~");
+    m["vipStatusExpires"] = QStringLiteral("到期喵：%1");
+    m["vipStatusInactive"] = QStringLiteral("普通小猫咪");
+    m["nicknameEmpty"] = QStringLiteral("昵称不能为空喵");
     m["register"] = QStringLiteral("加入 Neko 家族喵~");
     m["email"] = QStringLiteral("联络暗号(邮箱)喵~");
     m["password"] = QStringLiteral("秘密护盾(密码)喵~");
@@ -1270,6 +1290,9 @@ static QMap<QString, QString> enUS()
     m["password"] = "Password";
     m["username"] = "Username";
     m["nickname"] = "Nickname";
+    m["nicknamePlaceholder"] = "Enter a new nickname (1-20 chars)";
+    m["nicknameUpdated"] = "Nickname updated";
+    m["nicknameUpdateFailed"] = "Failed to update nickname, please try again later";
     m["emailOrName"] = "Email/Name";
     m["verificationCode"] = "Verification Code";
     m["verifyCode"] = "Verify Code";
@@ -1289,6 +1312,7 @@ static QMap<QString, QString> enUS()
     m["captchaVerifyFail"] = "Incorrect position or expired challenge; try a new image";
     m["registerTime"] = "Registration Time";
     m["accountInfo"] = "Account Info";
+    m["account"] = "Account";
     m["accountSettings"] = "Account Settings";
     m["notLoggedIn"] = "Not Logged In";
     m["goToLogin"] = "Go to Login";
@@ -1573,6 +1597,9 @@ static QMap<QString, QString> enUS()
     m["vipCenterTitle"] = "VIP Center";
     m["vipStatusActive"] = "VIP Member";
     m["vipStatusExpires"] = "Expires: %1";
+    m["vipStatusLabel"] = "Membership";
+    m["vipStatusInactive"] = "Non-member";
+    m["nicknameEmpty"] = "Nickname cannot be empty";
     m["vipOpenMembership"] = "Get VIP";
     m["vipPricingLoadFailed"] = "Failed to load pricing";
     m["vipPayNoUrl"] = "No payment URL received";

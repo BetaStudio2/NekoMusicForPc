@@ -509,7 +509,7 @@ void MainWindow::setupUi()
     m_stack = new QStackedWidget(contentCol);
     m_stack->setObjectName("pageStack");
     m_homePage = new HomePage(this);
-    m_settingsPage = new SettingsPage(this);
+    m_settingsPage = new SettingsPage(m_apiClient, this);
     m_favoritesPage = new FavoritesPage(m_apiClient, this);
     m_recentPage = new RecentPage(this);
     m_downloadPage = new DownloadPage(this);
@@ -870,28 +870,12 @@ void MainWindow::setupUi()
     // 头像点击 - 显示登录/登出菜单
     connect(m_titleBar, &TitleBar::avatarClicked, this, [this]() {
         if (UserManager::instance().isLoggedIn()) {
-            // 已登录，弹出用户菜单
+            // 已登录：悬浮窗只保留退出登录；账号资料请前往侧边栏「账号信息」页面
             QMenu *menu = new QMenu(this);
             menu->setAttribute(Qt::WA_DeleteOnClose);
 
-            QString username = UserManager::instance().userInfo().value("username").toString();
-            if (username.isEmpty()) username = "User";
-            menu->addAction(username)->setEnabled(false);
-            menu->addSeparator();
-
-            auto *favAction = menu->addAction(tr("My Favorites"));
-            connect(favAction, &QAction::triggered, this, [this]() {
-                switchPage(m_favoritesPage);
-            });
-
-            auto *vipAction = menu->addAction(I18n::instance().tr(QStringLiteral("vipNav")));
-            connect(vipAction, &QAction::triggered, this, [this]() {
-                m_vipPage->refresh();
-                switchPage(m_vipPage);
-            });
-
-            menu->addSeparator();
-            auto *logoutAction = menu->addAction(tr("Logout"));
+            auto *logoutAction =
+                menu->addAction(I18n::instance().tr(QStringLiteral("logout")));
             connect(logoutAction, &QAction::triggered, this, [this, menu]() {
                 UserManager::instance().logout();
                 menu->close();

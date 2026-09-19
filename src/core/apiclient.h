@@ -50,6 +50,10 @@ public:
     // 修改用户密码
     void changePassword(const QString &oldPassword, const QString &newPassword, std::function<void(bool, const QString&)> cb);
 
+    // 修改用户昵称
+    using NicknameChangeCb = std::function<void(bool ok, const QString &message, const QString &nickname)>;
+    void changeNickname(const QString &nickname, NicknameChangeCb cb);
+
     // ─── 歌单相关 ────────────────────────────────────
     using PlaylistDetailCb = std::function<void(bool, const QVariantMap&)>;
     void fetchPlaylistDetail(int playlistId, PlaylistDetailCb cb);

@@ -11,12 +11,17 @@
 
 class QComboBox;
 class QLabel;
+class QLineEdit;
+class QNetworkAccessManager;
+class QNetworkReply;
+class QPixmap;
 class QPushButton;
 class QResizeEvent;
 class QScrollArea;
 class QStackedWidget;
 class QVBoxLayout;
 class QWidget;
+class ApiClient;
 class ShortcutCaptureButton;
 class ToggleSwitch;
 
@@ -25,7 +30,7 @@ class SettingsPage : public QWidget
     Q_OBJECT
 
 public:
-    explicit SettingsPage(QWidget *parent = nullptr);
+    explicit SettingsPage(ApiClient *apiClient, QWidget *parent = nullptr);
 
 signals:
     void languageChanged(int language);
@@ -49,6 +54,12 @@ private:
     void refreshShortcutEditors();
     void refreshMicSyncRow();
     void setupPersonalizationSection(QVBoxLayout *cardLay, QWidget *cardBody);
+    void refreshAccountSection();
+    void startEditNickname();
+    void cancelEditNickname();
+    void submitNickname();
+    void loadAccountAvatar(int userId);
+    void setAccountAvatar(const QPixmap &pixmap);
     void updateBackdropOptionRows();
     void refreshBackdropPathLabel();
     void refreshBackdropColorSwatch();
@@ -75,6 +86,30 @@ private:
     QWidget *m_backdropSolidRow = nullptr;
     QPushButton *m_backdropPickColorBtn = nullptr;
     QLabel *m_backdropColorSwatch = nullptr;
+    ApiClient *m_apiClient = nullptr;
+    QNetworkAccessManager *m_nam = nullptr;
+    QNetworkReply *m_avatarReply = nullptr;
+
+    QLabel *m_accountSectionLabel = nullptr;
+    QWidget *m_accountContent = nullptr;
+    QLabel *m_accountAvatar = nullptr;
+    QLabel *m_accountNicknameCaption = nullptr;
+    QLabel *m_accountNicknameValue = nullptr;
+    QLineEdit *m_accountNicknameEdit = nullptr;
+    QPushButton *m_accountEditBtn = nullptr;
+    QPushButton *m_accountSaveBtn = nullptr;
+    QPushButton *m_accountCancelBtn = nullptr;
+    QLabel *m_accountNicknameError = nullptr;
+    QLabel *m_accountEmailCaption = nullptr;
+    QLabel *m_accountEmailValue = nullptr;
+    QLabel *m_accountVipCaption = nullptr;
+    QLabel *m_accountVipValue = nullptr;
+    QLabel *m_accountCreatedCaption = nullptr;
+    QLabel *m_accountCreatedValue = nullptr;
+    QWidget *m_accountGuestWrap = nullptr;
+    QLabel *m_accountGuestHint = nullptr;
+    QPushButton *m_accountLoginBtn = nullptr;
+    bool m_accountSaving = false;
     QLabel *m_langLabel = nullptr;
     QLabel *m_micSyncSectionLabel = nullptr;
     QLabel *m_micSyncEnableLabel = nullptr;

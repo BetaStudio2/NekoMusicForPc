@@ -4,10 +4,13 @@
  */
 
 #include "settingspage.h"
+#include "core/apiclient.h"
 #include "core/i18n.h"
 #include "core/appshortcuts.h"
 #include "core/micsynccontroller.h"
 #include "core/shellbackdropsettings.h"
+#include "core/usermanager.h"
+#include "ui/logindialog.h"
 #include "ui/shortcutcapturebutton.h"
 #include "ui/toggleswitch.h"
 #include "ui/toast.h"
@@ -23,7 +26,14 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QComboBox>
+#include <QLineEdit>
+#include <QNetworkAccessManager>
+#include <QNetworkReply>
+#include <QNetworkRequest>
+#include <QPainter>
+#include <QPainterPath>
 #include <QPushButton>
+#include <QDateTime>
 #include <QScrollArea>
 #include <QStackedWidget>
 #include <QScrollBar>
@@ -45,12 +55,26 @@ constexpr auto kGithubUrl = "https://github.com/FantasyNetworkCN/NekoMusicForPc"
 constexpr auto kApiDocsUrl = "https://github.com/FantasyNetworkCN/NekoMusicDocs";
 constexpr int kSettingsTabCount = 4;
 
+QString formatAccountDate(const QString &raw)
+{
+    if (raw.isEmpty())
+        return QStringLiteral("-");
+    QDateTime dt = QDateTime::fromString(raw, Qt::ISODate);
+    if (!dt.isValid())
+        dt = QDateTime::fromString(raw, QStringLiteral("yyyy-MM-dd HH:mm:ss"));
+    if (!dt.isValid())
+        return raw;
+    return dt.toString(QStringLiteral("yyyy-MM-dd"));
+}
+
 } // namespace
 
-SettingsPage::SettingsPage(QWidget *parent) : QWidget(parent)
+SettingsPage::SettingsPage(ApiClient *apiClient, QWidget *parent)
+    : QWidget(parent), m_apiClient(apiClient)
 {
     setAttribute(Qt::WA_StyledBackground, false);
     setAutoFillBackground(false);
+    m_nam = new QNetworkAccessManager(this);
     setupUi();
     connect(&Theme::ThemeManager::instance(), &Theme::ThemeManager::themeChanged, this,
             [this](Theme::ThemeMode mode) {
@@ -59,6 +83,9 @@ SettingsPage::SettingsPage(QWidget *parent) : QWidget(parent)
                 for (auto *card : cards)
                     GlassPaint::applyFlatSurface(card, Theme::ThemeManager::instance().isDarkMode());
             });
+    connect(&UserManager::instance(), &UserManager::loginStateChanged, this,
+            &SettingsPage::refreshAccountSection);
+    refreshAccountSection();
 }
 
 QWidget *SettingsPage::createSettingsCard(QWidget *parent, QVBoxLayout **layoutOut)
@@ -193,6 +220,129 @@ void SettingsPage::setupUi()
     QVBoxLayout *generalLay = nullptr;
     QWidget *generalCard = createSettingsCard(container, &generalLay);
     QWidget *generalBody = static_cast<GlassWidget *>(generalCard)->contentWidget();
+
+    // ── 账号（直接内嵌展示，可修改昵称）────────────────────
+    m_accountSectionLabel = new QLabel(I18n::instance().tr(QStringLiteral("account")), generalBody);
+    m_accountSectionLabel->setObjectName("settingsLabel");
+    generalLay->addWidget(m_accountSectionLabel);
+
+    m_accountContent = new QWidget(generalBody);
+    auto *accountLay = new QHBoxLayout(m_accountContent);
+    accountLay->setContentsMargins(0, 0, 0, 0);
+    accountLay->setSpacing(18);
+
+    m_accountAvatar = new QLabel(m_accountContent);
+    m_accountAvatar->setFixedSize(72, 72);
+    accountLay->addWidget(m_accountAvatar, 0, Qt::AlignTop);
+
+    auto *accountInfoCol = new QVBoxLayout();
+    accountInfoCol->setSpacing(10);
+
+    auto *nicknameRow = new QHBoxLayout();
+    nicknameRow->setSpacing(10);
+
+    m_accountNicknameCaption = new QLabel(m_accountContent);
+    m_accountNicknameCaption->setObjectName("settingsLabel");
+    m_accountNicknameCaption->setFixedWidth(64);
+    nicknameRow->addWidget(m_accountNicknameCaption);
+
+    m_accountNicknameValue = new QLabel(m_accountContent);
+    m_accountNicknameValue->setObjectName("settingsLabel");
+    m_accountNicknameValue->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    nicknameRow->addWidget(m_accountNicknameValue, 1);
+
+    m_accountNicknameEdit = new QLineEdit(m_accountContent);
+    m_accountNicknameEdit->setObjectName("settingsInput");
+    m_accountNicknameEdit->setMaxLength(20);
+    m_accountNicknameEdit->setFixedHeight(34);
+    m_accountNicknameEdit->setMinimumWidth(160);
+    m_accountNicknameEdit->hide();
+    connect(m_accountNicknameEdit, &QLineEdit::returnPressed, this, &SettingsPage::submitNickname);
+    connect(m_accountNicknameEdit, &QLineEdit::textChanged, this, [this]() {
+        if (m_accountNicknameError && m_accountNicknameError->isVisible())
+            m_accountNicknameError->hide();
+    });
+    nicknameRow->addWidget(m_accountNicknameEdit, 1);
+
+    m_accountEditBtn = new QPushButton(m_accountContent);
+    m_accountEditBtn->setObjectName("settingsLinkBtn");
+    m_accountEditBtn->setCursor(Qt::PointingHandCursor);
+    m_accountEditBtn->setFlat(true);
+    connect(m_accountEditBtn, &QPushButton::clicked, this, &SettingsPage::startEditNickname);
+    nicknameRow->addWidget(m_accountEditBtn);
+
+    m_accountSaveBtn = new QPushButton(m_accountContent);
+    m_accountSaveBtn->setObjectName("settingsPrimaryBtn");
+    m_accountSaveBtn->setCursor(Qt::PointingHandCursor);
+    m_accountSaveBtn->hide();
+    connect(m_accountSaveBtn, &QPushButton::clicked, this, &SettingsPage::submitNickname);
+    nicknameRow->addWidget(m_accountSaveBtn);
+
+    m_accountCancelBtn = new QPushButton(m_accountContent);
+    m_accountCancelBtn->setObjectName("settingsLinkBtn");
+    m_accountCancelBtn->setCursor(Qt::PointingHandCursor);
+    m_accountCancelBtn->setFlat(true);
+    m_accountCancelBtn->hide();
+    connect(m_accountCancelBtn, &QPushButton::clicked, this, &SettingsPage::cancelEditNickname);
+    nicknameRow->addWidget(m_accountCancelBtn);
+
+    accountInfoCol->addLayout(nicknameRow);
+
+    m_accountNicknameError = new QLabel(m_accountContent);
+    m_accountNicknameError->setObjectName("settingsInfo");
+    m_accountNicknameError->setWordWrap(true);
+    m_accountNicknameError->hide();
+    accountInfoCol->addWidget(m_accountNicknameError);
+
+    auto addAccountRow = [&](QLabel *&caption, QLabel *&value) {
+        auto *row = new QHBoxLayout();
+        row->setSpacing(10);
+        caption = new QLabel(m_accountContent);
+        caption->setObjectName("settingsLabel");
+        caption->setFixedWidth(64);
+        row->addWidget(caption);
+        value = new QLabel(m_accountContent);
+        value->setObjectName("settingsInfo");
+        value->setTextInteractionFlags(Qt::TextSelectableByMouse);
+        row->addWidget(value, 1);
+        accountInfoCol->addLayout(row);
+    };
+    addAccountRow(m_accountEmailCaption, m_accountEmailValue);
+    addAccountRow(m_accountVipCaption, m_accountVipValue);
+    addAccountRow(m_accountCreatedCaption, m_accountCreatedValue);
+    accountInfoCol->addStretch();
+
+    accountLay->addLayout(accountInfoCol, 1);
+    generalLay->addWidget(m_accountContent);
+
+    // 未登录：提示 + 去登录
+    m_accountGuestWrap = new QWidget(generalBody);
+    auto *guestLay = new QHBoxLayout(m_accountGuestWrap);
+    guestLay->setContentsMargins(0, 0, 0, 0);
+    guestLay->setSpacing(12);
+
+    m_accountGuestHint = new QLabel(m_accountGuestWrap);
+    m_accountGuestHint->setObjectName("settingsInfo");
+    m_accountGuestHint->setWordWrap(true);
+    guestLay->addWidget(m_accountGuestHint);
+    guestLay->addStretch();
+
+    m_accountLoginBtn = new QPushButton(m_accountGuestWrap);
+    m_accountLoginBtn->setObjectName("settingsLinkBtn");
+    m_accountLoginBtn->setCursor(Qt::PointingHandCursor);
+    m_accountLoginBtn->setFlat(true);
+    connect(m_accountLoginBtn, &QPushButton::clicked, this, [this]() {
+        LoginDialog dlg(window());
+        dlg.exec();
+        refreshAccountSection();
+    });
+    guestLay->addWidget(m_accountLoginBtn);
+    generalLay->addWidget(m_accountGuestWrap);
+
+    auto *accountDivider = new QFrame(generalBody);
+    accountDivider->setFrameShape(QFrame::HLine);
+    accountDivider->setObjectName("settingsDivider");
+    generalLay->addWidget(accountDivider);
 
     // 语言设置
     auto *langRow = new QHBoxLayout();
@@ -709,6 +859,30 @@ void SettingsPage::retranslate()
         m_shortcutsTabBtn->setText(I18n::instance().tr(QStringLiteral("settingsTabShortcuts")));
     if (m_aboutTabBtn)
         m_aboutTabBtn->setText(I18n::instance().tr(QStringLiteral("settingsTabAbout")));
+    if (m_accountSectionLabel)
+        m_accountSectionLabel->setText(I18n::instance().tr(QStringLiteral("account")));
+    if (m_accountNicknameCaption)
+        m_accountNicknameCaption->setText(I18n::instance().tr(QStringLiteral("nickname")));
+    if (m_accountEmailCaption)
+        m_accountEmailCaption->setText(I18n::instance().tr(QStringLiteral("email")));
+    if (m_accountVipCaption)
+        m_accountVipCaption->setText(I18n::instance().tr(QStringLiteral("vipStatusLabel")));
+    if (m_accountCreatedCaption)
+        m_accountCreatedCaption->setText(I18n::instance().tr(QStringLiteral("registerTime")));
+    if (m_accountEditBtn)
+        m_accountEditBtn->setText(I18n::instance().tr(QStringLiteral("edit")));
+    if (m_accountSaveBtn)
+        m_accountSaveBtn->setText(I18n::instance().tr(QStringLiteral("save")));
+    if (m_accountCancelBtn)
+        m_accountCancelBtn->setText(I18n::instance().tr(QStringLiteral("cancel")));
+    if (m_accountNicknameEdit)
+        m_accountNicknameEdit->setPlaceholderText(
+            I18n::instance().tr(QStringLiteral("nicknamePlaceholder")));
+    if (m_accountGuestHint)
+        m_accountGuestHint->setText(I18n::instance().tr(QStringLiteral("loginRequired")));
+    if (m_accountLoginBtn)
+        m_accountLoginBtn->setText(I18n::instance().tr(QStringLiteral("goToLogin")));
+    refreshAccountSection();
     m_langLabel->setText(I18n::instance().languageLabel());
     m_langCombo->setItemText(0, I18n::instance().languageChinese());
     m_langCombo->setItemText(1, I18n::instance().languageNya());
@@ -781,4 +955,203 @@ void SettingsPage::resizeEvent(QResizeEvent *event)
 {
     QWidget::resizeEvent(event);
     updateTabBarGeometry();
+}
+
+// ─── 账号信息（内嵌于「通用」页）────────────────────────────
+
+void SettingsPage::refreshAccountSection()
+{
+    const bool loggedIn = UserManager::instance().isLoggedIn();
+
+    if (m_accountContent)
+        m_accountContent->setVisible(loggedIn);
+    if (m_accountGuestWrap)
+        m_accountGuestWrap->setVisible(!loggedIn);
+
+    cancelEditNickname();
+
+    if (!loggedIn) {
+        setAccountAvatar(QPixmap(QStringLiteral(":/icons/app.png")));
+        return;
+    }
+
+    const QVariantMap info = UserManager::instance().userInfo();
+    if (m_accountNicknameValue)
+        m_accountNicknameValue->setText(info.value(QStringLiteral("username")).toString());
+    if (m_accountEmailValue)
+        m_accountEmailValue->setText(info.value(QStringLiteral("email")).toString());
+    if (m_accountCreatedValue)
+        m_accountCreatedValue->setText(
+            formatAccountDate(info.value(QStringLiteral("createdAt")).toString()));
+
+    if (m_accountVipValue) {
+        if (UserManager::instance().isVip()) {
+            QString text = I18n::instance().tr(QStringLiteral("vipStatusActive"));
+            const QString expires = UserManager::instance().vipExpiresAt();
+            if (!expires.isEmpty()) {
+                text += QStringLiteral(" · ")
+                        + I18n::instance().tr(QStringLiteral("vipStatusExpires"))
+                              .arg(formatAccountDate(expires));
+            }
+            m_accountVipValue->setText(text);
+        } else {
+            m_accountVipValue->setText(I18n::instance().tr(QStringLiteral("vipStatusInactive")));
+        }
+    }
+
+    loadAccountAvatar(info.value(QStringLiteral("id")).toInt());
+}
+
+void SettingsPage::startEditNickname()
+{
+    if (!UserManager::instance().isLoggedIn())
+        return;
+
+    if (m_accountNicknameValue)
+        m_accountNicknameValue->hide();
+    if (m_accountNicknameEdit) {
+        m_accountNicknameEdit->setText(
+            UserManager::instance().userInfo().value(QStringLiteral("username")).toString());
+        m_accountNicknameEdit->show();
+        m_accountNicknameEdit->setFocus();
+        m_accountNicknameEdit->selectAll();
+    }
+    if (m_accountEditBtn)
+        m_accountEditBtn->hide();
+    if (m_accountSaveBtn)
+        m_accountSaveBtn->show();
+    if (m_accountCancelBtn)
+        m_accountCancelBtn->show();
+    if (m_accountNicknameError)
+        m_accountNicknameError->hide();
+}
+
+void SettingsPage::cancelEditNickname()
+{
+    if (m_accountNicknameValue)
+        m_accountNicknameValue->show();
+    if (m_accountNicknameEdit) {
+        m_accountNicknameEdit->clear();
+        m_accountNicknameEdit->hide();
+    }
+    if (m_accountEditBtn)
+        m_accountEditBtn->show();
+    if (m_accountSaveBtn)
+        m_accountSaveBtn->hide();
+    if (m_accountCancelBtn)
+        m_accountCancelBtn->hide();
+    if (m_accountNicknameError)
+        m_accountNicknameError->hide();
+}
+
+void SettingsPage::submitNickname()
+{
+    if (m_accountSaving || !m_accountNicknameEdit || !m_apiClient)
+        return;
+
+    const QString nickname = m_accountNicknameEdit->text().trimmed();
+    const QString current =
+        UserManager::instance().userInfo().value(QStringLiteral("username")).toString();
+
+    if (nickname.isEmpty()) {
+        if (m_accountNicknameError) {
+            m_accountNicknameError->setText(I18n::instance().tr(QStringLiteral("nicknameEmpty")));
+            m_accountNicknameError->show();
+        }
+        return;
+    }
+    if (nickname == current) {
+        cancelEditNickname();
+        return;
+    }
+
+    m_accountSaving = true;
+    if (m_accountSaveBtn)
+        m_accountSaveBtn->setEnabled(false);
+    if (m_accountNicknameError)
+        m_accountNicknameError->hide();
+
+    m_apiClient->changeNickname(
+        nickname, [this, nickname](bool ok, const QString &message, const QString &savedNickname) {
+            m_accountSaving = false;
+            if (m_accountSaveBtn)
+                m_accountSaveBtn->setEnabled(true);
+
+            if (ok) {
+                UserManager::instance().setUsername(savedNickname.isEmpty() ? nickname : savedNickname);
+                cancelEditNickname();
+                Toast::show(window(), I18n::instance().tr(QStringLiteral("nicknameUpdated")),
+                            Toast::Success);
+            } else {
+                const QString error =
+                    message.isEmpty() ? I18n::instance().tr(QStringLiteral("nicknameUpdateFailed"))
+                                      : message;
+                if (m_accountNicknameError) {
+                    m_accountNicknameError->setText(error);
+                    m_accountNicknameError->show();
+                }
+                Toast::show(window(), error, Toast::Error);
+            }
+        });
+}
+
+void SettingsPage::loadAccountAvatar(int userId)
+{
+    if (userId <= 0) {
+        setAccountAvatar(QPixmap(QStringLiteral(":/icons/app.png")));
+        return;
+    }
+
+    if (m_avatarReply) {
+        m_avatarReply->disconnect();
+        m_avatarReply->abort();
+        m_avatarReply->deleteLater();
+        m_avatarReply = nullptr;
+    }
+
+    const QUrl url(QString::fromUtf8("%1/api/user/avatar/%2").arg(Theme::kApiBase).arg(userId));
+    QNetworkRequest req(url);
+    req.setTransferTimeout(5000);
+    req.setAttribute(QNetworkRequest::CacheLoadControlAttribute, QNetworkRequest::PreferNetwork);
+    QNetworkReply *reply = m_nam->get(req);
+    m_avatarReply = reply;
+
+    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+        if (m_avatarReply == reply)
+            m_avatarReply = nullptr;
+        reply->deleteLater();
+
+        if (reply->error() != QNetworkReply::NoError) {
+            setAccountAvatar(QPixmap(QStringLiteral(":/icons/app.png")));
+            return;
+        }
+        QPixmap pm;
+        if (!pm.loadFromData(reply->readAll()) || pm.isNull()) {
+            setAccountAvatar(QPixmap(QStringLiteral(":/icons/app.png")));
+            return;
+        }
+        setAccountAvatar(pm);
+    });
+}
+
+void SettingsPage::setAccountAvatar(const QPixmap &pixmap)
+{
+    if (!m_accountAvatar)
+        return;
+
+    constexpr int size = 72;
+    const QPixmap scaled =
+        pixmap.scaled(size, size, Qt::KeepAspectRatioByExpanding, Qt::SmoothTransformation);
+
+    QPixmap rounded(size, size);
+    rounded.fill(Qt::transparent);
+    QPainter painter(&rounded);
+    painter.setRenderHint(QPainter::Antialiasing, true);
+    QPainterPath clip;
+    clip.addEllipse(0, 0, size, size);
+    painter.setClipPath(clip);
+    painter.drawPixmap(0, 0, scaled);
+    painter.end();
+
+    m_accountAvatar->setPixmap(rounded);
 }
