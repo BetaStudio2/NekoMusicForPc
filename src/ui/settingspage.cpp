@@ -241,7 +241,7 @@ void SettingsPage::setupUi()
     auto *nicknameRow = new QHBoxLayout();
     nicknameRow->setSpacing(10);
 
-    m_accountNicknameCaption = new QLabel(m_accountContent);
+    m_accountNicknameCaption = new QLabel(I18n::instance().tr(QStringLiteral("nickname")), m_accountContent);
     m_accountNicknameCaption->setObjectName("settingsLabel");
     m_accountNicknameCaption->setFixedWidth(64);
     nicknameRow->addWidget(m_accountNicknameCaption);
@@ -253,6 +253,8 @@ void SettingsPage::setupUi()
 
     m_accountNicknameEdit = new QLineEdit(m_accountContent);
     m_accountNicknameEdit->setObjectName("settingsInput");
+    m_accountNicknameEdit->setPlaceholderText(
+        I18n::instance().tr(QStringLiteral("nicknamePlaceholder")));
     m_accountNicknameEdit->setMaxLength(20);
     m_accountNicknameEdit->setFixedHeight(34);
     m_accountNicknameEdit->setMinimumWidth(160);
@@ -264,21 +266,21 @@ void SettingsPage::setupUi()
     });
     nicknameRow->addWidget(m_accountNicknameEdit, 1);
 
-    m_accountEditBtn = new QPushButton(m_accountContent);
+    m_accountEditBtn = new QPushButton(I18n::instance().tr(QStringLiteral("edit")), m_accountContent);
     m_accountEditBtn->setObjectName("settingsLinkBtn");
     m_accountEditBtn->setCursor(Qt::PointingHandCursor);
     m_accountEditBtn->setFlat(true);
     connect(m_accountEditBtn, &QPushButton::clicked, this, &SettingsPage::startEditNickname);
     nicknameRow->addWidget(m_accountEditBtn);
 
-    m_accountSaveBtn = new QPushButton(m_accountContent);
+    m_accountSaveBtn = new QPushButton(I18n::instance().tr(QStringLiteral("save")), m_accountContent);
     m_accountSaveBtn->setObjectName("settingsPrimaryBtn");
     m_accountSaveBtn->setCursor(Qt::PointingHandCursor);
     m_accountSaveBtn->hide();
     connect(m_accountSaveBtn, &QPushButton::clicked, this, &SettingsPage::submitNickname);
     nicknameRow->addWidget(m_accountSaveBtn);
 
-    m_accountCancelBtn = new QPushButton(m_accountContent);
+    m_accountCancelBtn = new QPushButton(I18n::instance().tr(QStringLiteral("cancel")), m_accountContent);
     m_accountCancelBtn->setObjectName("settingsLinkBtn");
     m_accountCancelBtn->setCursor(Qt::PointingHandCursor);
     m_accountCancelBtn->setFlat(true);
@@ -310,6 +312,9 @@ void SettingsPage::setupUi()
     addAccountRow(m_accountEmailCaption, m_accountEmailValue);
     addAccountRow(m_accountVipCaption, m_accountVipValue);
     addAccountRow(m_accountCreatedCaption, m_accountCreatedValue);
+    m_accountEmailCaption->setText(I18n::instance().tr(QStringLiteral("email")));
+    m_accountVipCaption->setText(I18n::instance().tr(QStringLiteral("vipStatusLabel")));
+    m_accountCreatedCaption->setText(I18n::instance().tr(QStringLiteral("registerTime")));
     accountInfoCol->addStretch();
 
     accountLay->addLayout(accountInfoCol, 1);
@@ -321,13 +326,13 @@ void SettingsPage::setupUi()
     guestLay->setContentsMargins(0, 0, 0, 0);
     guestLay->setSpacing(12);
 
-    m_accountGuestHint = new QLabel(m_accountGuestWrap);
+    m_accountGuestHint = new QLabel(I18n::instance().tr(QStringLiteral("loginRequired")), m_accountGuestWrap);
     m_accountGuestHint->setObjectName("settingsInfo");
     m_accountGuestHint->setWordWrap(true);
     guestLay->addWidget(m_accountGuestHint);
     guestLay->addStretch();
 
-    m_accountLoginBtn = new QPushButton(m_accountGuestWrap);
+    m_accountLoginBtn = new QPushButton(I18n::instance().tr(QStringLiteral("goToLogin")), m_accountGuestWrap);
     m_accountLoginBtn->setObjectName("settingsLinkBtn");
     m_accountLoginBtn->setCursor(Qt::PointingHandCursor);
     m_accountLoginBtn->setFlat(true);
