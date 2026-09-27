@@ -78,6 +78,7 @@ static QMap<QString, QString> zhCN()
     m["emptyPlaylistHint"] = QStringLiteral("播放列表暂无歌曲，快去添加吧");
     m["notPlaying"] = QStringLiteral("未播放");
     m["volume"] = QStringLiteral("音量");
+    m["standard"] = QStringLiteral("标准");
     m["muted"] = QStringLiteral("已静音");
     m["unmuted"] = QStringLiteral("取消静音");
     m["toggleMute"] = QStringLiteral("取消静音");
@@ -704,6 +705,7 @@ static QMap<QString, QString> nyaCN()
     m["emptyPlaylistHint"] = QStringLiteral("队列空空的，快去加歌喵~");
     m["notPlaying"] = QStringLiteral("耳朵好寂寞喵，还没在唱歌呢...");
     m["volume"] = QStringLiteral("音量调节喵~");
+    m["standard"] = QStringLiteral("标准");
     m["muted"] = QStringLiteral("嘘——人家静音了喵~");
     m["songs"] = QStringLiteral("音符碎片喵~");
     m["playlists"] = QStringLiteral("音乐星系喵~");
@@ -1117,6 +1119,7 @@ static QMap<QString, QString> enUS()
     m["emptyPlaylistHint"] = "Queue is empty. Add some songs!";
     m["notPlaying"] = "Not Playing";
     m["volume"] = "Volume";
+    m["standard"] = "Standard";
     m["muted"] = "Muted";
     m["unmuted"] = "Unmuted";
     m["toggleMute"] = "Toggle Mute";

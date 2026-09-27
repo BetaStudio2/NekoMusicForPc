@@ -646,6 +646,7 @@ protected:
 #include <QRegularExpression>
 #include <QWheelEvent>
 #include <QSettings>
+#include <QUrlQuery>
 #include <QSignalBlocker>
 #include <QEasingCurve>
 #include <QSlider>
@@ -1187,8 +1188,10 @@ void PlayerPage::updateQualityBadgeStyle()
         "QLabel#playerQualityBadge { background: transparent; border: none; padding: 0; margin: 0; }"));
 }
 
-void PlayerPage::refreshAudioQuality()
+void PlayerPage::refreshAudioQuality(const QString &quality)
 {
+    if (!quality.trimmed().isEmpty())
+        m_qualityProbeQuality = quality.trimmed().toLower();
     scheduleAudioQualityProbe();
 }
 
@@ -1280,7 +1283,7 @@ void PlayerPage::scheduleAudioQualityProbe()
     AudioQuality::ProbeResult initial =
         AudioQuality::guessInitialTier(info.isLocalFile(), info.localPath);
     if (musicId > 0) {
-        const QString cached = MusicDownloader::cachedAudioFilePath(musicId);
+        const QString cached = MusicDownloader::cachedAudioFilePath(musicId, m_qualityProbeQuality);
         if (!cached.isEmpty() && QFile::exists(cached))
             initial = AudioQuality::probeFile(cached);
     }
@@ -1307,7 +1310,10 @@ void PlayerPage::scheduleAudioQualityProbe()
     if (musicId <= 0)
         return;
 
-    const QUrl url(QString::fromUtf8("%1/api/music/file/%2").arg(Theme::kApiBase).arg(musicId));
+    QUrl url(QString::fromUtf8("%1/api/music/file/%2").arg(Theme::kApiBase).arg(musicId));
+    QUrlQuery query(url);
+    query.addQueryItem(QStringLiteral("quality"), m_qualityProbeQuality);
+    url.setQuery(query);
     if (!m_qualityNam)
         return;
 
@@ -1799,7 +1805,7 @@ void PlayerPage::connectPlayerControlEngine()
     });
     connect(m_engine, &PlayerEngine::stateChanged, this, [this](PlayerEngine::PlaybackState st) {
         if (st == PlayerEngine::Playing && m_musicId > 0)
-            QTimer::singleShot(300, this, &PlayerPage::refreshAudioQuality);
+            QTimer::singleShot(300, this, [this]() { refreshAudioQuality(); });
     });
     connect(m_ppProgress, &QSlider::sliderReleased, this, [this]() {
         if (!m_engine || m_engine->duration() <= 0)

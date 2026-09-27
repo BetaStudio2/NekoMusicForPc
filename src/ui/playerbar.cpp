@@ -27,6 +27,7 @@
 #include <QPushButton>
 #include <QLabel>
 #include <QComboBox>
+#include <QStandardItemModel>
 #include <QStyle>
 #include <QStylePainter>
 #include <QStyleOptionButton>
@@ -1134,7 +1135,7 @@ void PlayerBar::setupUi()
 
     m_qualitySelector = new QComboBox(right);
     m_qualitySelector->setObjectName(QStringLiteral("pbQualitySelector"));
-    m_qualitySelector->addItem(QStringLiteral("标准"), QStringLiteral("standard"));
+    m_qualitySelector->addItem(I18n::instance().tr(QStringLiteral("standard")), QStringLiteral("standard"));
     m_qualitySelector->addItem(QStringLiteral("HQ"), QStringLiteral("hq"));
     m_qualitySelector->addItem(QStringLiteral("SQ"), QStringLiteral("sq"));
     m_qualitySelector->addItem(QStringLiteral("Hi-Res"), QStringLiteral("hires"));
@@ -1562,6 +1563,8 @@ void PlayerBar::retranslate()
         m_downloadBtn->setToolTip(I18n::instance().tr("downloadMusic"));
     if (m_videoShareBtn && m_videoShareBtn->isVisible())
         updateVideoShareUi(true, false, QString());
+    if (m_qualitySelector && m_qualitySelector->count() >= 1)
+        m_qualitySelector->setItemText(0, I18n::instance().tr(QStringLiteral("standard")));
 
     refreshLocalBadge();
 }
@@ -1676,24 +1679,20 @@ void PlayerBar::setMaxQuality(const QString &quality)
     else if (normalized == QStringLiteral("sq")) maxRank = 2;
     else if (normalized == QStringLiteral("hires")) maxRank = 3;
 
-    const QSignalBlocker blocker(m_qualitySelector);
-    const QString current = m_qualitySelector->currentData().toString();
-    m_qualitySelector->clear();
-    const QStringList ids = {
-        QStringLiteral("standard"), QStringLiteral("hq"),
-        QStringLiteral("sq"), QStringLiteral("hires")
-    };
-    const QStringList labels = {
-        QStringLiteral("标准"), QStringLiteral("HQ"),
-        QStringLiteral("SQ"), QStringLiteral("Hi-Res")
-    };
-    for (int i = 0; i <= maxRank; ++i)
-        m_qualitySelector->addItem(labels.at(i), ids.at(i));
-
-    int index = m_qualitySelector->findData(current);
-    if (index < 0)
-        index = m_qualitySelector->findData(maxRank >= 1 ? QStringLiteral("hq") : QStringLiteral("standard"));
-    m_qualitySelector->setCurrentIndex(qMax(0, index));
+    auto *model = qobject_cast<QStandardItemModel *>(m_qualitySelector->model());
+    if (model) {
+        for (int i = 0; i < m_qualitySelector->count(); ++i) {
+            auto *item = model->item(i);
+            if (!item)
+                continue;
+            Qt::ItemFlags flags = item->flags();
+            if (i <= maxRank)
+                flags |= Qt::ItemIsEnabled;
+            else
+                flags &= ~Qt::ItemIsEnabled;
+            item->setFlags(flags);
+        }
+    }
     m_qualitySelector->setEnabled(m_currentMusicId > 0);
 }
 

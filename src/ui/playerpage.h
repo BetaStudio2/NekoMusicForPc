@@ -41,7 +41,7 @@ public:
     void setMusicInfo(int id, const QString &title, const QString &artist,
                       const QString &album, const QString &coverUrl = QString());
     /** 缓存就绪或起播后重新探测音质（避免启动时误显示 HQ） */
-    void refreshAudioQuality();
+    void refreshAudioQuality(const QString &quality = QString());
     void retranslate();
     /** 在线曲走 API；本地下载曲优先同名 .lrc，再 API，再内嵌标签；纯本地曲读 .lrc 后内嵌标签。 */
     void loadLyricsForTrack(const MusicInfo &info);
@@ -266,5 +266,6 @@ private:
     AudioQuality::ProbeResult m_lastQuality;
     AudioQuality::ProbeResult m_fileProbedQuality;
     bool m_qualityFromPlayerMeta = false;
+    QString m_qualityProbeQuality = QStringLiteral("hq");
     bool m_hasFileProbedQuality = false;
 };
