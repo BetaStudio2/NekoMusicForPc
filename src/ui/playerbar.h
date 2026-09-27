@@ -16,6 +16,7 @@ class PlayerEngine;
 class QSlider;
 class QPushButton;
 class QLabel;
+class QComboBox;
 class QTimer;
 class QGraphicsOpacityEffect;
 class QPropertyAnimation;
@@ -37,6 +38,7 @@ signals:
     void videoShareClicked();
     void playModeClicked();
     void volumePercentChanged(int percent);
+    void audioQualityChanged(const QString &quality);
 
 public:
     explicit PlayerBar(PlayerEngine *engine, QWidget *parent = nullptr);
@@ -46,6 +48,8 @@ public:
     void setSongInfo(const QString &title, const QString &artist, const QString &coverUrl = QString());
     void setCoverVisible(bool visible);
     void setCurrentMusicId(int musicId);
+    void setMaxQuality(const QString &quality);
+    QString selectedAudioQuality() const;
     int currentMusicId() const { return m_currentMusicId; }
     void setFavoriteStatus(bool isFavorited);
     void setDesktopLyricsChecked(bool checked);
@@ -143,6 +147,7 @@ private:
     bool m_trackHasLyrics = false;
     QLabel *m_curTime = nullptr;
     QLabel *m_durTime = nullptr;
+    QComboBox *m_qualitySelector = nullptr;
     QPushButton *m_cover = nullptr;
     QMetaObject::Connection m_coverConn;
     int m_currentMusicId = 0;

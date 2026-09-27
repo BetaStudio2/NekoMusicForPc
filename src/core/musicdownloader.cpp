@@ -25,15 +25,16 @@ MusicDownloader::~MusicDownloader()
     cancel();
 }
 
-QString MusicDownloader::cachedAudioFilePath(int musicId)
+QString MusicDownloader::cachedAudioFilePath(int musicId, const QString &quality)
 {
+    const QString normalized = quality.trimmed().isEmpty() ? QStringLiteral("hq") : quality.trimmed().toLower();
 #ifdef Q_OS_LINUX
-    return LinuxTmpfsCache::audioCacheDir() + QLatin1Char('/') + QString::number(musicId);
+    return LinuxTmpfsCache::audioCacheDir() + QLatin1Char('/') + QStringLiteral("%1-%2").arg(musicId).arg(normalized);
 #else
     const QString cacheDir = QStandardPaths::writableLocation(QStandardPaths::TempLocation)
             + QStringLiteral("/nekomusic-cache");
     QDir().mkpath(cacheDir);
-    return cacheDir + QLatin1Char('/') + QString::number(musicId);
+    return cacheDir + QLatin1Char('/') + QStringLiteral("%1-%2").arg(musicId).arg(normalized);
 #endif
 }
 
@@ -91,10 +92,11 @@ void MusicDownloader::abortOversizeDownload()
 #endif
 }
 
-void MusicDownloader::download(const QUrl &url, int musicId)
+void MusicDownloader::download(const QUrl &url, int musicId, const QString &quality)
 {
     cancel();
     m_bufferEmitted = false;
+    m_quality = quality.trimmed().isEmpty() ? QStringLiteral("hq") : quality.trimmed().toLower();
 
 #ifdef Q_OS_LINUX
     const QString cacheDir = LinuxTmpfsCache::audioCacheDir();
@@ -104,7 +106,7 @@ void MusicDownloader::download(const QUrl &url, int musicId)
     QDir().mkpath(cacheDir);
 #endif
     if (musicId > 0) {
-        m_tempPath = cachedAudioFilePath(musicId);
+        m_tempPath = cachedAudioFilePath(musicId, m_quality);
     } else {
         const QString hash = QCryptographicHash::hash(url.toEncoded(), QCryptographicHash::Md5).toHex();
         m_tempPath = cacheDir + QLatin1Char('/') + hash;

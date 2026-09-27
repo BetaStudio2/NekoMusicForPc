@@ -145,6 +145,7 @@ private:
     /** 播放始终走 HTTP 远程 URL；并行触发本地缓存（无文件则下载，已有则下载器立即完成）。 */
     void startRemotePlaybackWithBackgroundCache(int musicId, quint64 playSeq, const QUrl &remoteUrl,
                                                 bool pauseWhenReady = false);
+    void refreshPlayerMaxQuality(int musicId);
     void startBackgroundCacheDownload(int musicId, quint64 playSeq, const QUrl &url);
     void attachStreamPlaybackGuards(int musicId, quint64 playSeq);
   /** @param midPlaybackError true=播放中途断流（Demuxing failed 等），需强制恢复 */
@@ -213,6 +214,7 @@ private:
     /** 本地文件异步探测序号，避免连续打开多个文件时旧回调覆盖当前播放。 */
     quint64 m_localOpenSeq = 0;
     bool m_defaultMusicPromptInFlight = false;
+    int m_qualityInfoMusicId = 0;
 
     QWidget *m_shellBackdrop = nullptr;
     QTimer *m_shellBackdropRebuildTimer = nullptr;

@@ -34,6 +34,7 @@
 #include "ui/searchpage.h"
 #include "ui/desktoplrc.h"
 #include <QSettings>
+#include <QUrlQuery>
 #include <QSet>
 #include "core/playerengine.h"
 #include "core/i18n.h"
@@ -1102,6 +1103,19 @@ void MainWindow::setupUi()
         applyDesktopLyricsEnabled(enabled, true);
     });
     connect(m_playerBar, &PlayerBar::volumePercentChanged, m_playerPage, &PlayerPage::setVolumePercentSynced);
+    connect(m_playerBar, &PlayerBar::audioQualityChanged, this, [this](const QString &quality) {
+        const MusicInfo info = m_engine ? m_engine->currentMusic() : MusicInfo{};
+        if (info.id <= 0 || info.isLocalFile())
+            return;
+        QUrl url(QStringLiteral("%1/api/music/file/%2").arg(Theme::kApiBase).arg(info.id));
+        QUrlQuery query(url);
+        query.addQueryItem(QStringLiteral("quality"), quality);
+        url.setQuery(query);
+        ++m_enginePlaySeq;
+        m_engine->stop();
+        m_playerBar->setLoading(true);
+        startRemotePlaybackWithBackgroundCache(info.id, m_enginePlaySeq, url, false);
+    });
     connect(m_playerPage, &PlayerPage::volumePercentChanged, m_playerBar, &PlayerBar::setVolumePercentSynced);
     connect(m_playerPage, &PlayerPage::volumePercentChanged, this, [this](int p) {
         if (m_systemMedia)
@@ -1733,7 +1747,15 @@ void MainWindow::cancelStreamWatch()
 void MainWindow::startRemotePlaybackWithBackgroundCache(int musicId, quint64 playSeq, const QUrl &remoteUrl,
                                                         bool pauseWhenReady)
 {
-    const QString cachedPath = MusicDownloader::cachedAudioFilePath(musicId);
+    refreshPlayerMaxQuality(musicId);
+    const QString quality = m_playerBar ? m_playerBar->selectedAudioQuality() : QStringLiteral("hq");
+    QUrl effectiveUrl = remoteUrl;
+    QUrlQuery query(effectiveUrl);
+    if (!query.hasQueryItem(QStringLiteral("quality"))) {
+        query.addQueryItem(QStringLiteral("quality"), quality);
+        effectiveUrl.setQuery(query);
+    }
+    const QString cachedPath = MusicDownloader::cachedAudioFilePath(musicId, quality);
     if (QFile::exists(cachedPath)) {
 #ifdef Q_OS_LINUX
         LinuxTmpfsCache::touchAudioCacheFile(cachedPath);
@@ -1750,16 +1772,17 @@ void MainWindow::startRemotePlaybackWithBackgroundCache(int musicId, quint64 pla
 
     cancelStreamWatch();
     m_streamRetryActive = true;
-    m_streamRemoteUrl = remoteUrl;
+    m_streamRemoteUrl = effectiveUrl;
     m_streamPauseWhenReady = pauseWhenReady;
     m_remoteStreamFailureCount = 0;
 
     attachStreamPlaybackGuards(musicId, playSeq);
-    m_engine->play(remoteUrl);
+    m_engine->play(effectiveUrl);
 }
 
 void MainWindow::startBackgroundCacheDownload(int musicId, quint64 playSeq, const QUrl &url)
 {
+    const QString quality = m_playerBar ? m_playerBar->selectedAudioQuality() : QStringLiteral("hq");
     if (m_bgCacheFinishedConn) {
         disconnect(m_bgCacheFinishedConn);
         m_bgCacheFinishedConn = QMetaObject::Connection();
@@ -1784,7 +1807,19 @@ void MainWindow::startBackgroundCacheDownload(int musicId, quint64 playSeq, cons
             qDebug() << "[后台缓存失败] id=" << musicId << err;
         });
 
-    m_downloader->download(url, musicId);
+    m_downloader->download(url, musicId, quality);
+}
+
+void MainWindow::refreshPlayerMaxQuality(int musicId)
+{
+    if (!m_apiClient || !m_playerBar || musicId <= 0 || m_qualityInfoMusicId == musicId)
+        return;
+    m_qualityInfoMusicId = musicId;
+    m_apiClient->fetchMusicInfo(musicId, [this, musicId](bool ok, const QVariantMap &info) {
+        if (!ok || !m_playerBar || m_playerBar->currentMusicId() != musicId)
+            return;
+        m_playerBar->setMaxQuality(info.value(QStringLiteral("maxQuality")).toString());
+    });
 }
 
 void MainWindow::attachStreamPlaybackGuards(int musicId, quint64 playSeq)
@@ -1864,7 +1899,8 @@ void MainWindow::handleRemoteStreamFailure(int musicId, quint64 playSeq, bool mi
     }
 
     if (midPlaybackError) {
-        const QString cachedPath = MusicDownloader::cachedAudioFilePath(musicId);
+        const QString quality = m_playerBar ? m_playerBar->selectedAudioQuality() : QStringLiteral("hq");
+        const QString cachedPath = MusicDownloader::cachedAudioFilePath(musicId, quality);
         if (QFile::exists(cachedPath)) {
             qDebug() << "[Music] 断流，改播完整缓存 id=" << musicId << "pos=" << resumePos;
             m_remoteStreamFailureCount = 0;
@@ -1874,7 +1910,7 @@ void MainWindow::handleRemoteStreamFailure(int musicId, quint64 playSeq, bool mi
             m_engine->playLocalResuming(cachedPath, resumePos);
             return;
         }
-        const QString partPath = MusicDownloader::cachedAudioFilePath(musicId) + QStringLiteral(".part");
+        const QString partPath = MusicDownloader::cachedAudioFilePath(musicId, quality) + QStringLiteral(".part");
         if (QFileInfo(partPath).size() >= kMinPartResumeBytes) {
             qDebug() << "[Music] 断流，尝试从部分缓存续播 id=" << musicId << "pos=" << resumePos;
             m_remoteStreamFailureCount = 0;

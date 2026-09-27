@@ -12,12 +12,12 @@ public:
     static MusicDownloader& instance();
 
     /** 与按 musicId 下载时的落盘路径一致（无扩展名，由 FFmpeg 嗅探格式）。 */
-    static QString cachedAudioFilePath(int musicId);
+    static QString cachedAudioFilePath(int musicId, const QString &quality = QStringLiteral("hq"));
 
     /** 删除 nekomusic-cache 下旧版 URL-MD5 文件名缓存（仅识别 32 位小写十六进制基名）。 */
     static void purgeLegacyMd5CacheFiles();
 
-    void download(const QUrl &url, int musicId = 0);
+    void download(const QUrl &url, int musicId = 0, const QString &quality = QStringLiteral("hq"));
     void cancel();
     
 private:
@@ -40,6 +40,7 @@ private:
     QNetworkReply *m_reply = nullptr;
     QFile *m_file = nullptr;
     QString m_tempPath;
+    QString m_quality = QStringLiteral("hq");
     bool m_bufferEmitted = false;
     qint64 m_bytesReceived = 0;
     qint64 m_bytesTotal = 0;

@@ -26,6 +26,7 @@
 #include <QSlider>
 #include <QPushButton>
 #include <QLabel>
+#include <QComboBox>
 #include <QStyle>
 #include <QStylePainter>
 #include <QStyleOptionButton>
@@ -1131,6 +1132,31 @@ void PlayerBar::setupUi()
     timeLay->addWidget(m_durTime);
     rl->addWidget(timeBlock, 0, Qt::AlignVCenter);
 
+    m_qualitySelector = new QComboBox(right);
+    m_qualitySelector->setObjectName(QStringLiteral("pbQualitySelector"));
+    m_qualitySelector->addItem(QStringLiteral("标准"), QStringLiteral("standard"));
+    m_qualitySelector->addItem(QStringLiteral("HQ"), QStringLiteral("hq"));
+    m_qualitySelector->addItem(QStringLiteral("SQ"), QStringLiteral("sq"));
+    m_qualitySelector->addItem(QStringLiteral("Hi-Res"), QStringLiteral("hires"));
+    m_qualitySelector->setMinimumWidth(78);
+    m_qualitySelector->setToolTip(QStringLiteral("选择播放音质"));
+    const QSettings qualitySettings;
+    const QString savedQuality = qualitySettings.value(
+        QStringLiteral("player/audioQuality"), QStringLiteral("hq")).toString();
+    const int savedIndex = m_qualitySelector->findData(savedQuality);
+    if (savedIndex >= 0)
+        m_qualitySelector->setCurrentIndex(savedIndex);
+    connect(m_qualitySelector, qOverload<int>(&QComboBox::currentIndexChanged), this,
+            [this](int index) {
+        if (index < 0)
+            return;
+        const QString quality = m_qualitySelector->itemData(index).toString();
+        QSettings settings;
+        settings.setValue(QStringLiteral("player/audioQuality"), quality);
+        emit audioQualityChanged(quality);
+    });
+    rl->addWidget(m_qualitySelector, 0, Qt::AlignVCenter);
+
     m_shareBtn = new PlayerBarInkButton(right);
     m_shareBtn->setObjectName(QStringLiteral("pbShareBtn"));
     m_shareBtn->setFixedSize(kPbCtrlBtn, kPbCtrlBtn);
@@ -1628,13 +1654,52 @@ void PlayerBar::setCoverVisible(bool visible)
 void PlayerBar::setCurrentMusicId(int musicId)
 {
     qDebug() << "[播放栏] 设置当前音乐ID:" << musicId;
+    const bool changed = m_currentMusicId != musicId;
     m_currentMusicId = musicId;
     if (m_addToPlaylistBtn)
         m_addToPlaylistBtn->setEnabled(musicId > 0);
     if (m_downloadBtn)
         m_downloadBtn->setEnabled(musicId > 0);
+    if (changed)
+        setMaxQuality(musicId > 0 ? QStringLiteral("hq") : QStringLiteral("standard"));
     // 不重置状态，由调用方自行检查收藏状态后设置
     refreshLocalBadge();
+}
+
+void PlayerBar::setMaxQuality(const QString &quality)
+{
+    if (!m_qualitySelector)
+        return;
+    const QString normalized = quality.trimmed().toLower();
+    int maxRank = 1;
+    if (normalized == QStringLiteral("standard")) maxRank = 0;
+    else if (normalized == QStringLiteral("sq")) maxRank = 2;
+    else if (normalized == QStringLiteral("hires")) maxRank = 3;
+
+    const QSignalBlocker blocker(m_qualitySelector);
+    const QString current = m_qualitySelector->currentData().toString();
+    m_qualitySelector->clear();
+    const QStringList ids = {
+        QStringLiteral("standard"), QStringLiteral("hq"),
+        QStringLiteral("sq"), QStringLiteral("hires")
+    };
+    const QStringList labels = {
+        QStringLiteral("标准"), QStringLiteral("HQ"),
+        QStringLiteral("SQ"), QStringLiteral("Hi-Res")
+    };
+    for (int i = 0; i <= maxRank; ++i)
+        m_qualitySelector->addItem(labels.at(i), ids.at(i));
+
+    int index = m_qualitySelector->findData(current);
+    if (index < 0)
+        index = m_qualitySelector->findData(maxRank >= 1 ? QStringLiteral("hq") : QStringLiteral("standard"));
+    m_qualitySelector->setCurrentIndex(qMax(0, index));
+    m_qualitySelector->setEnabled(m_currentMusicId > 0);
+}
+
+QString PlayerBar::selectedAudioQuality() const
+{
+    return m_qualitySelector ? m_qualitySelector->currentData().toString() : QStringLiteral("hq");
 }
 
 void PlayerBar::applyLocalBadgeChrome()
