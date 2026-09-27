@@ -1,6 +1,7 @@
 #include "playerengine.h"
 #include <QDebug>
 #include <QMediaMetaData>
+#include <QSignalBlocker>
 #include <QTimer>
 #include <memory>
 
@@ -94,7 +95,7 @@ void PlayerEngine::switchSourceWithoutRestart(const QUrl &url)
             else
                 candidate->pause();
 
-            disconnect(oldPlayer, nullptr, this, nullptr);
+            const QSignalBlocker oldPlayerSignals(oldPlayer);
             oldPlayer->pause();
             oldPlayer->stop();
             oldPlayer->deleteLater();
