@@ -18,9 +18,12 @@ protected:
     void enterEvent(QEnterEvent *event) override;
     void leaveEvent(QEvent *event) override;
     void mousePressEvent(QMouseEvent *event) override;
+    void mouseMoveEvent(QMouseEvent *event) override;
     void mouseReleaseEvent(QMouseEvent *event) override;
 
 private:
+    /** 把控件内 x 像素映射为滑块值（不依赖样式表几何，点击/拖动都可定位）。 */
+    int valueFromX(int x) const;
     void setHandleReveal(qreal reveal);
     qreal handleReveal() const { return m_handleReveal; }
     void animateHandleReveal(bool show);

@@ -1,7 +1,7 @@
 #include "playerengine.h"
+#include <QDebug>
 #include <QMediaMetaData>
 #include <QTimer>
-#include <memory>
 
 PlayerEngine::PlayerEngine(QObject *parent)
     : QObject(parent)
@@ -67,11 +67,19 @@ void PlayerEngine::playLocalResuming(const QString &localPath, qint64 resumeMs)
     openMedia(QUrl::fromLocalFile(localPath), resumeMs);
 }
 
+void PlayerEngine::playResuming(const QUrl &url, qint64 resumeMs)
+{
+    openMedia(url, resumeMs);
+}
+
 void PlayerEngine::openMedia(const QUrl &url, qint64 resumeMs)
 {
     cancelFade();
     if (m_audioOutput)
         m_audioOutput->setVolume(m_targetVolume);
+
+    // 丢弃上一轮未完成的断点 seek，避免误跳到新曲目的位置。
+    clearPendingResume();
 
     ++m_openGen;
     const quint64 gen = m_openGen;
@@ -113,21 +121,101 @@ void PlayerEngine::applyPendingOpen(quint64 gen)
         scheduleResumeAfterOpen(resumeMs);
 }
 
+bool PlayerEngine::resumeMediaReady() const
+{
+    if (m_player->duration() <= 0)
+        return false;
+    // 注意：isSeekable() 在 LoadingMedia 阶段就可能为 true，但此时 setPosition 会被
+    // 后端静默丢弃（实测 FFmpeg/HTTP）。必须等 mediaStatus 至少 LoadedMedia 再 seek。
+    const auto st = m_player->mediaStatus();
+    return st == QMediaPlayer::LoadedMedia
+        || st == QMediaPlayer::StalledMedia
+        || st == QMediaPlayer::BufferingMedia
+        || st == QMediaPlayer::BufferedMedia;
+}
+
 void PlayerEngine::scheduleResumeAfterOpen(qint64 resumeMs)
 {
-    const qint64 dur = m_player->duration();
-    if (dur > 0) {
-        m_player->setPosition(qMin(resumeMs, qMax(qint64(0), dur - 1)));
+    clearPendingResume();
+    if (resumeMs <= 0)
         return;
-    }
-    auto conn = std::make_shared<QMetaObject::Connection>();
-    *conn = connect(m_player, &QMediaPlayer::durationChanged, this,
-        [this, resumeMs, conn](qint64 d) {
-            if (d <= 0)
+
+    // 切源瞬间 duration()/可 seek 状态都没就绪，直接 setPosition 会被后端丢弃，
+    // 于是新档从 0 开始。这里保留目标，等媒体就绪后 seek，并持续重试直到命中。
+    m_resumeTargetMs = resumeMs;
+    qDebug() << "[PlayerEngine] 断点续传等待就绪 target=" << resumeMs;
+
+    m_resumeStatusConn = connect(m_player, &QMediaPlayer::mediaStatusChanged, this,
+        [this](QMediaPlayer::MediaStatus) { applyPendingResume(); });
+    m_resumeDurationConn = connect(m_player, &QMediaPlayer::durationChanged, this,
+        [this](qint64 dur) { if (dur > 0) applyPendingResume(); });
+    m_resumeSeekableConn = connect(m_player, &QMediaPlayer::seekableChanged, this,
+        [this](bool seekable) { if (seekable) applyPendingResume(); });
+
+    // 成功判定：position 落到目标附近（seek 生效）即结束；否则由上面的信号重试。
+    m_resumePositionConn = connect(m_player, &QMediaPlayer::positionChanged, this,
+        [this](qint64 pos) {
+            if (m_resumeTargetMs <= 0)
                 return;
-            disconnect(*conn);
-            m_player->setPosition(qMin(resumeMs, qMax(qint64(0), d - 1)));
+            if (qAbs(pos - m_resumeTargetMs) <= 2000) {
+                qDebug() << "[PlayerEngine] 断点续传命中 pos=" << pos
+                         << "target=" << m_resumeTargetMs;
+                clearPendingResume();
+            }
         });
+
+    // 兜底超时，避免 pending 一直挂着。
+    if (!m_resumeTimeoutTimer) {
+        m_resumeTimeoutTimer = new QTimer(this);
+        m_resumeTimeoutTimer->setSingleShot(true);
+        m_resumeTimeoutTimer->setInterval(8000);
+        connect(m_resumeTimeoutTimer, &QTimer::timeout, this, [this]() {
+            qDebug() << "[PlayerEngine] 断点续传超时 target=" << m_resumeTargetMs
+                     << "pos=" << m_player->position()
+                     << "seekable=" << m_player->isSeekable();
+            clearPendingResume();
+        });
+    }
+    m_resumeTimeoutTimer->start();
+}
+
+void PlayerEngine::applyPendingResume()
+{
+    if (m_resumeTargetMs <= 0)
+        return;
+    if (!resumeMediaReady())
+        return;
+
+    const qint64 dur = m_player->duration();
+    const qint64 target = qMin(m_resumeTargetMs, qMax(qint64(0), dur - 1));
+    qDebug() << "[PlayerEngine] 断点续传 seek ->" << target
+             << "dur=" << dur << "seekable=" << m_player->isSeekable();
+    // 不清除 pending：若这次 seek 被后端丢弃，后续状态信号会继续重试。
+    m_player->setPosition(target);
+}
+
+void PlayerEngine::clearPendingResume()
+{
+    m_resumeTargetMs = -1;
+    if (m_resumeTimeoutTimer)
+        m_resumeTimeoutTimer->stop();
+
+    if (m_resumeStatusConn) {
+        disconnect(m_resumeStatusConn);
+        m_resumeStatusConn = QMetaObject::Connection();
+    }
+    if (m_resumeDurationConn) {
+        disconnect(m_resumeDurationConn);
+        m_resumeDurationConn = QMetaObject::Connection();
+    }
+    if (m_resumeSeekableConn) {
+        disconnect(m_resumeSeekableConn);
+        m_resumeSeekableConn = QMetaObject::Connection();
+    }
+    if (m_resumePositionConn) {
+        disconnect(m_resumePositionConn);
+        m_resumePositionConn = QMetaObject::Connection();
+    }
 }
 
 void PlayerEngine::play()
@@ -150,6 +238,7 @@ void PlayerEngine::stop()
     ++m_openGen;
     m_pendingUrl = QUrl();
     m_pendingResumeMs = -1;
+    clearPendingResume();
     m_player->stop();
 }
 

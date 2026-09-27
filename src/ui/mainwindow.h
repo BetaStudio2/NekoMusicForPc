@@ -142,9 +142,10 @@ private:
     void syncListPageFavoriteIds();
     void disconnectDownloader();
     void cancelStreamWatch();
-    /** 播放始终走 HTTP 远程 URL；并行触发本地缓存（无文件则下载，已有则下载器立即完成）。 */
+    /** 播放始终走 HTTP 远程 URL；并行触发本地缓存（无文件则下载，已有则下载器立即完成）。
+     *  @param resumeMs 起播后跳转到的位置（ms，<0/0 = 从头；音质切换断点续传用）。 */
     void startRemotePlaybackWithBackgroundCache(int musicId, quint64 playSeq, const QUrl &remoteUrl,
-                                                bool pauseWhenReady = false);
+                                                bool pauseWhenReady = false, qint64 resumeMs = -1);
     void refreshPlayerMaxQuality(int musicId);
     void startBackgroundCacheDownload(int musicId, quint64 playSeq, const QUrl &url);
     void attachStreamPlaybackGuards(int musicId, quint64 playSeq);

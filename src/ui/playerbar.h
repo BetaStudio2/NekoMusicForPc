@@ -48,7 +48,9 @@ public:
     void setSongInfo(const QString &title, const QString &artist, const QString &coverUrl = QString());
     void setCoverVisible(bool visible);
     void setCurrentMusicId(int musicId);
-    void setMaxQuality(const QString &quality);
+    /** @param authoritative 仅当拿到接口返回的真实 maxQuality 时为 true；
+     *  占位调用（换歌时先置 hq）传 false，避免在真实上限未知前就夹取显示档位。 */
+    void setMaxQuality(const QString &quality, bool authoritative = true);
     QString selectedAudioQuality() const;
     int currentMusicId() const { return m_currentMusicId; }
     void setFavoriteStatus(bool isFavorited);
@@ -148,6 +150,8 @@ private:
     QLabel *m_curTime = nullptr;
     QLabel *m_durTime = nullptr;
     QComboBox *m_qualitySelector = nullptr;
+    /** 用户选择的音质（播放/缓存/探测以它为准）；下拉框显示可被 maxQuality 夹取，但不改这里。 */
+    QString m_preferredQuality = QStringLiteral("hq");
     QPushButton *m_cover = nullptr;
     QMetaObject::Connection m_coverConn;
     int m_currentMusicId = 0;
