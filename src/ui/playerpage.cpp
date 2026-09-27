@@ -1241,6 +1241,8 @@ void PlayerPage::refineAudioQualityFromEngine()
 {
     if (!m_engine)
         return;
+    if (m_qualityProbeHttpActive)
+        return;
     // 文件头探测（本地/缓存）优先级更高，避免 FLAC 被播放器元数据回退成 HQ。
     if (m_hasFileProbedQuality)
         return;
@@ -1271,6 +1273,7 @@ void PlayerPage::scheduleAudioQualityProbe()
     const int probeGen = m_qualityProbeGen;
     m_qualityFromPlayerMeta = false;
     m_hasFileProbedQuality = false;
+    m_qualityProbeHttpActive = false;
 
     const MusicInfo info = m_engine ? m_engine->currentMusic() : MusicInfo{};
     const int musicId = m_musicId != 0 ? m_musicId : info.id;
@@ -1317,7 +1320,10 @@ void PlayerPage::scheduleAudioQualityProbe()
     if (!m_qualityNam)
         return;
 
+    m_qualityProbeHttpActive = true;
+
     auto finishProbe = [this](AudioQuality::ProbeResult result) {
+        m_qualityProbeHttpActive = false;
         if (result.tier == AudioQuality::Tier::Unknown)
             return;
         applyAudioQualityBadge(result);

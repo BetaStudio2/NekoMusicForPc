@@ -267,5 +267,6 @@ private:
     AudioQuality::ProbeResult m_fileProbedQuality;
     bool m_qualityFromPlayerMeta = false;
     QString m_qualityProbeQuality = QStringLiteral("hq");
+    bool m_qualityProbeHttpActive = false;
     bool m_hasFileProbedQuality = false;
 };
