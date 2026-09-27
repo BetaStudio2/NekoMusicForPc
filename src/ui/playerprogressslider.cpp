@@ -98,15 +98,52 @@ void PlayerProgressSlider::leaveEvent(QEvent *event)
         animateHandleReveal(false);
 }
 
+int PlayerProgressSlider::valueFromX(int x) const
+{
+    const int span = maximum() - minimum();
+    if (span <= 0)
+        return minimum();
+
+    // 轨道横跨整个控件；-1 保证点到最右侧能到达最大值。
+    const int trackW = qMax(1, width() - 1);
+    const qreal t = qBound(qreal(0.0), qreal(x) / qreal(trackW), qreal(1.0));
+    return minimum() + qRound(t * span);
+}
+
 void PlayerProgressSlider::mousePressEvent(QMouseEvent *event)
 {
-    QSlider::mousePressEvent(event);
+    // 样式表把 groove/handle 尺寸置 0，QSlider 默认点击定位会失效；
+    // 这里自行按 x 计算目标值，实现「点击跳转 + 拖动」。
+    if (event->button() == Qt::LeftButton && maximum() > minimum()) {
+        setSliderDown(true);
+        setValue(valueFromX(int(event->position().x())));
+        event->accept();
+    } else {
+        QSlider::mousePressEvent(event);
+    }
     animateHandleReveal(true);
+}
+
+void PlayerProgressSlider::mouseMoveEvent(QMouseEvent *event)
+{
+    if (isSliderDown() && (event->buttons() & Qt::LeftButton)) {
+        setValue(valueFromX(int(event->position().x())));
+        event->accept();
+        return;
+    }
+    QSlider::mouseMoveEvent(event);
 }
 
 void PlayerProgressSlider::mouseReleaseEvent(QMouseEvent *event)
 {
-    QSlider::mouseReleaseEvent(event);
+    if (event->button() == Qt::LeftButton && isSliderDown()) {
+        setValue(valueFromX(int(event->position().x())));
+        // setSliderDown(false) 会发出 sliderReleased，由外部连接负责 seek。
+        setSliderDown(false);
+        event->accept();
+    } else {
+        QSlider::mouseReleaseEvent(event);
+    }
     if (!underMouse())
         animateHandleReveal(false);
 }
