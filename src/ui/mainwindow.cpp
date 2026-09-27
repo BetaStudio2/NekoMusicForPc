@@ -1107,6 +1107,10 @@ void MainWindow::setupUi()
         const MusicInfo info = m_engine ? m_engine->currentMusic() : MusicInfo{};
         if (info.id <= 0 || info.isLocalFile())
             return;
+        // 断点续传：切档重启前先记下当前播放位置，新档起播后跳回同一位置。
+        const qint64 resumeMs = m_engine ? m_engine->position() : -1;
+        qDebug() << "[音质切换] quality=" << quality << "resumeMs=" << resumeMs
+                 << "state=" << (m_engine ? int(m_engine->playbackState()) : -1);
         QUrl url(QStringLiteral("%1/api/music/file/%2").arg(Theme::kApiBase).arg(info.id));
         QUrlQuery query(url);
         query.addQueryItem(QStringLiteral("quality"), quality);
@@ -1114,7 +1118,7 @@ void MainWindow::setupUi()
         ++m_enginePlaySeq;
         m_engine->stop();
         m_playerBar->setLoading(true);
-        startRemotePlaybackWithBackgroundCache(info.id, m_enginePlaySeq, url, false);
+        startRemotePlaybackWithBackgroundCache(info.id, m_enginePlaySeq, url, false, resumeMs);
     });
     connect(m_playerPage, &PlayerPage::volumePercentChanged, m_playerBar, &PlayerBar::setVolumePercentSynced);
     connect(m_playerPage, &PlayerPage::volumePercentChanged, this, [this](int p) {
@@ -1745,10 +1749,15 @@ void MainWindow::cancelStreamWatch()
 }
 
 void MainWindow::startRemotePlaybackWithBackgroundCache(int musicId, quint64 playSeq, const QUrl &remoteUrl,
-                                                        bool pauseWhenReady)
+                                                        bool pauseWhenReady, qint64 resumeMs)
 {
     refreshPlayerMaxQuality(musicId);
     const QString quality = m_playerBar ? m_playerBar->selectedAudioQuality() : QStringLiteral("hq");
+    // 音质标识必须以**当前选择**重新探测：否则 PlayerPage 的探测档位停留在
+    // hq（或上一首的档位），切档后播放页仍显示旧音质。此处是远程（重）起播
+    // 的唯一入口（含底栏切档重启），在此同步档位并触发探测。
+    if (m_playerPage)
+        m_playerPage->refreshAudioQuality(quality);
     QUrl effectiveUrl = remoteUrl;
     QUrlQuery query(effectiveUrl);
     if (!query.hasQueryItem(QStringLiteral("quality"))) {
@@ -1760,11 +1769,12 @@ void MainWindow::startRemotePlaybackWithBackgroundCache(int musicId, quint64 pla
 #ifdef Q_OS_LINUX
         LinuxTmpfsCache::touchAudioCacheFile(cachedPath);
 #endif
-        // 已有整文件：本地播，避免单曲循环/切回已缓存曲时反复开 HTTP 流导致卡顿
+        // 已有整文件：本地播，避免单曲循环/切回已缓存曲时反复开 HTTP 流导致卡顿。
+        // resumeMs > 0 时从断点续播（音质切换）。
         cancelStreamWatch();
         m_streamRetryActive = false;
         m_playerBar->setLoading(false);
-        m_engine->play(QUrl::fromLocalFile(cachedPath));
+        m_engine->playResuming(QUrl::fromLocalFile(cachedPath), resumeMs);
         if (pauseWhenReady)
             QTimer::singleShot(50, this, [this]() { m_engine->pause(); });
         return;
@@ -1777,7 +1787,8 @@ void MainWindow::startRemotePlaybackWithBackgroundCache(int musicId, quint64 pla
     m_remoteStreamFailureCount = 0;
 
     attachStreamPlaybackGuards(musicId, playSeq);
-    m_engine->play(effectiveUrl);
+    // 远程流从断点续播（音质切换断点续传）；resumeMs <= 0 等同从头。
+    m_engine->playResuming(effectiveUrl, resumeMs);
 }
 
 void MainWindow::startBackgroundCacheDownload(int musicId, quint64 playSeq, const QUrl &url)

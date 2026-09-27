@@ -28,6 +28,8 @@ public:
     void play(const QUrl &url);
     /** 切换本地文件并尽量从 resumeMs 继续（用于 .part 缓冲播完后切到正式缓存文件）。 */
     void playLocalResuming(const QString &localPath, qint64 resumeMs);
+    /** 切换远程/任意 URL 并尽量从 resumeMs 继续（用于音质切换断点续传）。 */
+    void playResuming(const QUrl &url, qint64 resumeMs);
     void play();
     void pause();
     void stop();
@@ -76,6 +78,11 @@ private:
     void openMedia(const QUrl &url, qint64 resumeMs = -1);
     void applyPendingOpen(quint64 gen);
     void scheduleResumeAfterOpen(qint64 resumeMs);
+    /** 新媒体可 seek 且时长就绪后执行断点 seek；未命中则后续信号继续重试。 */
+    void applyPendingResume();
+    /** 时长就绪且 mediaStatus 至少 LoadedMedia 时，setPosition 才不会被后端丢弃。 */
+    bool resumeMediaReady() const;
+    void clearPendingResume();
 
     QMediaPlayer *m_player;
     QAudioOutput *m_audioOutput;
@@ -88,6 +95,12 @@ private:
     qint64 m_seekLimitMs = -1; // -1 means no limit
     QUrl m_pendingUrl;
     qint64 m_pendingResumeMs = -1;
+    qint64 m_resumeTargetMs = -1;
+    QMetaObject::Connection m_resumeStatusConn;
+    QMetaObject::Connection m_resumeDurationConn;
+    QMetaObject::Connection m_resumeSeekableConn;
+    QMetaObject::Connection m_resumePositionConn;
+    QTimer *m_resumeTimeoutTimer = nullptr;
     quint64 m_openGen = 0;
     QMetaObject::Connection m_stopForOpenConn;
 
