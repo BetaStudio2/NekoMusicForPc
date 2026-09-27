@@ -2,6 +2,7 @@
 #include <QDebug>
 #include <QMediaMetaData>
 #include <QTimer>
+#include <memory>
 
 PlayerEngine::PlayerEngine(QObject *parent)
     : QObject(parent)
@@ -10,24 +11,7 @@ PlayerEngine::PlayerEngine(QObject *parent)
 {
     m_player->setAudioOutput(m_audioOutput);
 
-    connect(m_player, &QMediaPlayer::playbackStateChanged,
-            this, &PlayerEngine::onMediaStateChanged);
-    connect(m_player, &QMediaPlayer::positionChanged,
-            this, &PlayerEngine::positionChanged);
-    connect(m_player, &QMediaPlayer::durationChanged,
-            this, &PlayerEngine::durationChanged);
-    connect(m_player, &QMediaPlayer::errorOccurred,
-            this, [this](QMediaPlayer::Error error, const QString &errorString) {
-                Q_UNUSED(error);
-                emit mediaError(errorString);
-            });
-    connect(m_player, &QMediaPlayer::mediaStatusChanged,
-            this, [this](QMediaPlayer::MediaStatus status) {
-                if (status == QMediaPlayer::EndOfMedia) {
-                    emit playbackFinished();
-                }
-            });
-    connect(m_player, &QMediaPlayer::metaDataChanged, this, &PlayerEngine::onPlayerMetaDataChanged);
+    connectPlayerSignals(m_player);
 }
 
 PlayerEngine::~PlayerEngine() = default;
@@ -72,9 +56,86 @@ void PlayerEngine::playResuming(const QUrl &url, qint64 resumeMs)
     openMedia(url, resumeMs);
 }
 
+void PlayerEngine::switchSourceWithoutRestart(const QUrl &url)
+{
+    if (url.isEmpty() || !m_player)
+        return;
+
+    cancelFade();
+    cancelQualitySwitch();
+    const quint64 generation = ++m_qualitySwitchGen;
+    QMediaPlayer *oldPlayer = m_player;
+    QAudioOutput *oldOutput = m_audioOutput;
+    const bool wasPlaying = oldPlayer->playbackState() == QMediaPlayer::PlayingState;
+    const PlaybackState previousState = m_state;
+
+    auto *candidate = new QMediaPlayer(this);
+    auto *candidateOutput = new QAudioOutput(this);
+    candidateOutput->setDevice(oldOutput->device());
+    candidateOutput->setVolume(0.0f);
+    candidate->setAudioOutput(candidateOutput);
+    m_qualitySwitchPlayer = candidate;
+    m_qualitySwitchOutput = candidateOutput;
+
+    auto handedOff = std::make_shared<bool>(false);
+    connect(candidate, &QMediaPlayer::mediaStatusChanged, this,
+        [this, candidate, candidateOutput, oldPlayer, oldOutput, wasPlaying, previousState, generation, handedOff]
+        (QMediaPlayer::MediaStatus status) {
+            if (*handedOff || generation != m_qualitySwitchGen
+                || (status != QMediaPlayer::LoadedMedia
+                    && status != QMediaPlayer::BufferedMedia))
+                return;
+            *handedOff = true;
+
+            const qint64 handoffPosition = qMax<qint64>(0, oldPlayer->position());
+            candidate->setPosition(handoffPosition);
+            if (wasPlaying)
+                candidate->play();
+            else
+                candidate->pause();
+
+            disconnect(oldPlayer, nullptr, this, nullptr);
+            oldPlayer->pause();
+            oldPlayer->stop();
+            oldPlayer->deleteLater();
+            oldOutput->deleteLater();
+
+            m_player = candidate;
+            m_audioOutput = candidateOutput;
+            m_qualitySwitchPlayer = nullptr;
+            m_qualitySwitchOutput = nullptr;
+            disconnect(candidate, nullptr, this, nullptr);
+            connectPlayerSignals(candidate);
+            candidateOutput->setVolume(m_targetVolume);
+            m_state = previousState;
+            emit durationChanged(candidate->duration());
+            emit positionChanged(handoffPosition);
+            emit stateChanged(m_state);
+            qDebug() << "[音质切换] 无感接管 position=" << handoffPosition;
+        });
+    connect(candidate, &QMediaPlayer::errorOccurred, this,
+        [this, candidate, candidateOutput, generation](QMediaPlayer::Error error, const QString &message) {
+            Q_UNUSED(error);
+            if (generation != m_qualitySwitchGen)
+                return;
+            qWarning() << "[音质切换] 新音质加载失败:" << message;
+            if (m_qualitySwitchPlayer == candidate) {
+                m_qualitySwitchPlayer = nullptr;
+                m_qualitySwitchOutput = nullptr;
+                candidate->deleteLater();
+                candidateOutput->deleteLater();
+            }
+        });
+
+    candidate->setSource(url);
+    candidate->play();
+}
+
 void PlayerEngine::openMedia(const QUrl &url, qint64 resumeMs)
 {
     cancelFade();
+    cancelQualitySwitch();
+    ++m_qualitySwitchGen;
     if (m_audioOutput)
         m_audioOutput->setVolume(m_targetVolume);
 
@@ -235,11 +296,26 @@ void PlayerEngine::pause()
 void PlayerEngine::stop()
 {
     cancelFade();
+    cancelQualitySwitch();
+    ++m_qualitySwitchGen;
     ++m_openGen;
     m_pendingUrl = QUrl();
     m_pendingResumeMs = -1;
     clearPendingResume();
     m_player->stop();
+}
+
+void PlayerEngine::cancelQualitySwitch()
+{
+    if (m_qualitySwitchPlayer) {
+        m_qualitySwitchPlayer->stop();
+        m_qualitySwitchPlayer->deleteLater();
+        m_qualitySwitchPlayer = nullptr;
+    }
+    if (m_qualitySwitchOutput) {
+        m_qualitySwitchOutput->deleteLater();
+        m_qualitySwitchOutput = nullptr;
+    }
 }
 
 void PlayerEngine::setVolume(float volume)
@@ -378,6 +454,27 @@ void PlayerEngine::onPlayerMetaDataChanged()
 {
     if (audioBitRateBps() > 0)
         emit audioMetaReady();
+}
+
+void PlayerEngine::connectPlayerSignals(QMediaPlayer *player)
+{
+    connect(player, &QMediaPlayer::playbackStateChanged,
+            this, &PlayerEngine::onMediaStateChanged);
+    connect(player, &QMediaPlayer::positionChanged,
+            this, &PlayerEngine::positionChanged);
+    connect(player, &QMediaPlayer::durationChanged,
+            this, &PlayerEngine::durationChanged);
+    connect(player, &QMediaPlayer::errorOccurred,
+            this, [this](QMediaPlayer::Error error, const QString &errorString) {
+                Q_UNUSED(error);
+                emit mediaError(errorString);
+            });
+    connect(player, &QMediaPlayer::mediaStatusChanged,
+            this, [this](QMediaPlayer::MediaStatus status) {
+                if (status == QMediaPlayer::EndOfMedia)
+                    emit playbackFinished();
+            });
+    connect(player, &QMediaPlayer::metaDataChanged, this, &PlayerEngine::onPlayerMetaDataChanged);
 }
 
 float PlayerEngine::volume() const

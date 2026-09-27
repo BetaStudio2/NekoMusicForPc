@@ -1107,18 +1107,23 @@ void MainWindow::setupUi()
         const MusicInfo info = m_engine ? m_engine->currentMusic() : MusicInfo{};
         if (info.id <= 0 || info.isLocalFile())
             return;
-        // 断点续传：切档重启前先记下当前播放位置，新档起播后跳回同一位置。
-        const qint64 resumeMs = m_engine ? m_engine->position() : -1;
-        qDebug() << "[音质切换] quality=" << quality << "resumeMs=" << resumeMs
-                 << "state=" << (m_engine ? int(m_engine->playbackState()) : -1);
+        if (m_playerPage)
+            m_playerPage->refreshAudioQuality(quality);
         QUrl url(QStringLiteral("%1/api/music/file/%2").arg(Theme::kApiBase).arg(info.id));
         QUrlQuery query(url);
         query.addQueryItem(QStringLiteral("quality"), quality);
         url.setQuery(query);
         ++m_enginePlaySeq;
-        m_engine->stop();
-        m_playerBar->setLoading(true);
-        startRemotePlaybackWithBackgroundCache(info.id, m_enginePlaySeq, url, false, resumeMs);
+        cancelStreamWatch();
+        m_downloader->cancel();
+        const QString cachedPath = MusicDownloader::cachedAudioFilePath(info.id, quality);
+        if (QFile::exists(cachedPath)) {
+            m_engine->switchSourceWithoutRestart(QUrl::fromLocalFile(cachedPath));
+        } else {
+            m_engine->switchSourceWithoutRestart(url);
+            startBackgroundCacheDownload(info.id, m_enginePlaySeq, url);
+        }
+        m_playerBar->setLoading(false);
     });
     connect(m_playerPage, &PlayerPage::volumePercentChanged, m_playerBar, &PlayerBar::setVolumePercentSynced);
     connect(m_playerPage, &PlayerPage::volumePercentChanged, this, [this](int p) {

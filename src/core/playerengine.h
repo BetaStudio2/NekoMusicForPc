@@ -30,6 +30,8 @@ public:
     void playLocalResuming(const QString &localPath, qint64 resumeMs);
     /** 切换远程/任意 URL 并尽量从 resumeMs 继续（用于音质切换断点续传）。 */
     void playResuming(const QUrl &url, qint64 resumeMs);
+    /** 在当前播放不中断的情况下切换媒体源。 */
+    void switchSourceWithoutRestart(const QUrl &url);
     void play();
     void pause();
     void stop();
@@ -71,6 +73,7 @@ signals:
 
 private:
     void onPlayerMetaDataChanged();
+    void connectPlayerSignals(QMediaPlayer *player);
     void cancelFade();
     void onMediaStateChanged(QMediaPlayer::PlaybackState state);
     void onFadeTick();
@@ -83,6 +86,7 @@ private:
     /** 时长就绪且 mediaStatus 至少 LoadedMedia 时，setPosition 才不会被后端丢弃。 */
     bool resumeMediaReady() const;
     void clearPendingResume();
+    void cancelQualitySwitch();
 
     QMediaPlayer *m_player;
     QAudioOutput *m_audioOutput;
@@ -103,6 +107,9 @@ private:
     QTimer *m_resumeTimeoutTimer = nullptr;
     quint64 m_openGen = 0;
     QMetaObject::Connection m_stopForOpenConn;
+    QMediaPlayer *m_qualitySwitchPlayer = nullptr;
+    QAudioOutput *m_qualitySwitchOutput = nullptr;
+    quint64 m_qualitySwitchGen = 0;
 
 public:
     void setSeekLimitMs(qint64 limitMs) { m_seekLimitMs = limitMs; }
