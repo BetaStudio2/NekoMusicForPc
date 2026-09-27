@@ -1143,8 +1143,9 @@ void PlayerBar::setupUi()
     m_qualitySelector->setToolTip(QStringLiteral("选择播放音质"));
     const QSettings qualitySettings;
     const QString savedQuality = qualitySettings.value(
-        QStringLiteral("player/audioQuality"), QStringLiteral("hq")).toString();
-    const int savedIndex = m_qualitySelector->findData(savedQuality);
+        QStringLiteral("player/audioQuality"), QStringLiteral("hq")).toString().trimmed().toLower();
+    m_preferredQuality = savedQuality.isEmpty() ? QStringLiteral("hq") : savedQuality;
+    const int savedIndex = m_qualitySelector->findData(m_preferredQuality);
     if (savedIndex >= 0)
         m_qualitySelector->setCurrentIndex(savedIndex);
     connect(m_qualitySelector, qOverload<int>(&QComboBox::currentIndexChanged), this,
@@ -1152,6 +1153,7 @@ void PlayerBar::setupUi()
         if (index < 0)
             return;
         const QString quality = m_qualitySelector->itemData(index).toString();
+        m_preferredQuality = quality;
         QSettings settings;
         settings.setValue(QStringLiteral("player/audioQuality"), quality);
         emit audioQualityChanged(quality);
@@ -1664,12 +1666,12 @@ void PlayerBar::setCurrentMusicId(int musicId)
     if (m_downloadBtn)
         m_downloadBtn->setEnabled(musicId > 0);
     if (changed)
-        setMaxQuality(musicId > 0 ? QStringLiteral("hq") : QStringLiteral("standard"));
+        setMaxQuality(musicId > 0 ? QStringLiteral("hq") : QStringLiteral("standard"), false);
     // 不重置状态，由调用方自行检查收藏状态后设置
     refreshLocalBadge();
 }
 
-void PlayerBar::setMaxQuality(const QString &quality)
+void PlayerBar::setMaxQuality(const QString &quality, bool authoritative)
 {
     if (!m_qualitySelector)
         return;
@@ -1694,10 +1696,29 @@ void PlayerBar::setMaxQuality(const QString &quality)
         }
     }
     m_qualitySelector->setEnabled(m_currentMusicId > 0);
+
+    if (!authoritative)
+        return;
+
+    // 拿到真实 maxQuality 后，只夹取**显示**档位到合法范围：选中项若超过 maxQuality，
+    // 会显示成不可用档位，误导用户。这里用 QSignalBlocker 静默回退到合法档
+    // （不触发 audioQualityChanged、不覆盖 QSettings，也不改 m_preferredQuality，
+    // 避免把用户偏好真正降级；偏好下次遇到支持它的歌曲会自动恢复）。
+    const QSignalBlocker blocker(m_qualitySelector);
+    int desired = m_qualitySelector->findData(m_preferredQuality);
+    if (desired < 0)
+        desired = maxRank;
+    desired = qBound(0, qMin(desired, maxRank), m_qualitySelector->count() - 1);
+    if (m_qualitySelector->currentIndex() != desired)
+        m_qualitySelector->setCurrentIndex(desired);
 }
 
 QString PlayerBar::selectedAudioQuality() const
 {
+    // 以用户偏好为准，而非可能被 maxQuality 夹取过的下拉框显示值，
+    // 否则切到只支持低档的歌曲后，偏好会被永久降级。
+    if (!m_preferredQuality.isEmpty())
+        return m_preferredQuality;
     return m_qualitySelector ? m_qualitySelector->currentData().toString() : QStringLiteral("hq");
 }
 
