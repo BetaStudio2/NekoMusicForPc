@@ -1,10 +1,13 @@
 #include "localmusicmeta.h"
 
 #include <QImage>
+#include <QPixmap>
 #include <QStringList>
 #include <QAudioOutput>
 #include <QDir>
 #include <QEventLoop>
+#include <QCryptographicHash>
+#include <QFile>
 #include <QFileInfo>
 #include <QHash>
 #include <QMediaMetaData>
@@ -13,6 +16,7 @@
 #include <QTimer>
 #include <QUrl>
 #include <QStringConverter>
+#include <QVariant>
 
 namespace LocalMusic {
 
@@ -249,6 +253,58 @@ static int durationSeconds(const QMediaMetaData &md, const QMediaPlayer &player)
     return 0;
 }
 
+QString cacheEmbeddedCover(const QImage &image, const QString &sourcePath)
+{
+    if (image.isNull())
+        return {};
+
+    const QByteArray key = QCryptographicHash::hash(sourcePath.toUtf8(), QCryptographicHash::Sha1).toHex();
+    const QString dirPath = QStandardPaths::writableLocation(QStandardPaths::TempLocation)
+        + QStringLiteral("/nekomusic-cache/embedded-covers");
+    QDir().mkpath(dirPath);
+    const QString imagePath = dirPath + QLatin1Char('/') + QString::fromLatin1(key) + QStringLiteral(".png");
+    if (!QFileInfo::exists(imagePath) && !image.save(imagePath, "PNG"))
+        return {};
+    return QUrl::fromLocalFile(imagePath).toString();
+}
+
+QImage embeddedCoverForFile(const QString &path, QMediaMetaData *metadata)
+{
+    if (!metadata)
+        return {};
+
+    QMediaPlayer player;
+    QEventLoop loop;
+    QTimer timeout;
+    timeout.setSingleShot(true);
+    timeout.setInterval(1500);
+    QObject::connect(&timeout, &QTimer::timeout, &loop, &QEventLoop::quit);
+    QObject::connect(&player, &QMediaPlayer::metaDataChanged, &loop, [&]() {
+        *metadata = player.metaData();
+        const auto value = metadata->value(QMediaMetaData::CoverArtImage);
+        if (value.isValid() || metadata->value(QMediaMetaData::ThumbnailImage).isValid())
+            loop.quit();
+    });
+    QObject::connect(&player, &QMediaPlayer::mediaStatusChanged, &loop,
+                     [&](QMediaPlayer::MediaStatus status) {
+                         if (status == QMediaPlayer::LoadedMedia || status == QMediaPlayer::InvalidMedia)
+                             loop.quit();
+                     });
+    player.setSource(QUrl::fromLocalFile(path));
+    timeout.start();
+    loop.exec();
+    *metadata = player.metaData();
+
+    const QVariant cover = metadata->value(QMediaMetaData::CoverArtImage);
+    const QVariant thumbnail = metadata->value(QMediaMetaData::ThumbnailImage);
+    const QVariant value = cover.isValid() ? cover : thumbnail;
+    if (value.canConvert<QImage>())
+        return value.value<QImage>();
+    if (value.canConvert<QPixmap>())
+        return value.value<QPixmap>().toImage();
+    return {};
+}
+
 MusicInfo probeAndBuildInfo(const QString &filePath)
 {
     MusicInfo info;
@@ -268,6 +324,16 @@ MusicInfo probeAndBuildInfo(const QString &filePath)
     } else {
         info.title = base;
     }
+
+    QMediaMetaData metadata;
+    const QImage embeddedCover = embeddedCoverForFile(path, &metadata);
+    if (!metadata.stringValue(QMediaMetaData::Title).isEmpty())
+        info.title = metadata.stringValue(QMediaMetaData::Title);
+    if (!metadata.stringValue(QMediaMetaData::Author).isEmpty())
+        info.artist = metadata.stringValue(QMediaMetaData::Author);
+    if (!metadata.stringValue(QMediaMetaData::AlbumTitle).isEmpty())
+        info.album = metadata.stringValue(QMediaMetaData::AlbumTitle);
+    info.coverUrl = cacheEmbeddedCover(embeddedCover, path);
 
     return info;
 }
