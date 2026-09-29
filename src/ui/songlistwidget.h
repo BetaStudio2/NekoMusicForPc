@@ -83,6 +83,8 @@ private:
     void refreshPlayingState();
     SongCardWidget *acquireCard();
     void releaseCard(SongCardWidget *card);
+    /** 按当前语言的最宽表头文案重算列宽；「时长」列同步到数据行以保持对齐。 */
+    void updateHeaderColumnWidths();
 
     static constexpr int kHeaderHeight = 40;
     static constexpr int kListPad = 0;
@@ -103,6 +105,7 @@ private:
     QLabel *m_hdrAlbum = nullptr;
     QLabel *m_hdrActions = nullptr;
     QLabel *m_hdrDuration = nullptr;
+    int m_durationColumnWidth = 50;
 
     QScrollArea *m_scroll = nullptr;
     QWidget *m_container = nullptr;

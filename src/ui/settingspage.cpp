@@ -11,6 +11,7 @@
 #include "core/shellbackdropsettings.h"
 #include "core/usermanager.h"
 #include "ui/logindialog.h"
+#include "ui/legaldialog.h"
 #include "ui/shortcutcapturebutton.h"
 #include "ui/toggleswitch.h"
 #include "ui/toast.h"
@@ -48,6 +49,7 @@
 #include <QColor>
 #include <QResizeEvent>
 #include <QSizePolicy>
+#include <QFontMetrics>
 
 namespace {
 
@@ -82,6 +84,7 @@ SettingsPage::SettingsPage(ApiClient *apiClient, QWidget *parent)
                 const auto cards = findChildren<GlassWidget *>();
                 for (auto *card : cards)
                     GlassPaint::applyFlatSurface(card, Theme::ThemeManager::instance().isDarkMode());
+                applyScrollbarStyle();
             });
     connect(&UserManager::instance(), &UserManager::loginStateChanged, this,
             &SettingsPage::refreshAccountSection);
@@ -186,6 +189,7 @@ void SettingsPage::setupUi()
 
     auto *tabsScroller = new QScrollArea(container);
     tabsScroller->setObjectName(QStringLiteral("settingsTabScroller"));
+    m_tabScroller = tabsScroller;
     tabsScroller->setWidgetResizable(true);
     tabsScroller->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     tabsScroller->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
@@ -245,7 +249,6 @@ void SettingsPage::setupUi()
 
     m_accountNicknameCaption = new QLabel(I18n::instance().tr(QStringLiteral("nickname")), m_accountContent);
     m_accountNicknameCaption->setObjectName("settingsLabel");
-    m_accountNicknameCaption->setFixedWidth(64);
     nicknameRow->addWidget(m_accountNicknameCaption);
 
     m_accountNicknameValue = new QLabel(m_accountContent);
@@ -303,7 +306,6 @@ void SettingsPage::setupUi()
         row->setSpacing(10);
         caption = new QLabel(m_accountContent);
         caption->setObjectName("settingsLabel");
-        caption->setFixedWidth(64);
         row->addWidget(caption);
         value = new QLabel(m_accountContent);
         value->setObjectName("settingsInfo");
@@ -317,6 +319,7 @@ void SettingsPage::setupUi()
     m_accountEmailCaption->setText(I18n::instance().tr(QStringLiteral("email")));
     m_accountVipCaption->setText(I18n::instance().tr(QStringLiteral("vipStatusLabel")));
     m_accountCreatedCaption->setText(I18n::instance().tr(QStringLiteral("registerTime")));
+    updateAccountCaptionWidth();
     accountInfoCol->addStretch();
 
     accountLay->addLayout(accountInfoCol, 1);
@@ -551,6 +554,30 @@ void SettingsPage::setupUi()
     linksRow->addStretch();
     aboutLay->addLayout(linksRow);
 
+    // 法律与声明：用户协议 / 隐私政策
+    auto *legalRow = new QHBoxLayout();
+    legalRow->setSpacing(20);
+
+    m_userAgreementBtn = new QPushButton(I18n::instance().tr(QStringLiteral("userAgreement")), aboutBody);
+    m_userAgreementBtn->setObjectName("settingsLinkBtn");
+    m_userAgreementBtn->setCursor(Qt::PointingHandCursor);
+    m_userAgreementBtn->setFlat(true);
+    connect(m_userAgreementBtn, &QPushButton::clicked, this, [this]() {
+        LegalDialog::showUserAgreement(this);
+    });
+    legalRow->addWidget(m_userAgreementBtn);
+
+    m_privacyPolicyBtn = new QPushButton(I18n::instance().tr(QStringLiteral("privacyPolicy")), aboutBody);
+    m_privacyPolicyBtn->setObjectName("settingsLinkBtn");
+    m_privacyPolicyBtn->setCursor(Qt::PointingHandCursor);
+    m_privacyPolicyBtn->setFlat(true);
+    connect(m_privacyPolicyBtn, &QPushButton::clicked, this, [this]() {
+        LegalDialog::showPrivacyPolicy(this);
+    });
+    legalRow->addWidget(m_privacyPolicyBtn);
+    legalRow->addStretch();
+    aboutLay->addLayout(legalRow);
+
     // 检查更新按钮
     m_checkUpdateBtn = new QPushButton(I18n::instance().tr("checkForUpdates"), aboutBody);
     m_checkUpdateBtn->setObjectName("checkUpdateBtn");
@@ -577,6 +604,7 @@ void SettingsPage::setupUi()
     outer->setContentsMargins(0, 0, 0, 0);
     outer->addWidget(scroll);
     updateTabBarGeometry();
+    applyScrollbarStyle();
     refreshMicSyncRow();
 }
 
@@ -889,6 +917,7 @@ void SettingsPage::retranslate()
         m_accountVipCaption->setText(I18n::instance().tr(QStringLiteral("vipStatusLabel")));
     if (m_accountCreatedCaption)
         m_accountCreatedCaption->setText(I18n::instance().tr(QStringLiteral("registerTime")));
+    updateAccountCaptionWidth();
     if (m_accountEditBtn)
         m_accountEditBtn->setText(I18n::instance().tr(QStringLiteral("edit")));
     if (m_accountSaveBtn)
@@ -939,6 +968,10 @@ void SettingsPage::retranslate()
         m_githubBtn->setText(I18n::instance().tr("githubRepo"));
     if (m_apiDocsBtn)
         m_apiDocsBtn->setText(I18n::instance().tr("apiDocs"));
+    if (m_userAgreementBtn)
+        m_userAgreementBtn->setText(I18n::instance().tr(QStringLiteral("userAgreement")));
+    if (m_privacyPolicyBtn)
+        m_privacyPolicyBtn->setText(I18n::instance().tr(QStringLiteral("privacyPolicy")));
     if (m_checkUpdateBtn)
         m_checkUpdateBtn->setText(I18n::instance().tr("checkForUpdates"));
     if (m_shortcutsSectionLabel)
@@ -978,6 +1011,53 @@ void SettingsPage::resizeEvent(QResizeEvent *event)
 }
 
 // ─── 账号信息（内嵌于「通用」页）────────────────────────────
+
+void SettingsPage::updateAccountCaptionWidth()
+{
+    const QLabel *captions[] = {m_accountNicknameCaption, m_accountEmailCaption,
+                                m_accountVipCaption, m_accountCreatedCaption};
+    int maxWidth = 0;
+    for (const QLabel *caption : captions) {
+        if (!caption || caption->text().isEmpty())
+            continue;
+        maxWidth = qMax(maxWidth, caption->fontMetrics().horizontalAdvance(caption->text()));
+    }
+    if (maxWidth <= 0)
+        return;
+
+    // 统一标题列宽度并留出与数值列之间的间距，随语言/字体自适应。
+    const int width = maxWidth + 12;
+    for (QLabel *caption : {m_accountNicknameCaption, m_accountEmailCaption,
+                            m_accountVipCaption, m_accountCreatedCaption}) {
+        if (caption)
+            caption->setFixedWidth(width);
+    }
+}
+
+void SettingsPage::applyScrollbarStyle()
+{
+    // 与歌单列表 / 播放队列 / 评论抽屉保持一致的滚动条样式。
+    // 单独设置在设置页的滚动区上，避免依赖全局 QSS 被上级或子容器覆盖。
+    const bool dark = Theme::ThemeManager::instance().isDarkMode();
+    const QString sheet = QStringLiteral(
+        "QScrollArea { background: transparent; border: none; }"
+        "QScrollBar:vertical { width: 6px; background: transparent; margin: 2px 0; }"
+        "QScrollBar::handle:vertical { background: rgba(230,57,80,%1); border-radius: 3px; min-height: 40px; }"
+        "QScrollBar::handle:vertical:hover { background: rgba(230,57,80,%2); }"
+        "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; border: none; }"
+        "QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background: transparent; }"
+        "QScrollBar:horizontal { height: 6px; background: transparent; margin: 0 2px; }"
+        "QScrollBar::handle:horizontal { background: rgba(230,57,80,%1); border-radius: 3px; min-width: 40px; }"
+        "QScrollBar::handle:horizontal:hover { background: rgba(230,57,80,%2); }"
+        "QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal { width: 0; border: none; }"
+        "QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal { background: transparent; }")
+                              .arg(dark ? 70 : 82)
+                              .arg(dark ? 108 : 125);
+    if (m_scrollArea)
+        m_scrollArea->setStyleSheet(sheet);
+    if (m_tabScroller)
+        m_tabScroller->setStyleSheet(sheet);
+}
 
 void SettingsPage::refreshAccountSection()
 {

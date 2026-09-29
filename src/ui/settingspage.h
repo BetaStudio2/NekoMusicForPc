@@ -54,7 +54,11 @@ private:
     void refreshShortcutEditors();
     void refreshMicSyncRow();
     void setupPersonalizationSection(QVBoxLayout *cardLay, QWidget *cardBody);
+    /** 设置页独立的滚动条样式（不依赖全局 QSS，避免被上级样式覆盖）。 */
+    void applyScrollbarStyle();
     void refreshAccountSection();
+    /** 按当前语言的最宽标签重算账号信息标题列宽度，避免硬编码导致文字被裁切。 */
+    void updateAccountCaptionWidth();
     void startEditNickname();
     void cancelEditNickname();
     void submitNickname();
@@ -71,6 +75,7 @@ private:
     QPushButton *m_shortcutsTabBtn = nullptr;
     QPushButton *m_aboutTabBtn = nullptr;
     QScrollArea *m_scrollArea = nullptr;
+    QScrollArea *m_tabScroller = nullptr;
     QStackedWidget *m_settingsStack = nullptr;
     QWidget *m_tabBarWidget = nullptr;
     QLabel *m_titleLabel = nullptr;
@@ -138,5 +143,7 @@ private:
     QLabel *m_systemLabel = nullptr;
     QPushButton *m_githubBtn = nullptr;
     QPushButton *m_apiDocsBtn = nullptr;
+    QPushButton *m_userAgreementBtn = nullptr;
+    QPushButton *m_privacyPolicyBtn = nullptr;
     QPushButton *m_checkUpdateBtn = nullptr;
 };

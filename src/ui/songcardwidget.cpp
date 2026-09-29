@@ -91,6 +91,13 @@ SongCardWidget::SongCardWidget(QWidget *parent)
     applyTheme();
 }
 
+void SongCardWidget::setDurationColumnWidth(int width)
+{
+    m_durationWidth = qMax(24, width);
+    if (m_timeLbl)
+        m_timeLbl->setFixedWidth(m_durationWidth);
+}
+
 void SongCardWidget::rebuildLayout()
 {
     if (m_content)
@@ -218,7 +225,7 @@ void SongCardWidget::rebuildLayout()
     lay->addWidget(m_downloadBtn);
 
     m_timeLbl = new QLabel(m_content);
-    m_timeLbl->setFixedWidth(50);
+    m_timeLbl->setFixedWidth(m_durationWidth);
     m_timeLbl->setAlignment(Qt::AlignCenter);
     lay->addWidget(m_timeLbl);
 

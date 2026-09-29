@@ -7,6 +7,7 @@
 #include "authdialogchrome.h"
 #include "forgotpassworddialog.h"
 #include "slidercaptchadialog.h"
+#include "legaldialog.h"
 #include "core/apiclient.h"
 #include "core/usermanager.h"
 #include "core/i18n.h"
@@ -26,6 +27,8 @@
 #include <QColor>
 #include <QStyle>
 #include <QFrame>
+#include <QCheckBox>
+#include <QPalette>
 
 LoginDialog::LoginDialog(QWidget *parent)
     : QDialog(parent)
@@ -79,11 +82,29 @@ void LoginDialog::applyDialogTheme()
             "QLabel#qrImageBox { background: #FFFFFF; border-radius: 12px; }"));
     if (m_qrTipLabel)
         m_qrTipLabel->setStyleSheet(AuthDialogChrome::bodyStyleSheet(p));
+    if (m_consentText) {
+        m_consentText->setStyleSheet(QStringLiteral("QLabel { color: %1; font-size: 12.5px; }").arg(p.bodyColor));
+        QPalette pal = m_consentText->palette();
+        pal.setColor(QPalette::Link, QColor(p.accent));
+        pal.setColor(QPalette::LinkVisited, QColor(p.accent));
+        m_consentText->setPalette(pal);
+    }
+    if (m_consentCheck)
+        m_consentCheck->setStyleSheet(QStringLiteral(
+            "QCheckBox { spacing: 0px; }"
+            "QCheckBox::indicator { width: 16px; height: 16px; border: 1px solid %1; border-radius: 4px; background: transparent; }"
+            "QCheckBox::indicator:hover { border: 1px solid %2; }"
+            "QCheckBox::indicator:checked { background: %2; border: 1px solid %2; }")
+            .arg(p.cardBorder, p.accent));
 }
 
 void LoginDialog::updateDialogSize()
 {
-    setFixedSize(AuthDialogChrome::kDialogWidth, AuthDialogChrome::kDialogHeight);
+    // 协议勾选行占用固定高度；注册页字段更多，额外留高。
+    int extra = 42;
+    if (m_page == Page::Register)
+        extra += 56;
+    setFixedSize(AuthDialogChrome::kDialogWidth, AuthDialogChrome::kDialogHeight + extra);
 }
 
 void LoginDialog::setupUi()
@@ -234,6 +255,30 @@ void LoginDialog::setupUi()
     actionRow->addWidget(m_submitBtn, 1);
     formLayout->addLayout(actionRow);
 
+    // 协议勾选：登录/注册前须阅读并同意用户协议与隐私政策
+    auto *consentRow = new QHBoxLayout();
+    consentRow->setContentsMargins(0, 6, 0, 0);
+    consentRow->setSpacing(8);
+
+    m_consentCheck = new QCheckBox(formPane);
+    m_consentCheck->setCursor(Qt::PointingHandCursor);
+    connect(m_consentCheck, &QCheckBox::toggled, this, [this](bool) { refreshSubmitEnabled(); });
+    consentRow->addWidget(m_consentCheck, 0, Qt::AlignTop);
+
+    m_consentText = new QLabel(formPane);
+    m_consentText->setTextFormat(Qt::RichText);
+    m_consentText->setText(I18n::instance().tr(QStringLiteral("consentLoginText")));
+    m_consentText->setWordWrap(true);
+    m_consentText->setTextInteractionFlags(Qt::LinksAccessibleByMouse);
+    connect(m_consentText, &QLabel::linkActivated, this, [this](const QString &link) {
+        if (link == QLatin1String("agreement"))
+            LegalDialog::showUserAgreement(this);
+        else
+            LegalDialog::showPrivacyPolicy(this);
+    });
+    consentRow->addWidget(m_consentText, 1);
+    formLayout->addLayout(consentRow);
+
     m_forgotBtn = new QPushButton(I18n::instance().tr("forgotPassword"), formPane);
     m_forgotBtn->setObjectName("dialogLinkBtn");
     connect(m_forgotBtn, &QPushButton::clicked, this, &LoginDialog::showForgotPassword);
@@ -252,6 +297,7 @@ void LoginDialog::setupUi()
     connect(m_loginPassEdit, &QLineEdit::returnPressed, this, &LoginDialog::doLogin);
     connect(m_regCodeEdit, &QLineEdit::returnPressed, this, &LoginDialog::doRegister);
 
+    refreshSubmitEnabled();
 }
 
 void LoginDialog::applyMode()
@@ -263,6 +309,11 @@ void LoginDialog::applyMode()
     m_submitBtn->setVisible(!qr);
     m_forgotBtn->setVisible(m_page == Page::Login);
     m_switchBtn->setVisible(!qr);
+    if (m_consentCheck)
+        m_consentCheck->setVisible(!qr);
+    if (m_consentText)
+        m_consentText->setVisible(!qr);
+    refreshSubmitEnabled();
 
     if (m_titleLabel) {
         if (qr)
@@ -395,6 +446,9 @@ void LoginDialog::stopQrSession()
 
 void LoginDialog::doLogin()
 {
+    if (!ensureConsent())
+        return;
+
     QString email = m_loginUserEdit->text().trimmed();
     QString password = m_loginPassEdit->text();
 
@@ -408,6 +462,7 @@ void LoginDialog::doLogin()
     }
 
     setMsg("", Qt::transparent);
+    m_loading = true;
     m_submitBtn->setEnabled(false);
     m_submitBtn->setText(I18n::instance().tr(QStringLiteral("loadingShort")));
 
@@ -421,6 +476,9 @@ void LoginDialog::doLogin()
 
 void LoginDialog::doRegister()
 {
+    if (!ensureConsent())
+        return;
+
     QString nickname = m_regUserEdit->text().trimmed();
     QString password = m_regPassEdit->text();
     QString email = m_regEmailEdit->text().trimmed();
@@ -436,6 +494,7 @@ void LoginDialog::doRegister()
     }
 
     setMsg("", Qt::transparent);
+    m_loading = true;
     m_submitBtn->setEnabled(false);
     m_submitBtn->setText(I18n::instance().tr(QStringLiteral("loadingShort")));
 
@@ -450,6 +509,9 @@ void LoginDialog::doRegister()
 
 void LoginDialog::doSendVerificationCode()
 {
+    if (!ensureConsent())
+        return;
+
     QString email = m_regEmailEdit->text().trimmed();
     if (email.isEmpty()) {
         setMsg(I18n::instance().tr("pleaseEnterEmail"), Theme::kSakura);
@@ -509,7 +571,8 @@ void LoginDialog::doSendVerificationCode()
 void LoginDialog::onLoginResult(bool success, const QString &message,
                                  const QString &token, const QVariantMap &user)
 {
-    m_submitBtn->setEnabled(true);
+    m_loading = false;
+    refreshSubmitEnabled();
     if (m_page == Page::Register) {
         m_submitBtn->setText(I18n::instance().tr("register"));
     } else {
@@ -528,6 +591,23 @@ void LoginDialog::showForgotPassword()
 {
     ForgotPasswordDialog dlg(this);
     dlg.exec();
+}
+
+bool LoginDialog::ensureConsent()
+{
+    if (m_consentCheck && m_consentCheck->isChecked())
+        return true;
+    setMsg(I18n::instance().tr(QStringLiteral("consentRequired")), Theme::kSakura);
+    return false;
+}
+
+void LoginDialog::refreshSubmitEnabled()
+{
+    const bool agreed = m_consentCheck ? m_consentCheck->isChecked() : true;
+    if (m_submitBtn && !m_loading)
+        m_submitBtn->setEnabled(agreed);
+    if (m_sendCodeBtn && !m_loading && m_countdown == 0)
+        m_sendCodeBtn->setEnabled(agreed);
 }
 
 void LoginDialog::setMsg(const QString &text, const QColor &color)

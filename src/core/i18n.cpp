@@ -385,6 +385,22 @@ static QMap<QString, QString> zhCN()
     m["appVersion"] = QStringLiteral("版本号");
     m["githubRepo"] = QStringLiteral("GitHub 仓库");
     m["apiDocs"] = QStringLiteral("API 文档");
+    // --- 法律与声明（用户协议 / 隐私政策）---
+    m["userAgreement"] = QStringLiteral("用户协议");
+    m["privacyPolicy"] = QStringLiteral("隐私政策");
+    m["legalVersionLabel"] = QStringLiteral("版本");
+    m["legalUpdatedLabel"] = QStringLiteral("最近更新");
+    m["legalConsentTitle"] = QStringLiteral("用户协议与隐私政策");
+    m["legalConsentIntro"] = QStringLiteral(
+        "欢迎使用 Neko歌姬计划 PC版。在开始使用前，请阅读并同意以下条款。"
+        "我们仅在实现功能所必需的范围内处理你的信息，且不会将其用于广告或用户画像。");
+    m["legalViewAgreement"] = QStringLiteral("查看《用户协议》");
+    m["legalViewPrivacy"] = QStringLiteral("查看《隐私政策》");
+    m["legalAgree"] = QStringLiteral("同意并继续");
+    m["legalDecline"] = QStringLiteral("不同意并退出");
+    m["consentLoginText"] = QStringLiteral(
+        "我已阅读并同意<a href=\"agreement\">《用户协议》</a>与<a href=\"privacy\">《隐私政策》</a>");
+    m["consentRequired"] = QStringLiteral("请先阅读并同意《用户协议》与《隐私政策》");
     m["createdAt"] = QStringLiteral("创建时间");
     m["updatedAt"] = QStringLiteral("更新时间");
     m["description"] = QStringLiteral("描述");
@@ -1439,6 +1455,22 @@ static QMap<QString, QString> enUS()
     m["currentVersion"] = "Current Version";
     m["githubRepo"] = "GitHub Repository";
     m["apiDocs"] = "API Docs";
+    // --- Legal (User Agreement / Privacy Policy) ---
+    m["userAgreement"] = "User Agreement";
+    m["privacyPolicy"] = "Privacy Policy";
+    m["legalVersionLabel"] = "Version";
+    m["legalUpdatedLabel"] = "Last updated";
+    m["legalConsentTitle"] = "User Agreement & Privacy Policy";
+    m["legalConsentIntro"] =
+        "Welcome to Neko Music for PC. Before you start, please read and agree to the terms below. "
+        "We process your information only as necessary to provide the features, and never for advertising or profiling.";
+    m["legalViewAgreement"] = "View User Agreement";
+    m["legalViewPrivacy"] = "View Privacy Policy";
+    m["legalAgree"] = "Agree and Continue";
+    m["legalDecline"] = "Decline and Exit";
+    m["consentLoginText"] =
+        "I have read and agree to the <a href=\"agreement\">User Agreement</a> and <a href=\"privacy\">Privacy Policy</a>";
+    m["consentRequired"] = "Please read and agree to the User Agreement and Privacy Policy first";
     m["createdAt"] = "Created At";
     m["updatedAt"] = "Updated At";
     m["description"] = "Description";
