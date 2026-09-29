@@ -2400,7 +2400,7 @@ void PlayerPage::setupUi()
     m_artistLabel->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
     m_artistLabel->setWordWrap(false);
     m_artistLabel->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
-    artistLay->addWidget(m_artistMetaIcon, 0, Qt::AlignTop);
+    artistLay->addWidget(m_artistMetaIcon, 0, Qt::AlignVCenter);
     artistLay->addWidget(m_artistLabel, 1);
 
     m_albumRow = new QWidget(m_metaPanel);
@@ -2414,7 +2414,7 @@ void PlayerPage::setupUi()
     m_albumLabel->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
     m_albumLabel->setWordWrap(false);
     m_albumLabel->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
-    albumLay->addWidget(m_albumMetaIcon, 0, Qt::AlignTop);
+    albumLay->addWidget(m_albumMetaIcon, 0, Qt::AlignVCenter);
     albumLay->addWidget(m_albumLabel, 1);
 
     updateMetaIcons();
