@@ -113,6 +113,20 @@ if(NOT ARCHOERRA_FFMPEG_FOUND)
     return()
 endif()
 
+# macOS 通用架构保护：pkg-config/Homebrew 的 FFmpeg 通常仅单一架构，与
+# arm64;x86_64 通用链接会失败（CI 出包即挂）。通用构建要求显式
+# -DNEKO_FFMPEG_ROOT=<通用 FFmpeg 开发树>，否则跳过引擎（回退 QMediaPlayer）。
+if(APPLE AND CMAKE_OSX_ARCHITECTURES)
+    list(LENGTH CMAKE_OSX_ARCHITECTURES _neko_narch)
+    if(_neko_narch GREATER 1 AND NOT NEKO_FFMPEG_ROOT)
+        message(STATUS
+            "archoera-audio-engine: macOS 通用架构（${CMAKE_OSX_ARCHITECTURES}）需显式 "
+            "-DNEKO_FFMPEG_ROOT=<通用 FFmpeg 开发树>；跳过原生引擎（回退 QMediaPlayer）")
+        set(ARCHOERRA_ENGINE_AVAILABLE FALSE PARENT_SCOPE)
+        return()
+    endif()
+endif()
+
 set(ARCHOERRA_ENGINE_AVAILABLE TRUE PARENT_SCOPE)
 message(STATUS "archoera-audio-engine: FFmpeg ${ARCHOERRA_FFMPEG_VERSION} — 构建无 Zig 内核的无缝播放引擎")
 
