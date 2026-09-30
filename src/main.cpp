@@ -16,7 +16,9 @@
 #include <QNetworkProxyFactory>
 #include "ui/mainwindow.h"
 #include "ui/scrollareafix.h"
+#include "ui/legaldialog.h"
 #include "core/i18n.h"
+#include "core/legaltext.h"
 #include "core/playlistdb.h"
 #include "core/landevicemanager.h"
 #include "core/localmusicmeta.h"
@@ -103,6 +105,14 @@ int main(int argc, char *argv[])
     QSettings settings;
     int lang = settings.value("language", static_cast<int>(I18n::ZhCN)).toInt();
     I18n::instance().setLanguage(static_cast<I18n::Language>(lang));
+
+    // 首次启动：须先阅读并同意用户协议与隐私政策，否则退出
+    if (!Legal::hasAcceptedConsent()) {
+        LegalConsentDialog consentDialog;
+        if (consentDialog.exec() != QDialog::Accepted)
+            return 0;
+        Legal::acceptConsent();
+    }
 
     // 初始化播放列表数据库
     PlaylistDatabase::instance().init();

@@ -144,6 +144,7 @@ set(SOURCES
         src/ui/recentpage.cpp
         src/ui/downloadpage.cpp
         src/ui/logindialog.cpp
+        src/ui/legaldialog.cpp
         src/ui/slidercaptchadialog.cpp
         src/ui/captchasliderrail.cpp
         src/ui/forgotpassworddialog.cpp
@@ -165,6 +166,7 @@ set(SOURCES
         src/core/playerengine.cpp
         src/core/apiclient.cpp
         src/core/i18n.cpp
+        src/core/legaltext.cpp
         src/core/appshortcuts.cpp
         src/core/micsynccontroller.cpp
         src/core/shellbackdropsettings.cpp
@@ -222,6 +224,7 @@ set(HEADERS
         src/ui/recentpage.h
         src/ui/downloadpage.h
         src/ui/logindialog.h
+        src/ui/legaldialog.h
         src/ui/slidercaptchadialog.h
         src/ui/captchasliderrail.h
         src/ui/forgotpassworddialog.h
@@ -243,6 +246,7 @@ set(HEADERS
         src/core/apiclient.h
         src/core/httpprotocollabel.h
         src/core/i18n.h
+        src/core/legaltext.h
         src/core/appshortcuts.h
         src/core/micsynccontroller.h
         src/core/shellbackdropsettings.h

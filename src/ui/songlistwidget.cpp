@@ -13,6 +13,7 @@
 #include <QFrame>
 #include <QPushButton>
 #include <QTimer>
+#include <QFontMetrics>
 #include "ui/svgicon.h"
 
 namespace {
@@ -80,6 +81,7 @@ void SongListWidget::setupUi()
     hdrLay->addWidget(m_hdrDuration);
 
     root->addWidget(m_header);
+    updateHeaderColumnWidths();
 
     m_scroll = new QScrollArea(this);
     m_scroll->setObjectName(QStringLiteral("favoritesSongScroll"));
@@ -316,6 +318,30 @@ void SongListWidget::applyTheme()
         card->applyTheme();
 }
 
+void SongListWidget::updateHeaderColumnWidths()
+{
+    auto textPx = [](const QLabel *label, int padding) -> int {
+        if (!label || label->text().isEmpty())
+            return 0;
+        return label->fontMetrics().horizontalAdvance(label->text()) + padding;
+    };
+
+    // 「操作」列在数据行中没有固定宽度的对应控件，按文案自适应即可。
+    if (m_hdrActions)
+        m_hdrActions->setFixedWidth(qMax(40, textPx(m_hdrActions, 12)));
+
+    // 「时长」列需与数据行的时间标签保持一致，否则会错位或裁切。
+    if (m_hdrDuration) {
+        m_durationColumnWidth = qMax(50, textPx(m_hdrDuration, 16));
+        m_hdrDuration->setFixedWidth(m_durationColumnWidth);
+    }
+
+    for (SongCardWidget *card : m_rowCards)
+        card->setDurationColumnWidth(m_durationColumnWidth);
+    for (SongCardWidget *card : m_cardPool)
+        card->setDurationColumnWidth(m_durationColumnWidth);
+}
+
 void SongListWidget::retranslate()
 {
     auto &i18n = I18n::instance();
@@ -338,6 +364,7 @@ void SongListWidget::retranslate()
         m_hdrActions->setText(i18n.tr(QStringLiteral("listColActions")));
     if (m_hdrDuration)
         m_hdrDuration->setText(i18n.tr(QStringLiteral("duration")));
+    updateHeaderColumnWidths();
 }
 
 void SongListWidget::scrollToTop()
@@ -419,9 +446,10 @@ void SongListWidget::syncContainerHeight()
 
 SongCardWidget *SongListWidget::acquireCard()
 {
-    if (m_cardPool.isEmpty())
-        return new SongCardWidget(m_container);
-    return m_cardPool.takeLast();
+    SongCardWidget *card = m_cardPool.isEmpty() ? new SongCardWidget(m_container)
+                                                : m_cardPool.takeLast();
+    card->setDurationColumnWidth(m_durationColumnWidth);
+    return card;
 }
 
 void SongListWidget::releaseCard(SongCardWidget *card)

@@ -96,3 +96,12 @@ cmake --install build/linux-release --prefix /usr/local
 ## 贡献与反馈
 
 构建或使用中遇到问题，欢迎提交 **Issue** 或 **Pull Request**。
+
+---
+
+## 法律与声明
+
+- [用户协议](docs/user-agreement.md)
+- [隐私政策](docs/privacy-policy.md)
+
+应用内可在「设置 → 关于」中查看上述文档；首次启动需阅读并同意后方可使用本软件。

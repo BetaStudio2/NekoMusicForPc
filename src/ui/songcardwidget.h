@@ -36,6 +36,8 @@ public:
     void setShowDownloadButton(bool show);
     void setDownloadTaskMode(bool enabled);
     void setDownloadTaskState(bool active, qint64 received, qint64 total);
+    /** 与列表表头「时长」列保持一致的宽度，避免英文等较长文案被裁切。 */
+    void setDurationColumnWidth(int width);
     void applyTheme();
 
     const MusicInfo &info() const { return m_info; }
@@ -112,6 +114,7 @@ private:
     QLabel *m_timeLbl = nullptr;
     QPushButton *m_heartBtn = nullptr;
     QPushButton *m_downloadBtn = nullptr;
+    int m_durationWidth = 50;
 
     QMetaObject::Connection m_coverConn;
 };

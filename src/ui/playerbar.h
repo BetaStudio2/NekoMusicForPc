@@ -141,9 +141,7 @@ private:
 
     QLabel *m_localBadge = nullptr;
     QLabel *m_songName = nullptr;
-    QLabel *m_artist = nullptr;
     QWidget *m_lyricSlot = nullptr;
-    QLabel *m_barLyricLine = nullptr;
     QString m_barLyricText;
     int m_barLyricLineIndex = -1;
     bool m_trackHasLyrics = false;
