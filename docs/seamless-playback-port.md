@@ -68,9 +68,29 @@ Qt 侧接线（`MainWindow`）：
   - 曲间无缝：`source_switched(position=0)`，下一首从头完整播放。
 - 整包 `cmake --build` 通过；`NekoMusic` 启动走原生引擎播放成功。
 
-## 6. 已知限制 / 待办
+## 6. FFmpeg 依赖与打包（复用 Qt 同一套 FFmpeg）
 
-- **Windows**：引擎未启用（回退 QMediaPlayer）；引擎上游 Windows 构建另走 vcpkg 脚本，未纳入。
+原则：**同进程内只加载一份 FFmpeg**，避免 Qt 与引擎各带一份造成的符号/堆冲突。
+Qt 随包发布 FFmpeg **运行时**（DLL/dylib），但一般不带开发头文件/导入库，
+因此构建期需要一份**与 Qt 运行时同版本**的 FFmpeg 开发树。
+
+| 平台 | 构建期 FFmpeg | 运行期 FFmpeg | 处理 |
+|---|---|---|---|
+| **Linux** | 系统 FFmpeg（pkg-config） | 系统 FFmpeg（Qt 插件同一套） | 无需特殊处理；DEB 经 `libqt6multimedia6` 传递依赖 FFmpeg |
+| **Windows/MinGW** | `-DNEKO_FFMPEG_ROOT=<开发树>`（`include/` + `lib/`） | Qt 套件自带 `av*.dll`（`build_windows.sh` 已拷同目录） | 脚本自动探测 `NEKO_FFMPEG_ROOT` → Qt 套件 → 常见前缀；缺失则回退 QMediaPlayer 并告警 |
+| **macOS** | pkg-config（Homebrew）或 `NEKO_FFMPEG_ROOT` | 随 bundle 的 `libav*/libsw*.dylib` | `macdeployqt` 打包依赖；脚本**不再删除** FFmpeg dylib（仅移除 ffmpeg 插件、Qt 走 AVFoundation） |
+
+注意：
+- **版本必须一致**：Windows/macOS 上构建用的 FFmpeg 大版本需与 Qt 套件自带 FFmpeg 一致，
+  否则运行期会加载两份或找不到对应 soname。
+- `NEKO_FFMPEG_ROOT` 的手工定位同时支持 `lib/` 与 `lib/<triple>/`，并禁用
+  `CMAKE_FIND_ROOT_PATH` 重定根（交叉编译下直接使用给定绝对路径）。
+- 可用 `-DNEKO_DISABLE_AUDIO_ENGINE=ON` 强制关闭引擎、回退 QMediaPlayer。
+
+## 7. 已知限制 / 待办
+
+- **Windows**：引擎可构建，但需提供与 Qt 套件 FFmpeg 同版本的 MinGW 开发树
+  （`NEKO_FFMPEG_ROOT`）；未提供时自动回退 QMediaPlayer。Windows 侧未在本机验证编译。
 - **码率探测**：原生引擎不暴露源码率，`audioBitRateBps()` 返回 0，播放页音质角标回退到文件头/所选档位。
 - **输出设备映射**：Linux PulseAudio 下 `QAudioDevice.id()` 与引擎 sink id 一致，可直接映射；
   其他平台按描述名匹配，失败回退系统默认。

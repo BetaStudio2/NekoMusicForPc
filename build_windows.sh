@@ -113,13 +113,49 @@ fi
 mkdir -p "$BUILD_DIR"
 cd "$BUILD_DIR"
 
+# ============================================================
+# FFmpeg 开发树（原生无缝播放引擎）
+# ============================================================
+# 引擎构建期需 FFmpeg 头文件 + MinGW 导入库；运行期须与 Qt 自带 FFmpeg DLL
+# 同版本（同进程只加载一份，避免两份 FFmpeg 实例）。来源优先级：
+#   1) 环境变量 NEKO_FFMPEG_ROOT（含 include/ 与 lib/ 的开发树）
+#   2) Qt 套件自带开发文件（部分发行包含）
+#   3) 常见 MinGW FFmpeg 前缀
+NEKO_FFMPEG_DEV="${NEKO_FFMPEG_ROOT:-}"
+if [ -z "$NEKO_FFMPEG_DEV" ] && [ -f "$QT_WIN_ROOT/include/libavformat/avformat.h" ]; then
+    NEKO_FFMPEG_DEV="$QT_WIN_ROOT"
+fi
+if [ -z "$NEKO_FFMPEG_DEV" ]; then
+    for cand in \
+        /usr/x86_64-w64-mingw32 \
+        "$HOME/ffmpeg-mingw" /opt/ffmpeg-mingw \
+        "$HOME/ffmpeg" /opt/ffmpeg; do
+        if [ -f "$cand/include/libavformat/avformat.h" ]; then
+            NEKO_FFMPEG_DEV="$cand"; break
+        fi
+    done
+fi
+
+FFMPEG_CMAKE_ARG=""
+if [ -n "$NEKO_FFMPEG_DEV" ]; then
+    echo "Using FFmpeg dev for native engine: $NEKO_FFMPEG_DEV"
+    FFMPEG_CMAKE_ARG="-DNEKO_FFMPEG_ROOT=$NEKO_FFMPEG_DEV"
+else
+    echo ""
+    echo "WARNING: 未找到 MinGW FFmpeg 开发树 —— 原生无缝播放引擎将被跳过（回退 QMediaPlayer）。"
+    echo "  如需启用，请提供与 Qt 套件自带 FFmpeg DLL 同版本的开发树并设置："
+    echo "    export NEKO_FFMPEG_ROOT=/path/to/ffmpeg-mingw   # 含 include/ 与 lib/"
+    echo ""
+fi
+
 # Configure with CMake using cross-compilation toolchain
 echo "Configuring with CMake..."
 cmake .. \
     -DCMAKE_TOOLCHAIN_FILE="$SCRIPT_DIR/cmake/mingw-x64-toolchain.cmake" \
     -DCMAKE_BUILD_TYPE="$BUILD_TYPE" \
     -DCMAKE_PREFIX_PATH="$QT_WIN_ROOT" \
-    -DCMAKE_FIND_ROOT_PATH="$QT_WIN_ROOT"
+    -DCMAKE_FIND_ROOT_PATH="$QT_WIN_ROOT" \
+    $FFMPEG_CMAKE_ARG
 
 # Build
 echo ""
@@ -192,6 +228,21 @@ for pattern in 'avcodec-*.dll' 'avformat-*.dll' 'avutil-*.dll' 'swresample-*.dll
     done
     shopt -u nullglob
 done
+
+# 原生引擎链接的 FFmpeg：优先复用上面已拷的 Qt 自带 DLL；若开发树版本不同名则补齐。
+if [ -n "${NEKO_FFMPEG_DEV:-}" ] && [ -d "$NEKO_FFMPEG_DEV/bin" ]; then
+    for pattern in 'avcodec-*.dll' 'avformat-*.dll' 'avutil-*.dll' 'swresample-*.dll' 'swscale-*.dll'; do
+        shopt -s nullglob
+        for f in "$NEKO_FFMPEG_DEV/bin"/$pattern; do
+            base="$(basename "$f")"
+            if [ ! -f "$DEPLOY_DIR/$base" ]; then
+                cp "$f" "$DEPLOY_DIR/"
+                echo "  Copied $base (engine FFmpeg dev tree)"
+            fi
+        done
+        shopt -u nullglob
+    done
+fi
 
 # 图形栈常用同目录依赖（Qt 安装包 bin 内自带；不打包 OpenGL 软渲染）
 for extra in d3dcompiler_47.dll; do

@@ -175,11 +175,19 @@ INSTALL_PREFIX="$SCRIPT_DIR/$BUILD_DIR/install"
 PKG_OUTDIR="$SCRIPT_DIR/$BUILD_DIR/pkg"
 
 echo "Configuring with CMake..."
+# 原生无缝播放引擎需要 FFmpeg 开发库：优先 pkg-config（Homebrew/系统），
+# 也可用 NEKO_FFMPEG_ROOT 指定与 Qt 自带 FFmpeg 同版本的开发树。
+NEKO_FFMPEG_ARG=""
+if [ -n "${NEKO_FFMPEG_ROOT:-}" ]; then
+    NEKO_FFMPEG_ARG="-DNEKO_FFMPEG_ROOT=$NEKO_FFMPEG_ROOT"
+    echo "Using FFmpeg dev root: $NEKO_FFMPEG_ROOT"
+fi
 cmake .. \
     -DCMAKE_BUILD_TYPE="$BUILD_TYPE" \
     -DCMAKE_PREFIX_PATH="$QT_MAC_ROOT" \
     -DCMAKE_OSX_DEPLOYMENT_TARGET="$OSX_DEPLOYMENT_TARGET" \
-    -DCMAKE_OSX_ARCHITECTURES="$OSX_ARCHITECTURES"
+    -DCMAKE_OSX_ARCHITECTURES="$OSX_ARCHITECTURES" \
+    $NEKO_FFMPEG_ARG
 
 echo ""
 echo "Building..."
@@ -232,23 +240,22 @@ if [[ -d "$SQL_DRIVER_DIR" ]]; then
 fi
 
 echo ""
-echo "Preferring macOS AVFoundation multimedia backend..."
+echo "Preferring macOS AVFoundation multimedia backend (Qt 侧)..."
 MULTIMEDIA_PLUGIN_DIR="$APP_DIR/Contents/PlugIns/multimedia"
 FRAMEWORKS_DIR="$APP_DIR/Contents/Frameworks"
 if [[ -d "$MULTIMEDIA_PLUGIN_DIR" ]]; then
     if [[ -f "$MULTIMEDIA_PLUGIN_DIR/libffmpegmediaplugin.dylib" ]]; then
         rm -f "$MULTIMEDIA_PLUGIN_DIR/libffmpegmediaplugin.dylib"
         rm -f "$MULTIMEDIA_PLUGIN_DIR/._libffmpegmediaplugin.dylib"
-        echo "  Removed libffmpegmediaplugin.dylib"
+        echo "  Removed libffmpegmediaplugin.dylib (Qt 改用 AVFoundation)"
     fi
 fi
+# 注意：原生无缝播放引擎（ArchoeraAudio）仍依赖 FFmpeg，故 **保留** Frameworks 下的
+# libav*/libsw* dylib，不随 Qt 插件一并删除；macdeployqt 已将其 rpath 改写为 @rpath。
 if [[ -d "$FRAMEWORKS_DIR" ]]; then
-    for dylib in libavformat.61.dylib libavcodec.61.dylib libswresample.5.dylib libswscale.8.dylib libavutil.59.dylib; do
-        if [[ -f "$FRAMEWORKS_DIR/$dylib" ]]; then
-            rm -f "$FRAMEWORKS_DIR/$dylib"
-            rm -f "$FRAMEWORKS_DIR/._$dylib"
-            echo "  Removed $dylib"
-        fi
+    echo "  Keeping bundled FFmpeg dylibs for native engine:"
+    for dylib in "$FRAMEWORKS_DIR"/libav*.dylib "$FRAMEWORKS_DIR"/libsw*.dylib; do
+        [[ -f "$dylib" ]] && echo "    $(basename "$dylib")"
     done
 fi
 

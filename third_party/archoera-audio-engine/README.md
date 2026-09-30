@@ -18,9 +18,16 @@ ArchoeraMusic 原生音频引擎的 **FFmpeg-only** 精简副本，供 NekoMusic
 
 ## 构建
 
-由主工程 `CMakeLists.txt` 经 `add_subdirectory` 引入；依赖系统 FFmpeg 开发库
-（`libavformat`/`libavcodec`/`libavutil`/`libswresample`）。未找到时自动跳过，
-播放回退 `QMediaPlayer`。
+由主工程 `CMakeLists.txt` 经 `add_subdirectory` 引入。FFmpeg 依赖按平台解析：
+
+- **Linux**：pkg-config（系统 FFmpeg，与 Qt 的 ffmpeg 插件同一套）；
+- **macOS**：pkg-config（Homebrew/系统）或 `NEKO_FFMPEG_ROOT`；
+- **Windows/MinGW**：必须 `-DNEKO_FFMPEG_ROOT=<FFmpeg开发树>`（**不查宿主 pkg-config**，
+  避免交叉编译误用宿主库）；开发树需含 `include/` 与 `lib/`（或 `lib/<triple>/`）。
+
+原则：同进程只加载一份 FFmpeg，构建期版本须与 Qt 运行时自带的 FFmpeg 一致。
+未找到 FFmpeg 时自动跳过，播放回退 `QMediaPlayer`。可用 `-DNEKO_DISABLE_AUDIO_ENGINE=ON`
+显式关闭。详见 `docs/seamless-playback-port.md` §6。
 
 > 注：本目录文件按移植需要可继续修，但请保持上游 AGPL 归属与许可证文件完整；
 > 若上游有重要修复，建议按 `git diff` 方式同步。

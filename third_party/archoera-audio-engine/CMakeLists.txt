@@ -21,7 +21,16 @@ cmake_minimum_required(VERSION 3.20)
 # 否则 .c 源文件不会被编译（目标只剩 AUTOMOC 空对象，链接期全部未定义）。
 enable_language(C)
 
-# ── 依赖：系统 FFmpeg 开发库（libavformat/avcodec/avutil/swresample）──────
+# ── 依赖：FFmpeg 开发库（libavformat/avcodec/avutil/swresample）──────────
+#
+# 策略：**复用 Qt 运行期所用的同一套 FFmpeg**——同进程内只有一份 FFmpeg，
+# 避免两份实例的符号/堆冲突。落地方式按平台：
+#   - Linux：系统 FFmpeg（Qt 的 ffmpeg 插件也用它）→ pkg-config 直接命中；
+#   - macOS：Homebrew/系统 FFmpeg（构建期），运行期随 bundle 的同一套 dylib；
+#   - Windows/MinGW：**不查宿主 pkg-config**（跨编会误用宿主 Linux 库），
+#     改用 NEKO_FFMPEG_ROOT（含 include/ 与 lib/ 的 FFmpeg 开发树，版本须与
+#     Qt 套件自带 FFmpeg DLL 一致）。
+#
 # 可用 -DNEKO_DISABLE_AUDIO_ENGINE=ON 强制关闭原生引擎（播放回退 QMediaPlayer）。
 option(NEKO_DISABLE_AUDIO_ENGINE "禁用原生无缝播放引擎（回退 QMediaPlayer）" OFF)
 if(NEKO_DISABLE_AUDIO_ENGINE)
@@ -30,18 +39,76 @@ if(NEKO_DISABLE_AUDIO_ENGINE)
     return()
 endif()
 
-find_package(PkgConfig QUIET)
-if(PkgConfig_FOUND)
-    pkg_check_modules(ARCHOERRA_FFMPEG QUIET
-        libavformat
-        libavcodec
-        libavutil
-        libswresample
-    )
+set(ARCHOERRA_FFMPEG_FOUND FALSE)
+set(ARCHOERRA_FFMPEG_INCLUDE_DIRS "")
+set(ARCHOERRA_FFMPEG_LIBRARIES "")
+set(ARCHOERRA_FFMPEG_LIBRARY_DIRS "")
+set(ARCHOERRA_FFMPEG_CFLAGS_OTHER "")
+
+# 1) 非 Windows：优先 pkg-config（Linux 系统 / macOS Homebrew）。
+if(NOT WIN32)
+    find_package(PkgConfig QUIET)
+    if(PkgConfig_FOUND)
+        pkg_check_modules(ARCHOERRA_FFMPEG_PC QUIET
+            libavformat libavcodec libavutil libswresample)
+        if(ARCHOERRA_FFMPEG_PC_FOUND)
+            set(ARCHOERRA_FFMPEG_FOUND TRUE)
+            set(ARCHOERRA_FFMPEG_VERSION ${ARCHOERRA_FFMPEG_PC_VERSION})
+            set(ARCHOERRA_FFMPEG_INCLUDE_DIRS ${ARCHOERRA_FFMPEG_PC_INCLUDE_DIRS})
+            set(ARCHOERRA_FFMPEG_LIBRARIES ${ARCHOERRA_FFMPEG_PC_LIBRARIES})
+            set(ARCHOERRA_FFMPEG_LIBRARY_DIRS ${ARCHOERRA_FFMPEG_PC_LIBRARY_DIRS})
+            set(ARCHOERRA_FFMPEG_CFLAGS_OTHER ${ARCHOERRA_FFMPEG_PC_CFLAGS_OTHER})
+        endif()
+    endif()
+endif()
+
+# 2) NEKO_FFMPEG_ROOT 兜底/覆盖（Windows/MinGW 必用；其它平台亦可指定精确版本）。
+if(NOT ARCHOERRA_FFMPEG_FOUND AND NEKO_FFMPEG_ROOT)
+    set(_ff_root "${NEKO_FFMPEG_ROOT}")
+    # Windows 交叉编译时库可能位于 lib/ 或 lib/<triple>/。
+    set(_ff_libdirs "${_ff_root}/lib")
+    file(GLOB _ff_sub "${_ff_root}/lib/*")
+    foreach(_d ${_ff_sub})
+        if(IS_DIRECTORY "${_d}")
+            list(APPEND _ff_libdirs "${_d}")
+        endif()
+    endforeach()
+
+    find_path(ARCHOERRA_FFMPEG_INC libavformat/avformat.h
+        PATHS "${_ff_root}/include" NO_DEFAULT_PATH NO_CMAKE_FIND_ROOT_PATH)
+    find_library(ARCHOERRA_FFMPEG_avformat NAMES avformat libavformat
+        PATHS ${_ff_libdirs} NO_DEFAULT_PATH NO_CMAKE_FIND_ROOT_PATH)
+    find_library(ARCHOERRA_FFMPEG_avcodec NAMES avcodec libavcodec
+        PATHS ${_ff_libdirs} NO_DEFAULT_PATH NO_CMAKE_FIND_ROOT_PATH)
+    find_library(ARCHOERRA_FFMPEG_avutil NAMES avutil libavutil
+        PATHS ${_ff_libdirs} NO_DEFAULT_PATH NO_CMAKE_FIND_ROOT_PATH)
+    find_library(ARCHOERRA_FFMPEG_swresample NAMES swresample libswresample
+        PATHS ${_ff_libdirs} NO_DEFAULT_PATH NO_CMAKE_FIND_ROOT_PATH)
+
+    if(ARCHOERRA_FFMPEG_INC
+       AND ARCHOERRA_FFMPEG_avformat AND ARCHOERRA_FFMPEG_avcodec
+       AND ARCHOERRA_FFMPEG_avutil AND ARCHOERRA_FFMPEG_swresample)
+        set(ARCHOERRA_FFMPEG_FOUND TRUE)
+        set(ARCHOERRA_FFMPEG_INCLUDE_DIRS "${ARCHOERRA_FFMPEG_INC}")
+        set(ARCHOERRA_FFMPEG_LIBRARIES
+            "${ARCHOERRA_FFMPEG_avformat}"
+            "${ARCHOERRA_FFMPEG_avcodec}"
+            "${ARCHOERRA_FFMPEG_avutil}"
+            "${ARCHOERRA_FFMPEG_swresample}")
+        message(STATUS "archoera-audio-engine: 使用 NEKO_FFMPEG_ROOT=${_ff_root}")
+    else()
+        message(WARNING
+            "archoera-audio-engine: NEKO_FFMPEG_ROOT=${_ff_root} 下未找齐 FFmpeg "
+            "开发文件（需 include/libavformat/avformat.h 与 lib 下 avformat/avcodec/"
+            "avutil/swresample 导入库）")
+    endif()
 endif()
 
 if(NOT ARCHOERRA_FFMPEG_FOUND)
-    message(STATUS "archoera-audio-engine: 未找到 FFmpeg 开发库，跳过原生引擎（播放回退 QMediaPlayer）")
+    message(STATUS
+        "archoera-audio-engine: 未找到 FFmpeg 开发库，跳过原生引擎（播放回退 QMediaPlayer）。"
+        "Windows/MinGW 请以 -DNEKO_FFMPEG_ROOT=<FFmpeg开发树> 指定（版本须与 Qt 套件 "
+        "自带 FFmpeg DLL 一致）。")
     set(ARCHOERRA_ENGINE_AVAILABLE FALSE PARENT_SCOPE)
     return()
 endif()
