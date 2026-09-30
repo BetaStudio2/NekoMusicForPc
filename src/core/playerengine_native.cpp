@@ -67,8 +67,16 @@ void PlayerEngine::beginSession(const QUrl &url, qint64 resumeMs)
     m_switching = false;
     m_desiredPlaying = true; // 起播默认播放（pauseWhenReady 会在此后 pause()）
     m_engineReady = false;
+    m_musicStartedEmitted = false;
     m_preparedUrl = QUrl();
     m_preparedMusic = MusicInfo();
+
+    // 新会话：状态归 Stopped（避免沿用上一首的 Playing 去重掉本首 musicStarted）。
+    if (m_state != Stopped) {
+        m_state = Stopped;
+        emit stateChanged(m_state);
+        emit mediaPlaybackStateChanged();
+    }
 
     if (url.isEmpty())
         return;
@@ -117,20 +125,32 @@ void PlayerEngine::beginSession(const QUrl &url, qint64 resumeMs)
             [this, eng, gen](bool playing, qint64 durationMs) {
                 if (gen != m_openGen || eng != m_audio)
                     return;
-                if (!playing)
-                    return;
-                // 就绪后若用户已请求暂停（pauseWhenReady 早于起播），立即暂停并保持。
-                if (!m_desiredPlaying) {
-                    eng->pause();
+                if (!playing) {
+                    // 引擎 pause（或外部暂停）→ 立即反映到底栏/系统媒体。
+                    if (m_state == Playing) {
+                        m_state = Paused;
+                        emit stateChanged(m_state);
+                        emit mediaPlaybackStateChanged();
+                    }
                     return;
                 }
                 if (durationMs > 0 && durationMs != m_durationMs) {
                     m_durationMs = durationMs;
                     emit durationChanged(m_durationMs);
                 }
+                // 就绪后若用户已请求暂停（pauseWhenReady 早于起播），立即暂停并保持。
+                if (!m_desiredPlaying) {
+                    eng->pause();
+                    return;
+                }
+                if (m_state == Playing)
+                    return; // 去重：real playing 事件 / 乐观 play() 已处理
                 m_state = Playing;
-                if (m_currentMusic.id > 0 || m_currentMusic.isLocalFile())
+                if (!m_musicStartedEmitted
+                    && (m_currentMusic.id > 0 || m_currentMusic.isLocalFile())) {
+                    m_musicStartedEmitted = true;
                     emit musicStarted(m_currentMusic);
+                }
                 emit stateChanged(m_state);
                 emit mediaPlaybackStateChanged();
             });
@@ -305,12 +325,13 @@ void PlayerEngine::play()
 {
     cancelFade();
     m_desiredPlaying = true;
-    if (m_audio) {
-        applyEngineVolume();
-        m_audio->play();
-        m_audio->requestStatus();
-    }
-    if (m_state != Playing && m_audio && m_engineReady) {
+    if (!m_audio)
+        return;
+    applyEngineVolume();
+    m_audio->play();
+    m_audio->requestStatus();
+    // 门面持有权威播放态（引擎 play/pause 不回事件，仅事件源不可靠）。
+    if (m_engineReady && m_state != Playing) {
         m_state = Playing;
         emit stateChanged(m_state);
         emit mediaPlaybackStateChanged();
@@ -347,6 +368,7 @@ void PlayerEngine::stop()
     m_switching = false;
     m_desiredPlaying = false;
     m_engineReady = false;
+    m_musicStartedEmitted = false;
     if (m_state != Stopped) {
         m_state = Stopped;
         emit stateChanged(m_state);
@@ -430,6 +452,7 @@ void PlayerEngine::onFadeTick()
             delete m_fadeTimer;
             m_fadeTimer = nullptr;
             emit fadeComplete();
+            emit stateChanged(m_state); // 刷新底栏图标（淡入完成=Playing）
         }
         applyEngineVolume();
     } else if (m_fadingOut) {
@@ -444,6 +467,7 @@ void PlayerEngine::onFadeTick()
             delete m_fadeTimer;
             m_fadeTimer = nullptr;
             emit fadeComplete();
+            emit stateChanged(m_state); // 刷新底栏图标（淡出完成=Paused）
         } else {
             applyEngineVolume();
         }
@@ -459,12 +483,16 @@ PlayerEngine::PlaybackState PlayerEngine::playbackState() const
 
 bool PlayerEngine::isActuallyPlaying() const
 {
-    return m_audio && m_audio->isPlaying();
+    // 引擎 play/pause 命令不回事件，无法可靠地读底层；由门面权威态推导。
+    // 淡出进行中对外仍视为"在播"（与旧 QMediaPlayer 语义一致：淡出完成才停声）。
+    if (m_fadingOut)
+        return true;
+    return m_state == Playing;
 }
 
 PlayerEngine::PlaybackState PlayerEngine::transportStateForOs() const
 {
-    if (m_fadingOut && m_audio && m_audio->isPlaying())
+    if (m_fadingOut && isActuallyPlaying())
         return Paused;
     return m_state;
 }

@@ -129,6 +129,8 @@ private:
     bool m_desiredPlaying = false;
     /** 引擎会话已就绪（收到 ready）；用于区分首次起播与恢复播放的乐观状态。 */
     bool m_engineReady = false;
+    /** 本会话是否已发过 musicStarted（避免暂停/恢复重复记最近播放）。 */
+    bool m_musicStartedEmitted = false;
 #else
     // ── QMediaPlayer 实现（playerengine_qtmedia.cpp）──
     void onPlayerMetaDataChanged();

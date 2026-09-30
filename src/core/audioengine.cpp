@@ -248,7 +248,6 @@ void AudioEngine::handleEventLine(const QString &line)
         emit contentDone();
     } else if (type == QLatin1String("player:ended")) {
         m_playing = false;
-        emit playingChanged(false, m_durationMs);
         emit playerEnded();
     } else if (type == QLatin1String("source_ready")) {
         emit sourceReady();
