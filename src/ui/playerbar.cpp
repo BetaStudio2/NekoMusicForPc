@@ -56,6 +56,7 @@
 #include <QScrollArea>
 #include <QScrollBar>
 #include <QFrame>
+#include <cmath>
 #include <functional>
 
 namespace {
@@ -68,12 +69,13 @@ constexpr int kPbArtistLineH = 18;
 constexpr int kPbInfoLineGap = 1;
 constexpr int kPbHeartBtn = 24;
 constexpr int kPbHeartIcon = 20;
+constexpr int kPbMarqueeGap = 48;
 constexpr int kPbMarqueeIntervalMs = 32;
 constexpr int kPbMarqueeFrameMs = 16;
 constexpr int kPbMarqueePauseTicks = 45;
-constexpr qreal kPbLyricMarqueeSpeed = 2.0;
+constexpr qreal kPbLyricMarqueeSpeed = 1.3;
 
-/** 底栏歌名 / 歌词：限宽显示，超出后向左滚动一次（不循环），到末尾即停 */
+/** 底栏歌名 / 歌词：限宽显示，超出后向左循环滚动；首尾之间留固定间隙，循环处停顿 */
 class PbMarqueeLabel final : public QLabel {
 public:
     explicit PbMarqueeLabel(QWidget *parent = nullptr)
@@ -100,7 +102,7 @@ public:
         rebuildMetrics();
     }
 
-    /** 跑马灯速度倍率（底栏歌词行默认 2×） */
+    /** 跑马灯速度倍率（底栏歌词行默认 kPbLyricMarqueeSpeed） */
     void setMarqueeSpeed(qreal multiplier)
     {
         m_speedMul = qBound(0.5, multiplier, 8.0);
@@ -148,10 +150,14 @@ protected:
             return;
         }
 
-        // 只画一份，位置由已过时间算出并夹在 [0, 文本宽-可用宽]：滚到末尾即停，
-        // 全程没有循环 / 复位，因此不存在末端跳变。
-        const QRectF r(-m_offset, 0, qreal(m_textWidth), qreal(clip.height()));
-        p.drawText(r, Qt::AlignLeft | Qt::AlignVCenter | Qt::TextSingleLine, m_fullText);
+        // 画两份相同文本，间距恒为一个循环宽：一份滚出左侧时，另一份恰好从右侧
+        // 无缝补入。偏移量按已过时间取模推进，循环点落在文本起点，因此没有可见跳变。
+        const auto drawAt = [&](qreal x) {
+            const QRectF r(x, 0, qreal(m_textWidth), qreal(clip.height()));
+            p.drawText(r, Qt::AlignLeft | Qt::AlignVCenter | Qt::TextSingleLine, m_fullText);
+        };
+        drawAt(-m_offset);
+        drawAt(-m_offset + m_loopWidth);
     }
 
 private:
@@ -190,21 +196,24 @@ private:
             m_timer.stop();
             return;
         }
-        const qreal seconds = m_clock.elapsed() / 1000.0;
-        const qreal end = maxScroll();
-        m_offset = qMin(seconds * pxPerSecond(), end);
+        // 已滚距离 = 速度 × 已过时间，再对「一个循环宽 + 停顿距离」取模。
+        // 停顿距离折算成像素后恰为 kPbMarqueePauseTicks，故循环总长为
+        // m_loopWidth + kPbMarqueePauseTicks。
+        const qreal traveled = pxPerSecond() * (m_clock.elapsed() / 1000.0);
+        const qreal cycle = qreal(m_loopWidth) + kPbMarqueePauseTicks;
+        const qreal phase = traveled - std::floor(traveled / cycle) * cycle;
+        // phase 落在 [m_loopWidth, cycle) 时画在 m_loopWidth 处，与偏移 0 视觉一致
+        // （静止），从而在循环点形成停顿，而不是回拉。
+        m_offset = phase >= qreal(m_loopWidth) ? qreal(m_loopWidth) : phase;
         update();
-        if (m_offset >= end)
-            m_timer.stop(); // 到达末尾停止，不循环
     }
-
-    qreal maxScroll() const { return qMax<qreal>(0.0, qreal(m_textWidth) - m_maxWidth); }
 
     void rebuildMetrics()
     {
         const QFontMetrics fm(font());
         m_textWidth = fm.horizontalAdvance(m_fullText);
         m_scrolling = m_textWidth > m_maxWidth;
+        m_loopWidth = m_textWidth + kPbMarqueeGap;
 
         const int lineH = m_lineHeight > 0 ? m_lineHeight : kPbTitleLineH;
         setFixedHeight(lineH);
@@ -215,7 +224,7 @@ private:
             m_timer.stop();
             m_startDelay.stop();
             m_offset = 0.0;
-        } else if (!m_timer.isActive() && !m_startDelay.isActive() && m_offset < maxScroll()) {
+        } else if (!m_timer.isActive() && !m_startDelay.isActive()) {
             beginScroll(); // 由不可滚动变为可滚动：直接开始
         }
         update();
@@ -224,6 +233,7 @@ private:
     QString m_fullText;
     int m_maxWidth = 120;
     int m_textWidth = 0;
+    int m_loopWidth = 0;
     qreal m_offset = 0.0;
     int m_lineHeight = 0;
     qreal m_speedMul = 1.0;
