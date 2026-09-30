@@ -212,6 +212,26 @@ void PlaylistManager::setCurrentIndex(int index) {
     emit currentIndexChanged(index);
 }
 
+// NekoMusic 移植增补（无缝播放）：非消费式预测下一首，供曲间预加载。
+// 与 nextIndex() 同刻返回同一首；真正切换时再调 nextIndex() 消费洗牌袋游标。
+int PlaylistManager::peekNextIndex() {
+    if (m_playlist.isEmpty()) return -1;
+
+    if (!m_forcedNextKey.isEmpty()) {
+        const int forcedIndex = indexOfKey(m_forcedNextKey);
+        if (forcedIndex >= 0) return forcedIndex;
+    }
+
+    if (m_playMode == "single") {
+        return m_currentIndex;
+    } else if (m_playMode == "random") {
+        const QString key = m_shuffleBag.peekNext(poolKeys());
+        return key.isEmpty() ? -1 : indexOfKey(key);
+    } else {
+        return (m_currentIndex + 1) % m_playlist.size();
+    }
+}
+
 int PlaylistManager::nextIndex() {
     if (m_playlist.isEmpty()) return -1;
 

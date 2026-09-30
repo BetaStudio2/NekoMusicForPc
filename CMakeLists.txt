@@ -163,7 +163,6 @@ set(SOURCES
         src/ui/coverlistcard.cpp
         src/ui/artistdetailpage.cpp
         src/ui/roundcoverlabel.cpp
-        src/core/playerengine.cpp
         src/core/apiclient.cpp
         src/core/i18n.cpp
         src/core/legaltext.cpp
@@ -313,6 +312,21 @@ else()
     list(APPEND SOURCES src/core/micsynccontroller_stub.cpp)
 endif()
 
+# ── ArchoeraAudio 原生音频引擎（无缝播放；FFmpeg-only，无 Zig 内核）──────
+# vendor 于 third_party/archoera-audio-engine/，见该目录 CMakeLists 的移植说明。
+# 仅在找到系统 FFmpeg 开发库时构建；否则回退 QMediaPlayer（保持既有行为）。
+add_subdirectory(third_party/archoera-audio-engine)
+if(ARCHOERRA_ENGINE_AVAILABLE)
+    message(STATUS "NekoMusic: 启用原生引擎 — 无缝音质切换 + 曲间无缝续播")
+    list(APPEND SOURCES
+            src/core/audioengine.cpp
+            src/core/playerengine_native.cpp)
+    list(APPEND HEADERS src/core/audioengine.h)
+else()
+    message(STATUS "NekoMusic: 原生引擎不可用 — 播放回退 QMediaPlayer")
+    list(APPEND SOURCES src/core/playerengine_qtmedia.cpp)
+endif()
+
 if(WIN32)
     add_executable(${PROJECT_NAME} WIN32 ${SOURCES} ${HEADERS} ${RESOURCES} ${APP_ICON_RESOURCE_WINDOWS} ${GENERATED_SOURCES})
 elseif(APPLE)
@@ -413,6 +427,11 @@ if(WIN32)
     else()
         target_link_libraries(${PROJECT_NAME} PRIVATE Shlwapi Advapi32 User32)
     endif()
+endif()
+
+if(ARCHOERRA_ENGINE_AVAILABLE)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE NEKO_HAS_AUDIO_ENGINE=1)
+    target_link_libraries(${PROJECT_NAME} PRIVATE archoera_engine)
 endif()
 
 target_include_directories(${PROJECT_NAME} PRIVATE

@@ -149,6 +149,12 @@ private:
     void refreshPlayerMaxQuality(int musicId);
     void startBackgroundCacheDownload(int musicId, quint64 playSeq, const QUrl &url);
     void attachStreamPlaybackGuards(int musicId, quint64 playSeq);
+    /** 曲间无缝：临近曲尾预加载下一首（引擎暂存解码）。 */
+    void maybePrepareGaplessNext(qint64 position, qint64 duration);
+    /** 曲间无缝：引擎已接管下一首后做 UI/元数据/历史切换（不重启播放）。 */
+    void onGaplessTransitioned(const MusicInfo &info);
+    /** 解析某曲的播放 URL（优先本地缓存，否则远程流）。 */
+    QUrl resolvePlaybackUrl(const MusicInfo &info) const;
   /** @param midPlaybackError true=播放中途断流（Demuxing failed 等），需强制恢复 */
     void handleRemoteStreamFailure(int musicId, quint64 playSeq, bool midPlaybackError = false);
 
@@ -216,6 +222,8 @@ private:
     quint64 m_localOpenSeq = 0;
     bool m_defaultMusicPromptInFlight = false;
     int m_qualityInfoMusicId = 0;
+    /** 曲间无缝：预加载的下一首在队列中的下标（-1=无）。 */
+    int m_gaplessNextIndex = -1;
 
     QWidget *m_shellBackdrop = nullptr;
     QTimer *m_shellBackdropRebuildTimer = nullptr;

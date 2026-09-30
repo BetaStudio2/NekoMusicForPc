@@ -1,15 +1,28 @@
 #pragma once
 
 #include <QObject>
-#include <QMediaPlayer>
-#include <QAudioOutput>
-#include <QAudioDevice>
 #include <QUrl>
+#include <QAudioDevice>
 
 #include "core/musicinfo.h"
 
+#if defined(NEKO_HAS_AUDIO_ENGINE)
+class AudioEngine;
+#else
+#include <QMediaPlayer>
+#include <QAudioOutput>
+#endif
+
 class QTimer;
 
+/**
+ * PlayerEngine — 播放引擎门面，对外 API/信号保持稳定，内部实现按构建二选一：
+ *   - 定义 NEKO_HAS_AUDIO_ENGINE：NativePlayerEngine（ArchoeraMusic 原生引擎，
+ *     支持音质无缝切换与曲间无缝续播），实现见 playerengine_native.cpp；
+ *   - 未定义（如 Windows/无 FFmpeg 开发库）：沿用 QMediaPlayer 实现，见
+ *     playerengine_qtmedia.cpp。
+ * 两条实现共享本头文件的公共接口，UI/系统媒体/麦克风同步无需改动。
+ */
 class PlayerEngine : public QObject
 {
     Q_OBJECT
@@ -30,8 +43,15 @@ public:
     void playLocalResuming(const QString &localPath, qint64 resumeMs);
     /** 切换远程/任意 URL 并尽量从 resumeMs 继续（用于音质切换断点续传）。 */
     void playResuming(const QUrl &url, qint64 resumeMs);
-    /** 在当前播放不中断的情况下切换媒体源。 */
+    /** 在当前播放不中断的情况下切换媒体源（音质无缝切换）。 */
     void switchSourceWithoutRestart(const QUrl &url);
+    /** 曲间无缝：预加载下一首（当前曲临近结束时调用；引擎暂存解码）。 */
+    void prepareNextSource(const QUrl &url, const MusicInfo &music);
+    /** 曲间无缝：在旧源解码游标/曲尾排空处接管已预加载的下一首。 */
+    void commitPreparedNext();
+    bool hasPreparedNext() const;
+    /** 预加载的下一首是否已预解码就绪（就绪后 commit 才无损）。 */
+    bool isPreparedNextReady() const;
     void play();
     void pause();
     void stop();
@@ -47,20 +67,20 @@ public:
     const MusicInfo &currentMusic() const { return m_currentMusic; }
 
     PlaybackState playbackState() const;
-    /** 与 QMediaPlayer 一致；淡出过程中 m_state 可能已为 Paused 但底层仍在 Playing 时为 true。 */
+    /** 与底层一致；淡出过程中 m_state 可能已为 Paused 但底层仍在 Playing 时为 true。 */
     bool isActuallyPlaying() const;
     bool isFadingOut() const { return m_fadingOut; }
-    /** 对齐 QMediaPlayer，供 MPRIS / 系统媒体用；淡出过程中底层仍在播时仍视为 Paused。 */
+    /** 对齐底层，供 MPRIS / 系统媒体用；淡出过程中底层仍在播时仍视为 Paused。 */
     PlaybackState transportStateForOs() const;
     QUrl currentMediaUrl() const;
     qint64 duration() const;
     qint64 position() const;
-    /** QMediaPlayer 解析出的音频码率（bps），未就绪时为 0 */
+    /** 音频码率（bps），未就绪时为 0 */
     int audioBitRateBps() const;
 
 signals:
     void stateChanged(PlaybackState state);
-    /** QMediaPlayer::playbackState 每次变化时发出（与 m_state 是否被淡出逻辑屏蔽无关）。 */
+    /** 底层播放状态每次变化时发出（与 m_state 是否被淡出逻辑屏蔽无关）。 */
     void mediaPlaybackStateChanged();
     void positionChanged(qint64 position);
     void durationChanged(qint64 duration);
@@ -68,10 +88,49 @@ signals:
     void musicStarted(const MusicInfo& music);
     void mediaError(const QString &error);
     void playbackFinished();
+    /** 曲间无缝切换完成：底层已从上一首无缝续播到 next。 */
+    void transitionedToNext(const MusicInfo &next);
     /** 播放器元数据就绪时发出（含可用码率） */
     void audioMetaReady();
 
 private:
+#if defined(NEKO_HAS_AUDIO_ENGINE)
+    // ── 原生引擎实现（playerengine_native.cpp）──
+    void cancelFade();
+    void onFadeTick();
+    void teardownEngine();
+    void beginSession(const QUrl &url, qint64 resumeMs);
+    void applyEngineVolume();
+    float effectiveVolume() const;
+    static QString mapDeviceToSinkId(const QAudioDevice &device);
+
+    AudioEngine *m_audio = nullptr;
+    PlaybackState m_state = Stopped;
+    float m_targetVolume = 1.0f;
+    QTimer *m_fadeTimer = nullptr;
+    bool m_fadingIn = false;
+    bool m_fadingOut = false;
+    MusicInfo m_currentMusic;
+    qint64 m_seekLimitMs = -1;
+    QUrl m_pendingUrl;
+    qint64 m_pendingResumeMs = -1;
+    quint64 m_openGen = 0;
+    QUrl m_currentUrl;
+    qint64 m_durationMs = 0;
+    qint64 m_positionMs = 0;
+    float m_fadeValue = 0.0f;
+    QAudioDevice m_outputDevice;
+    QUrl m_preparedUrl;
+    MusicInfo m_preparedMusic;
+    bool m_hasPrepared = false;
+    bool m_preparedReady = false;
+    bool m_switching = false;
+    /** 期望播放态：pause() 可能早于引擎就绪（pauseWhenReady），就绪时据此决定起播/暂停。 */
+    bool m_desiredPlaying = false;
+    /** 引擎会话已就绪（收到 ready）；用于区分首次起播与恢复播放的乐观状态。 */
+    bool m_engineReady = false;
+#else
+    // ── QMediaPlayer 实现（playerengine_qtmedia.cpp）──
     void onPlayerMetaDataChanged();
     void connectPlayerSignals(QMediaPlayer *player);
     void cancelFade();
@@ -110,6 +169,7 @@ private:
     QMediaPlayer *m_qualitySwitchPlayer = nullptr;
     QAudioOutput *m_qualitySwitchOutput = nullptr;
     quint64 m_qualitySwitchGen = 0;
+#endif
 
 public:
     void setSeekLimitMs(qint64 limitMs) { m_seekLimitMs = limitMs; }

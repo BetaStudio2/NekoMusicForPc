@@ -48,6 +48,11 @@ public:
     void setCurrentIndex(int index);
     // 随机模式下会消费洗牌袋游标，故不能是 const
     int nextIndex();
+    /**
+     * 只看下一首、**不消费**洗牌袋游标（供曲间无缝预加载使用）。
+     * 与 nextIndex() 在同一时刻返回同一首；真正切换时再调 nextIndex() 消费。
+     */
+    int peekNextIndex();
     int previousIndex();
 
 signals:

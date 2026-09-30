@@ -132,6 +132,26 @@ void PlayerEngine::switchSourceWithoutRestart(const QUrl &url)
     candidate->play();
 }
 
+// 曲间无缝（gapless）仅由原生引擎实现支持；QMediaPlayer 回退路径下为空操作，
+// 播放结束仍走既有 playbackFinished → playNext 的硬切换。
+void PlayerEngine::prepareNextSource(const QUrl &url, const MusicInfo &music)
+{
+    Q_UNUSED(url);
+    Q_UNUSED(music);
+}
+
+void PlayerEngine::commitPreparedNext() {}
+
+bool PlayerEngine::hasPreparedNext() const
+{
+    return false;
+}
+
+bool PlayerEngine::isPreparedNextReady() const
+{
+    return false;
+}
+
 void PlayerEngine::openMedia(const QUrl &url, qint64 resumeMs)
 {
     cancelFade();

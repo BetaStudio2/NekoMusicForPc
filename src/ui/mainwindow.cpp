@@ -62,6 +62,7 @@
 
 #include <QApplication>
 #include <QClipboard>
+#include <QFile>
 #include <QGuiApplication>
 #include <QMouseEvent>
 #include <QWindow>
@@ -74,6 +75,11 @@
 #include <functional>
 
 namespace {
+
+/** 曲间无缝：剩余时长进入此窗口即预加载下一首（引擎暂存解码）。 */
+constexpr qint64 kGaplessPrepareLeadMs = 8000;
+/** 曲间无缝：剩余时长进入此窗口且下一首已就绪即提交接管（曲尾前无缝续接）。 */
+constexpr qint64 kGaplessCommitLeadMs = 400;
 
 /** 抽屉遮罩：高斯模糊 + 轻微压暗，淡入淡出（对齐 SPlayer backdrop-filter） */
 class PlaylistDrawerScrim final : public QWidget {
@@ -899,6 +905,18 @@ void MainWindow::setupUi()
         // - random: nextIndex() 由洗牌袋给出，一轮内每首歌只播一次
         playNext();
     });
+
+    // ── 曲间无缝（gapless）：临近曲尾预加载下一首，并在曲尾前的窗口内提交接管 ──
+    // 仅原生引擎支持；QMediaPlayer 回退路径的 hasPreparedNext() 恒 false，此处自然空转。
+    connect(m_engine, &PlayerEngine::positionChanged, this, [this](qint64 pos) {
+        const qint64 dur = m_engine->duration();
+        maybePrepareGaplessNext(pos, dur);
+        if (dur > 0 && m_engine->hasPreparedNext() && m_engine->isPreparedNextReady()
+            && (dur - pos) <= kGaplessCommitLeadMs) {
+            m_engine->commitPreparedNext();
+        }
+    });
+    connect(m_engine, &PlayerEngine::transitionedToNext, this, &MainWindow::onGaplessTransitioned);
 
     // 头像点击 - 显示登录/登出菜单
     connect(m_titleBar, &TitleBar::avatarClicked, this, [this]() {
@@ -1826,6 +1844,119 @@ void MainWindow::startBackgroundCacheDownload(int musicId, quint64 playSeq, cons
     m_downloader->download(url, musicId, quality);
 }
 
+// ── 曲间无缝（gapless）────────────────────────────────────────────────
+// 解析某曲的播放 URL：优先本地缓存文件，否则远程流（带 quality 参数）。
+QUrl MainWindow::resolvePlaybackUrl(const MusicInfo &info) const
+{
+    if (info.isLocalFile())
+        return QUrl::fromLocalFile(info.localPath);
+    if (info.id <= 0)
+        return QUrl();
+    const QString quality = m_playerBar ? m_playerBar->selectedAudioQuality()
+                                        : QStringLiteral("hq");
+    const QString cachedPath = MusicDownloader::cachedAudioFilePath(info.id, quality);
+    if (QFile::exists(cachedPath)) {
+#ifdef Q_OS_LINUX
+        LinuxTmpfsCache::touchAudioCacheFile(cachedPath);
+#endif
+        return QUrl::fromLocalFile(cachedPath);
+    }
+    QUrl url(QStringLiteral("%1/api/music/file/%2").arg(Theme::kApiBase).arg(info.id));
+    QUrlQuery query(url);
+    query.addQueryItem(QStringLiteral("quality"), quality);
+    url.setQuery(query);
+    return url;
+}
+
+void MainWindow::maybePrepareGaplessNext(qint64 position, qint64 duration)
+{
+    if (!m_engine || !m_engine->isActuallyPlaying())
+        return;
+    if (m_engine->hasPreparedNext())
+        return;
+    if (duration <= 0 || position <= 0)
+        return;
+    const qint64 remain = duration - position;
+    if (remain < 0 || remain > kGaplessPrepareLeadMs)
+        return;
+
+    auto &manager = PlaylistManager::instance();
+    if (manager.count() == 0)
+        return;
+    const int nextIdx = manager.peekNextIndex();
+    if (nextIdx < 0 || nextIdx >= manager.count())
+        return;
+    // 单曲循环（含单曲队列）：交给既有 playbackFinished→playNext 硬循环，
+    // 避免每圈重复写历史/触发后台缓存。
+    if (nextIdx == manager.currentIndex())
+        return;
+    const MusicInfo info = manager.playlist().at(nextIdx);
+    const QUrl url = resolvePlaybackUrl(info);
+    if (url.isEmpty())
+        return;
+
+    m_gaplessNextIndex = nextIdx;
+    m_engine->prepareNextSource(url, info);
+    qDebug() << "[曲间无缝] 预加载下一首:" << info.title << url.toString();
+}
+
+void MainWindow::onGaplessTransitioned(const MusicInfo &info)
+{
+    qDebug() << "[曲间无缝] 引擎已接管下一首:" << info.title;
+    auto &manager = PlaylistManager::instance();
+    const int idx = m_gaplessNextIndex;
+    m_gaplessNextIndex = -1;
+    if (idx >= 0 && idx < manager.count())
+        manager.setCurrentIndex(idx);
+
+    // 曲目已变：取消上一曲的流守卫/下载器连接。
+    cancelStreamWatch();
+    m_streamRetryActive = false;
+    m_isDownloading = false;
+    disconnectDownloader();
+    ++m_enginePlaySeq;
+    const quint64 playSeq = m_enginePlaySeq;
+
+    // UI 元数据切换（与 playNext 一致，但不 stop/重启引擎）。
+    m_playerBar->setCurrentMusicId(info.id);
+    m_playerBar->setSongInfo(info.title, info.artist, info.coverUrl);
+    const bool favorited = checkIsFavorited(info.id);
+    m_playerBar->setFavoriteStatus(favorited);
+    m_playerBar->setLoading(false);
+    if (m_playerPage) {
+        m_playerPage->setFavoriteStatus(favorited);
+        m_playerPage->setMusicInfo(info.id, info.title, info.artist, info.album, info.coverUrl);
+        m_playerPage->loadLyricsForTrack(info);
+    }
+    m_engine->setCurrentMusic(info);
+    refreshPlayerMaxQuality(info.id);
+
+    // 历史与列表高亮：曲间无缝不会触发 musicStarted，这里补记。
+    PlaylistDatabase::instance().recordRecentPlay(info);
+    if (m_favoritesPage) m_favoritesPage->updatePlayingHighlight();
+    if (m_playlistDetailPage) m_playlistDetailPage->updatePlayingHighlight();
+    if (m_recentPage) m_recentPage->updatePlayingHighlight();
+    if (m_downloadPage) m_downloadPage->updatePlayingHighlight();
+    if (m_searchPage) m_searchPage->updatePlayingHighlight();
+    if (m_artistDetailPage) m_artistDetailPage->updatePlayingHighlight();
+    if (m_hotMusicPage) m_hotMusicPage->updatePlayingHighlight();
+    if (m_latestMusicPage) m_latestMusicPage->updatePlayingHighlight();
+    if (m_dailyMusicPage) m_dailyMusicPage->updatePlayingHighlight();
+
+    refreshSystemMediaIntegration();
+
+    // 远程曲：并行触发后台缓存（保持既有缓存模式）。
+    if (!info.isLocalFile() && info.id > 0) {
+        const QString quality = m_playerBar ? m_playerBar->selectedAudioQuality()
+                                            : QStringLiteral("hq");
+        QUrl url(QStringLiteral("%1/api/music/file/%2").arg(Theme::kApiBase).arg(info.id));
+        QUrlQuery query(url);
+        query.addQueryItem(QStringLiteral("quality"), quality);
+        url.setQuery(query);
+        startBackgroundCacheDownload(info.id, playSeq, url);
+    }
+}
+
 void MainWindow::refreshPlayerMaxQuality(int musicId)
 {
     if (!m_apiClient || !m_playerBar || musicId <= 0 || m_qualityInfoMusicId == musicId)
@@ -1996,6 +2127,7 @@ void MainWindow::playNext()
     disconnectDownloader();
     m_downloader->cancel();
     m_engine->stop();
+    m_gaplessNextIndex = -1;
 
     ++m_enginePlaySeq;
     const quint64 playSeq = m_enginePlaySeq;
@@ -2058,6 +2190,7 @@ void MainWindow::playPrevious()
     disconnectDownloader();
     m_downloader->cancel();
     m_engine->stop();
+    m_gaplessNextIndex = -1;
 
     ++m_enginePlaySeq;
     const quint64 playSeq = m_enginePlaySeq;
