@@ -31,3 +31,12 @@ ArchoeraMusic 原生音频引擎的 **FFmpeg-only** 精简副本，供 NekoMusic
 
 > 注：本目录文件按移植需要可继续修，但请保持上游 AGPL 归属与许可证文件完整；
 > 若上游有重要修复，建议按 `git diff` 方式同步。
+
+## 三平台编译自检
+
+```bash
+bash tools/compile-check.sh all      # host + Windows/MSVC(wine) + macOS(SDK)
+```
+
+仅编译不链接，用于在 Linux 开发机上验证引擎对 MSVC / macOS clang 的源码兼容性
+（MSVC 走 `NEKO_MSVC_CL`，macOS 走 `NEKO_MACOS_SDK`）。

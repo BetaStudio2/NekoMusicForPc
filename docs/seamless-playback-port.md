@@ -87,6 +87,20 @@ Qt 随包发布 FFmpeg **运行时**（DLL/dylib），但一般不带开发头�
   `CMAKE_FIND_ROOT_PATH` 重定根（交叉编译下直接使用给定绝对路径）。
 - 可用 `-DNEKO_DISABLE_AUDIO_ENGINE=ON` 强制关闭引擎、回退 QMediaPlayer。
 
+### 本机三平台编译自检
+
+`third_party/archoera-audio-engine/tools/compile-check.sh`（仅 `-c` 编译，不链接）：
+在本机用 **MSVC(wine)** 与 **macOS SDK + clang** 交叉编译全部引擎源，验证源码兼容性。
+
+```bash
+bash third_party/archoera-audio-engine/tools/compile-check.sh all
+#   host/cc : 20/20
+#   win/msvc: 20/20   (NEKO_MSVC_CL=/opt/msvc/bin/x64/cl)
+#   mac/clang: 40/40  (NEKO_MACOS_SDK=~/.local/share/macos-sdk/MacOSX*.sdk，x86_64+arm64)
+```
+
+链接阶段各平台仍需对应的 FFmpeg 运行库/导入库（见上表），由各平台打包流程提供。
+
 ## 7. 已知限制 / 待办
 
 - **Windows**：引擎可构建，但需提供与 Qt 套件 FFmpeg 同版本的 MinGW 开发树
