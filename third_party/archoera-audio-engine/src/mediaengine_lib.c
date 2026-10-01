@@ -39,11 +39,36 @@
 #define ERA_HAS_MALLOC_TRIM 1
 #endif
 
-/* NekoMusic 移植增补：MinGW 的 <time.h>（非 UCRT 路径）不提供 C11 的 TIME_UTC
- * 常量（glibc/MSVC 均提供），导致 timespec_get(&ts, TIME_UTC) 编译失败。此处仅
- * 在 MinGW 且未被头文件定义时补一个等价常量（基准只需非 0 且全文件一致）。 */
-#if defined(_WIN32) && defined(__MINGW32__) && !defined(TIME_UTC)
+/* NekoMusic 移植增补：MinGW 的 <time.h>（msvcrt 路径）不提供 C11 timespec_get 的
+ * 实现（仅 UCRT 有），且不定义 TIME_UTC 常量。此处仅在 MinGW 下用 Win32
+ * GetSystemTimeAsFileTime 自实现，语义对齐 CLOCK_REALTIME（Unix epoch），
+ * 以保证 pthread_cond_timedwait 的超时基准正确。glibc/MSVC 不受影响。 */
+#if defined(_WIN32) && defined(__MINGW32__)
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#ifndef TIME_UTC
 #define TIME_UTC 1
+#endif
+static int era_timespec_get(struct timespec *ts, int base)
+{
+    FILETIME ft;
+    GetSystemTimeAsFileTime(&ft);
+    unsigned long long t100 =
+        (((unsigned long long)ft.dwHighDateTime) << 32) | ft.dwLowDateTime;
+    /* FILETIME 起 1601-01-01（100ns）；减到 Unix epoch 1970-01-01 */
+    const unsigned long long kEpochDiff100ns = 116444736000000000ULL;
+    t100 -= kEpochDiff100ns;
+    ts->tv_sec = (time_t)(t100 / 10000000ULL);
+    ts->tv_nsec = (long)((t100 % 10000000ULL) * 100ULL);
+    (void)base;
+    return base;
+}
+#define timespec_get era_timespec_get
 #endif
 
 /* ── UTF-8 安全 fopen（Windows 宽字符边界）──────────────────────

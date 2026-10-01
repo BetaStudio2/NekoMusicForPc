@@ -209,3 +209,9 @@ if(APPLE)
     target_link_libraries(archoera_engine PUBLIC
         "-framework CoreAudio" "-framework CoreFoundation")
 endif()
+
+# Windows：miniaudio 的 WASAPI/WinMM 后端所需系统库（MinGW/MSVC 均自带）
+if(WIN32)
+    target_link_libraries(archoera_engine PUBLIC
+        ole32 winmm avrt uuid bcrypt secur32 ws2_32)
+endif()
