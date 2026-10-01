@@ -103,16 +103,26 @@ bash third_party/archoera-audio-engine/tools/compile-check.sh all
 
 ### CI（`build-Releases` 三平台出包）
 
-- **Linux**：job 内 `apt-get install` FFmpeg 开发库 → **强制构建引擎**，并断言
-  `ldd build-linux/NekoMusic` 含 `libav*`（缺失即失败，避免"悄悄回退"假绿）。
-- **Windows / macOS**：**可选**。设置仓库变量 `NEKO_FFMPEG_WIN_ROOT` /
-  `NEKO_FFMPEG_MAC_ROOT` 指向 runner 上匹配的 FFmpeg 开发树即启用；未设置则跳过
-  （回退 QMediaPlayer），CI 保持绿。macOS 需**通用架构** FFmpeg（见上文守卫）。
+三平台均**真正构建并链接原生引擎**（CI 断言，缺失即失败，避免"悄悄回退"假绿）：
+
+- **Linux**：job 内 `apt-get install libav*-dev`（Ubuntu FFmpeg 6.1）→ 链接系统 FFmpeg；
+  断言 `ldd build-linux/NekoMusic` 含 `libav*`。
+- **Windows**：按 Qt 自带 `avcodec-<major>.dll` 推导版本 → 下载 BtbN MinGW 同大版本
+  开发树（头 + 导入库）→ 链接；运行期复用 Qt 自带的 `av*.dll`（同名、不分发第二份），
+  部署时补拷并按 `objdump` 导入表断言；另需 MinGW 系统库（ole32/winmm/avrt/uuid/bcrypt/
+  secur32/ws2_32，CMake 已链接）。
+- **macOS**：用 FFmpeg 源码头（`configure` 生成 `avconfig.h`）直接链 Qt 自带的
+  **universal** `dylib`；macdeployqt 打包后按"链接 libav* 才保留"逻辑留住，并 `otool` 断言。
+
+仓库变量 `NEKO_FFMPEG_WIN_ROOT` / `NEKO_FFMPEG_MAC_ROOT` 可覆盖默认获取方式（例如指向
+自备的匹配开发树）；未设置时用上述自动获取。
 
 ## 7. 已知限制 / 待办
 
-- **Windows**：引擎可构建，但需提供与 Qt 套件 FFmpeg 同版本的 MinGW 开发树
-  （`NEKO_FFMPEG_ROOT`）；未提供时自动回退 QMediaPlayer。Windows 侧未在本机验证编译。
+- **Windows**：引擎已可由 CI 构建（BtbN MinGW 同大版本开发树 + Qt 自带 DLL）；若 Qt 升级
+  导致 FFmpeg 大版本变化，需同步更新 CI 里 BtbN 对应大版本的下载 URL。
+- **macOS**：需 FFmpeg 源码头（CI 自动下载并 `configure` 生成 `avconfig.h`）；链接 Qt
+  自带的 universal dylib，故必须保持与 Qt 套件 FFmpeg 同大版本。
 - **码率探测**：原生引擎不暴露源码率，`audioBitRateBps()` 返回 0，播放页音质角标回退到文件头/所选档位。
 - **输出设备映射**：Linux PulseAudio 下 `QAudioDevice.id()` 与引擎 sink id 一致，可直接映射；
   其他平台按描述名匹配，失败回退系统默认。
