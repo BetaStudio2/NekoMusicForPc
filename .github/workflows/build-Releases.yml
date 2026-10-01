@@ -153,6 +153,19 @@ jobs:
           Write-Host "MinGW : $($mingw.FullName)"
           & g++ --version | Select-Object -First 1
 
+          # ---- 诊断：Qt 套件自带 FFmpeg 布局（决定原生引擎如何链接）----
+          Write-Host "== Qt FFmpeg 布局诊断 =="
+          Write-Host "bin/av*.dll :"
+          Get-ChildItem "$env:QT_ROOT_DIR\bin" -Filter 'av*.dll' -ErrorAction SilentlyContinue |
+            Select-Object -ExpandProperty Name | ForEach-Object { Write-Host "  $_" }
+          Write-Host "bin/sw*.dll :"
+          Get-ChildItem "$env:QT_ROOT_DIR\bin" -Filter 'sw*.dll' -ErrorAction SilentlyContinue |
+            Select-Object -ExpandProperty Name | ForEach-Object { Write-Host "  $_" }
+          Write-Host "lib/ *av*.a (导入库):"
+          Get-ChildItem "$env:QT_ROOT_DIR\lib" -Filter '*av*.a' -ErrorAction SilentlyContinue |
+            Select-Object -ExpandProperty Name | ForEach-Object { Write-Host "  $_" }
+          Write-Host ("include/libavformat/avformat.h: {0}" -f (Test-Path "$env:QT_ROOT_DIR\include\libavformat\avformat.h"))
+
           if (-not (Get-Command ninja -ErrorAction SilentlyContinue)) {
             choco install ninja -y --no-progress
           }
@@ -342,6 +355,22 @@ jobs:
           echo "Qt: ${QT_MAC_ROOT:-<未设置>}"
           [ -n "${NEKO_FFMPEG_ROOT:-}" ] && echo "FFmpeg(engine): $NEKO_FFMPEG_ROOT" \
             || echo "FFmpeg(engine): 未提供 → 跳过原生引擎（回退 QMediaPlayer）"
+
+          # ---- 诊断：Qt 套件自带 FFmpeg 布局（决定原生引擎如何链接）----
+          echo "== Qt 自带 FFmpeg 布局诊断 =="
+          ls -l "$QT_MAC_ROOT"/lib/libav*.dylib "$QT_MAC_ROOT"/lib/libsw*.dylib 2>/dev/null \
+            || echo "  (lib/ 下无 libav*.dylib)"
+          for f in "$QT_MAC_ROOT"/lib/libavcodec.*.dylib; do
+            if [ -f "$f" ]; then printf "  "; lipo -info "$f" || true; fi
+          done
+          if [ -f "$QT_MAC_ROOT/include/libavformat/avformat.h" ]; then
+            echo "  include: 有 FFmpeg 头文件"
+          else
+            echo "  include: 无 FFmpeg 头文件"
+          fi
+          echo "  套件内 libavcodec*.dylib 位置:"
+          find "$QT_MAC_ROOT" -maxdepth 3 -name 'libavcodec*.dylib' 2>/dev/null | head -5 | sed 's/^/    /'
+
           chmod +x build_macos.sh
           ./build_macos.sh Release
           if [ -n "${NEKO_FFMPEG_ROOT:-}" ]; then
