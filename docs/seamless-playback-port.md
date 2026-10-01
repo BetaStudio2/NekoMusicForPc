@@ -119,6 +119,12 @@ bash third_party/archoera-audio-engine/tools/compile-check.sh all
 
 ## 7. 已知限制 / 待办
 
+- **Linux 直链 FFmpeg（与原版的关键差异）**：原版纯 QMediaPlayer 的二进制**不直链**
+  FFmpeg（FFmpeg 在 Qt 的 ffmpeg 插件背后，随 `libqt6multimedia6` 由发行版承载），
+  故 FFmpeg 大版本升级不影响应用启动。启用原生引擎后二进制**直链** `libavformat.so.N`：
+  已开启 `CPACK_DEBIAN_PACKAGE_SHLIBDEPS` 使 `Depends` 显式包含这些 soname（apt/dpkg
+  可感知）；但 FFmpeg 大版本（soname）升级时仍**需按目标发行版重编重发**——若不接受，
+  只能走"Linux 也随包带 FFmpeg（`$ORIGIN` RUNPATH）"（上游做法）。
 - **Windows**：引擎已可由 CI 构建（BtbN MinGW 同大版本开发树 + Qt 自带 DLL）；若 Qt 升级
   导致 FFmpeg 大版本变化，需同步更新 CI 里 BtbN 对应大版本的下载 URL。
 - **macOS**：需 FFmpeg 源码头（CI 自动下载并 `configure` 生成 `avconfig.h`）；链接 Qt

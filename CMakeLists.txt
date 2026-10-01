@@ -515,6 +515,13 @@ if(LINUX)
         list(APPEND _neko_debian_depends liblayershellqtinterface6)
     endif()
     list(JOIN _neko_debian_depends ", " CPACK_DEBIAN_PACKAGE_DEPENDS)
+
+    # 自动补全运行时依赖（dpkg-shlibdeps）：把二进制直链的共享库 soname 纳入
+    # Depends——尤其是原生引擎直链的 FFmpeg(libavformat/avcodec/avutil/swresample)，
+    # 使 apt/dpkg 感知 ABI 依赖，避免 FFmpeg 大版本升级后二进制静默加载失败。
+    # Qt 由 aqt 安装（非 dpkg 包），其库目录通过 PRIVATE_DIRS 提供以便解析。
+    set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
+    set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS_PRIVATE_DIRS "$ENV{QT_ROOT_DIR}/lib")
     set(CPACK_DEBIAN_PACKAGE_ARCHITECTURE "amd64")
     set(CPACK_DEBIAN_PACKAGE_POSTINST "${CMAKE_SOURCE_DIR}/packaging/debian/postinst")
     set(CPACK_DEBIAN_PACKAGE_POSTRM "${CMAKE_SOURCE_DIR}/packaging/debian/postrm")
