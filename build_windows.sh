@@ -229,19 +229,21 @@ for pattern in 'avcodec-*.dll' 'avformat-*.dll' 'avutil-*.dll' 'swresample-*.dll
     shopt -u nullglob
 done
 
-# 原生引擎链接的 FFmpeg：优先复用上面已拷的 Qt 自带 DLL；若开发树版本不同名则补齐。
-if [ -n "${NEKO_FFMPEG_DEV:-}" ] && [ -d "$NEKO_FFMPEG_DEV/bin" ]; then
-    for pattern in 'avcodec-*.dll' 'avformat-*.dll' 'avutil-*.dll' 'swresample-*.dll' 'swscale-*.dll'; do
-        shopt -s nullglob
-        for f in "$NEKO_FFMPEG_DEV/bin"/$pattern; do
-            base="$(basename "$f")"
-            if [ ! -f "$DEPLOY_DIR/$base" ]; then
-                cp "$f" "$DEPLOY_DIR/"
-                echo "  Copied $base (engine FFmpeg dev tree)"
-            fi
-        done
-        shopt -u nullglob
-    done
+# 运行期**复用上面已拷的 Qt 自带 FFmpeg DLL**，不再从开发树另拷一份（否则同进程
+# 会出现两套 FFmpeg）。引擎导入表引用的 av*/sw* DLL 必须能由 Qt 这套满足；若开发树与
+# Qt 套件 FFmpeg 版本不一致（导入名不同）则此处显式报缺，避免运行期加载失败。
+if command -v x86_64-w64-mingw32-objdump &>/dev/null; then
+    missing_ff=0
+    while IFS= read -r imp; do
+        case "${imp,,}" in
+            avcodec-*.dll|avformat-*.dll|avutil-*.dll|swresample-*.dll|swscale-*.dll)
+                if [ ! -f "$DEPLOY_DIR/$imp" ]; then
+                    echo "  ERROR: 缺少引擎所需 $imp —— Qt 套件 FFmpeg 与 NEKO_FFMPEG_ROOT 版本不一致"
+                    missing_ff=1
+                fi ;;
+        esac
+    done < <(x86_64-w64-mingw32-objdump -p "$DEPLOY_DIR/NekoMusic.exe" 2>/dev/null | sed -n 's/.*DLL Name: //p' | sort -u)
+    [ "$missing_ff" -eq 0 ] || exit 1
 fi
 
 # 图形栈常用同目录依赖（Qt 安装包 bin 内自带；不打包 OpenGL 软渲染）
