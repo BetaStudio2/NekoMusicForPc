@@ -252,8 +252,8 @@ void UpdateDialog::setupFinishedUi(const QString &filePath)
                     out << "    fi\n";
                     out << "fi\n\n";
                     out << "# 重新启动程序（尝试多个可能的路径）\n";
-                    out << "if [ -f \"/opt/Neko歌姬计划/nekomusic\" ]; then\n";
-                    out << "    nohup /opt/Neko歌姬计划/nekomusic >/dev/null 2>&1 &\n";
+                    out << "if [ -f \"/opt/nekomusic/NekoMusic\" ]; then\n";
+                    out << "    nohup /opt/nekomusic/NekoMusic >/dev/null 2>&1 &\n";
                     out << "elif command -v nekomusic >/dev/null 2>&1; then\n";
                     out << "    nohup nekomusic >/dev/null 2>&1 &\n";
                     out << "elif command -v NekoMusic >/dev/null 2>&1; then\n";

@@ -11,7 +11,7 @@ Comment[en]=High-quality Lossless Music Player
 
 # --- 执行与路径 ---
 # %F = 本地文件路径（推荐）；%U = file:/// URL（程序内两种均支持）
-Exec=/opt/Neko歌姬计划/NekoMusic %F
+Exec=/opt/nekomusic/NekoMusic %F
 Icon=nekomusic
 Terminal=false
 StartupNotify=true
@@ -30,14 +30,14 @@ Actions=PlayPause;Next;Previous;
 [Desktop Action PlayPause]
 Name=播放/暂停
 Name[en]=Play/Pause
-Exec=/opt/Neko歌姬计划/NekoMusic --toggle-play
+Exec=/opt/nekomusic/NekoMusic --toggle-play
 
 [Desktop Action Next]
 Name=下一首
 Name[en]=Next Track
-Exec=/opt/Neko歌姬计划/NekoMusic --next
+Exec=/opt/nekomusic/NekoMusic --next
 
 [Desktop Action Previous]
 Name=上一首
 Name[en]=Previous Track
-Exec=/opt/Neko歌姬计划/NekoMusic --previous
+Exec=/opt/nekomusic/NekoMusic --previous

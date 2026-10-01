@@ -447,9 +447,12 @@ target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_BINARY_DIR}/generated
 
 # Install - platform-specific rules
 if(LINUX)
-    # Linux: install to /opt/Neko歌姬计划 (matches auto-update code)
+    # Linux：安装到纯 ASCII 路径 /opt/nekomusic（程序内中文/显示名不受影响）。
+    # ASCII 安装路径同时使 CPack SHLIBDEPS/dpkg-shlibdeps 可用（含中文路径会
+    # 因 dpkg-shlibdeps/readelf 无法读取而打包失败）。auto-update 代码同步此路径。
+    set(NEKO_LINUX_INSTALL_DIR "/opt/nekomusic")
     install(TARGETS ${PROJECT_NAME}
-            RUNTIME DESTINATION /opt/Neko歌姬计划
+            RUNTIME DESTINATION ${NEKO_LINUX_INSTALL_DIR}
     )
 
     # Desktop entry file
@@ -462,7 +465,7 @@ if(LINUX)
         file(MAKE_DIRECTORY \"\$ENV{DESTDIR}/usr/local/bin\")
         execute_process(
             COMMAND \${CMAKE_COMMAND} -E create_symlink
-            \"/opt/Neko歌姬计划/NekoMusic\"
+            \"${NEKO_LINUX_INSTALL_DIR}/NekoMusic\"
             \"\$ENV{DESTDIR}/usr/local/bin/nekomusic\"
         )
     ")
@@ -514,24 +517,13 @@ if(LINUX)
     if(TARGET LayerShellQt::Interface)
         list(APPEND _neko_debian_depends liblayershellqtinterface6)
     endif()
-    # 原生引擎直链 FFmpeg：显式把其运行库包加入 Depends（Debian/Ubuntu 命名
-    # <module><major>，如 libavformat60）。不用 CPACK_DEBIAN_PACKAGE_SHLIBDEPS：
-    # 安装目录含中文（/opt/Neko歌姬计划），CPackDeb 调用 dpkg-shlibdeps / readelf
-    # 会因该路径报 “No such file or directory” 致打包失败。
-    if(ARCHOERRA_ENGINE_AVAILABLE)
-        find_program(NEKO_PKG_CONFIG pkg-config)
-        if(NEKO_PKG_CONFIG)
-            foreach(_ffm libavformat libavcodec libavutil libswresample)
-                execute_process(COMMAND ${NEKO_PKG_CONFIG} --modversion ${_ffm}
-                    OUTPUT_VARIABLE _ffv OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
-                if(_ffv MATCHES "^([0-9]+)")
-                    list(APPEND _neko_debian_depends "${_ffm}${CMAKE_MATCH_1}")
-                endif()
-            endforeach()
-        endif()
-    endif()
-    list(REMOVE_DUPLICATES _neko_debian_depends)
+    # 安装路径已为纯 ASCII → 启用 dpkg-shlibdeps 自动补全运行时依赖：
+    # 二进制直链的 FFmpeg(libavformat/avcodec/avutil/swresample) 等 soname 会按
+    # 所属 dpkg 包写入 Depends（Qt 由 aqt 安装、非 dpkg 包，dpkg-shlibdeps 以
+    # --ignore-missing-info 跳过，不报错）。
     list(JOIN _neko_debian_depends ", " CPACK_DEBIAN_PACKAGE_DEPENDS)
+    set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
+    set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS_PRIVATE_DIRS "$ENV{QT_ROOT_DIR}/lib")
     set(CPACK_DEBIAN_PACKAGE_ARCHITECTURE "amd64")
     set(CPACK_DEBIAN_PACKAGE_POSTINST "${CMAKE_SOURCE_DIR}/packaging/debian/postinst")
     set(CPACK_DEBIAN_PACKAGE_POSTRM "${CMAKE_SOURCE_DIR}/packaging/debian/postrm")
