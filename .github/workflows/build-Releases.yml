@@ -178,31 +178,32 @@ jobs:
                    Select-Object -First 1
           if ($avDll) {
             $major = [regex]::Match($avDll.Name, '-(\d+)\.dll$').Groups[1].Value
-            $ffTag = ''
-            if     ($major -eq '61') { $ffTag = 'n7.1' }
-            elseif ($major -eq '62') { $ffTag = 'n8.0' }
-            elseif ($major -eq '60') { $ffTag = 'n6.1' }
-            if ($ffTag) {
-              $ver    = $ffTag.Substring(1)
-              $ffRoot = Join-Path $env:RUNNER_TEMP $ffTag
+            # 与 Qt 自带 FFmpeg 大版本对应的 BtbN MinGW 开发树（含头 + 导入库；
+            # 其 bin/avcodec-<major>.dll 与 Qt 同名 → 运行期复用 Qt 的 DLL）。
+            $ffUrl = ''
+            if     ($major -eq '61') { $ffUrl = 'https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-07-31-14-10/ffmpeg-n7.1.5-12-g1fdbca85aa-win64-gpl-shared-7.1.zip' }
+            elseif ($major -eq '62') { $ffUrl = 'https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n8.1-latest-win64-gpl-shared-8.1.zip' }
+            if ($ffUrl) {
+              $ffRoot = Join-Path $env:RUNNER_TEMP "ffdev-$major"
               if (-not (Test-Path (Join-Path $ffRoot 'include\libavformat\avformat.h'))) {
-                $zip = Join-Path $env:RUNNER_TEMP "$ffTag.zip"
-                $url = "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-$ffTag-latest-win64-gpl-shared-$ver.zip"
-                Write-Host "下载 FFmpeg dev: $url"
-                Invoke-WebRequest -Uri $url -OutFile $zip
-                Expand-Archive -Path $zip -DestinationPath $env:RUNNER_TEMP -Force
-                $inner = Get-ChildItem $env:RUNNER_TEMP -Directory |
-                         Where-Object { $_.Name -like "ffmpeg-$ffTag*" } | Select-Object -First 1
-                if ($inner) {
-                  Remove-Item $ffRoot -Recurse -Force -ErrorAction SilentlyContinue
-                  Move-Item $inner.FullName $ffRoot
+                try {
+                  $zip = Join-Path $env:RUNNER_TEMP "ffdev-$major.zip"
+                  Write-Host "下载 FFmpeg dev: $ffUrl"
+                  Invoke-WebRequest -Uri $ffUrl -OutFile $zip
+                  Expand-Archive -Path $zip -DestinationPath $env:RUNNER_TEMP -Force
+                  $inner = Get-ChildItem $env:RUNNER_TEMP -Directory |
+                           Where-Object { $_.Name -like 'ffmpeg-*win64-gpl-shared*' } | Select-Object -First 1
+                  if ($inner) {
+                    Remove-Item $ffRoot -Recurse -Force -ErrorAction SilentlyContinue
+                    Move-Item $inner.FullName $ffRoot
+                  }
+                } catch {
+                  Write-Host "FFmpeg(engine): 开发树获取失败（$($_.Exception.Message)）→ 跳过原生引擎"
                 }
               }
               if (Test-Path (Join-Path $ffRoot 'include\libavformat\avformat.h')) {
                 $env:NEKO_FFMPEG_ROOT = $ffRoot
                 Write-Host "FFmpeg(engine): 使用 $ffRoot"
-              } else {
-                Write-Host "FFmpeg(engine): 获取失败 → 跳过原生引擎"
               }
             } else {
               Write-Host "FFmpeg(engine): 未识别 Qt FFmpeg 大版本($major) → 跳过原生引擎"
@@ -434,7 +435,7 @@ jobs:
           FFM_VER=""
           for d in "$QT_MAC_ROOT"/lib/libavcodec.*.dylib; do
             if [ -f "$d" ]; then
-              major="$(basename "$d" | sed -E 's/.*\.([0-9]+)\.[0-9.]*\.dylib/\1/')"
+              major="$(basename "$d" | cut -d. -f2)"
               case "$major" in 61) FFM_VER="7.1" ;; 62) FFM_VER="8.0" ;; 60) FFM_VER="6.1" ;; esac
               break
             fi
