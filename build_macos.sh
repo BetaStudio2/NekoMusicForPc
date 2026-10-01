@@ -250,13 +250,30 @@ if [[ -d "$MULTIMEDIA_PLUGIN_DIR" ]]; then
         echo "  Removed libffmpegmediaplugin.dylib (Qt 改用 AVFoundation)"
     fi
 fi
-# 注意：原生无缝播放引擎（ArchoeraAudio）仍依赖 FFmpeg，故 **保留** Frameworks 下的
-# libav*/libsw* dylib，不随 Qt 插件一并删除；macdeployqt 已将其 rpath 改写为 @rpath。
+# 原生无缝播放引擎（ArchoeraAudio）链接 FFmpeg 时需保留 Frameworks 下的
+# libav*/libsw* dylib（macdeployqt 已把 rpath 改为 @rpath）；引擎被跳过时按旧行为
+# 清理，避免 Qt 走 AVFoundation 后仍打包无用 FFmpeg。以 app 可执行文件是否真正
+# 链接 libav* 判定。
+KEEP_FFMPEG=0
+if [[ -f "$APP_BIN" ]] && otool -L "$APP_BIN" 2>/dev/null | grep -qE "libavformat|libavcodec|libswresample"; then
+    KEEP_FFMPEG=1
+fi
 if [[ -d "$FRAMEWORKS_DIR" ]]; then
-    echo "  Keeping bundled FFmpeg dylibs for native engine:"
-    for dylib in "$FRAMEWORKS_DIR"/libav*.dylib "$FRAMEWORKS_DIR"/libsw*.dylib; do
-        [[ -f "$dylib" ]] && echo "    $(basename "$dylib")"
-    done
+    if [[ "$KEEP_FFMPEG" == "1" ]]; then
+        echo "  Keeping bundled FFmpeg dylibs (native engine linked):"
+        for dylib in "$FRAMEWORKS_DIR"/libav*.dylib "$FRAMEWORKS_DIR"/libsw*.dylib; do
+            [[ -f "$dylib" ]] && echo "    $(basename "$dylib")"
+        done
+    else
+        for dylib in "$FRAMEWORKS_DIR"/libavformat.*.dylib "$FRAMEWORKS_DIR"/libavcodec.*.dylib \
+                     "$FRAMEWORKS_DIR"/libavutil.*.dylib "$FRAMEWORKS_DIR"/libswresample.*.dylib \
+                     "$FRAMEWORKS_DIR"/libswscale.*.dylib; do
+            if [[ -f "$dylib" ]]; then
+                rm -f "$dylib" "$(dirname "$dylib")/.$(basename "$dylib")"
+                echo "  Removed $(basename "$dylib") (engine not linked)"
+            fi
+        done
+    fi
 fi
 
 echo ""
