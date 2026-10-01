@@ -514,14 +514,24 @@ if(LINUX)
     if(TARGET LayerShellQt::Interface)
         list(APPEND _neko_debian_depends liblayershellqtinterface6)
     endif()
+    # 原生引擎直链 FFmpeg：显式把其运行库包加入 Depends（Debian/Ubuntu 命名
+    # <module><major>，如 libavformat60）。不用 CPACK_DEBIAN_PACKAGE_SHLIBDEPS：
+    # 安装目录含中文（/opt/Neko歌姬计划），CPackDeb 调用 dpkg-shlibdeps / readelf
+    # 会因该路径报 “No such file or directory” 致打包失败。
+    if(ARCHOERRA_ENGINE_AVAILABLE)
+        find_program(NEKO_PKG_CONFIG pkg-config)
+        if(NEKO_PKG_CONFIG)
+            foreach(_ffm libavformat libavcodec libavutil libswresample)
+                execute_process(COMMAND ${NEKO_PKG_CONFIG} --modversion ${_ffm}
+                    OUTPUT_VARIABLE _ffv OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+                if(_ffv MATCHES "^([0-9]+)")
+                    list(APPEND _neko_debian_depends "${_ffm}${CMAKE_MATCH_1}")
+                endif()
+            endforeach()
+        endif()
+    endif()
+    list(REMOVE_DUPLICATES _neko_debian_depends)
     list(JOIN _neko_debian_depends ", " CPACK_DEBIAN_PACKAGE_DEPENDS)
-
-    # 自动补全运行时依赖（dpkg-shlibdeps）：把二进制直链的共享库 soname 纳入
-    # Depends——尤其是原生引擎直链的 FFmpeg(libavformat/avcodec/avutil/swresample)，
-    # 使 apt/dpkg 感知 ABI 依赖，避免 FFmpeg 大版本升级后二进制静默加载失败。
-    # Qt 由 aqt 安装（非 dpkg 包），其库目录通过 PRIVATE_DIRS 提供以便解析。
-    set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
-    set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS_PRIVATE_DIRS "$ENV{QT_ROOT_DIR}/lib")
     set(CPACK_DEBIAN_PACKAGE_ARCHITECTURE "amd64")
     set(CPACK_DEBIAN_PACKAGE_POSTINST "${CMAKE_SOURCE_DIR}/packaging/debian/postinst")
     set(CPACK_DEBIAN_PACKAGE_POSTRM "${CMAKE_SOURCE_DIR}/packaging/debian/postrm")
