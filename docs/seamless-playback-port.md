@@ -101,6 +101,14 @@ bash third_party/archoera-audio-engine/tools/compile-check.sh all
 
 链接阶段各平台仍需对应的 FFmpeg 运行库/导入库（见上表），由各平台打包流程提供。
 
+### CI（`build-Releases` 三平台出包）
+
+- **Linux**：job 内 `apt-get install` FFmpeg 开发库 → **强制构建引擎**，并断言
+  `ldd build-linux/NekoMusic` 含 `libav*`（缺失即失败，避免"悄悄回退"假绿）。
+- **Windows / macOS**：**可选**。设置仓库变量 `NEKO_FFMPEG_WIN_ROOT` /
+  `NEKO_FFMPEG_MAC_ROOT` 指向 runner 上匹配的 FFmpeg 开发树即启用；未设置则跳过
+  （回退 QMediaPlayer），CI 保持绿。macOS 需**通用架构** FFmpeg（见上文守卫）。
+
 ## 7. 已知限制 / 待办
 
 - **Windows**：引擎可构建，但需提供与 Qt 套件 FFmpeg 同版本的 MinGW 开发树

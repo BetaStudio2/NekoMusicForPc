@@ -51,7 +51,11 @@ jobs:
         run: |
           sudo apt-get install -y --no-install-recommends \
             dpkg-dev \
-            fakeroot
+            fakeroot \
+            libavformat-dev \
+            libavcodec-dev \
+            libavutil-dev \
+            libswresample-dev
 
       - name: Build and package (.deb)
         env:
@@ -61,6 +65,17 @@ jobs:
           echo "Qt: ${QT_ROOT_DIR:-<未设置>}"
           chmod +x build_linux.sh
           ./build_linux.sh Release
+
+      # 断言原生无缝播放引擎确实被构建并链接（否则说明 FFmpeg 开发库缺失，
+      # 悄悄回退到 QMediaPlayer —— 这里显式失败，避免 CI 假绿）。
+      - name: Verify native engine is linked
+        run: |
+          set -euo pipefail
+          BIN="build-linux/NekoMusic"
+          test -x "$BIN" || { echo "未找到 $BIN"; exit 1; }
+          echo "== ldd FFmpeg 依赖 =="
+          ldd "$BIN" | grep -E "libavformat|libavcodec|libavutil|libswresample" \
+            || { echo "原生引擎未链接（libav* 缺失）— FFmpeg 开发库可能未装"; exit 1; }
 
       - name: Resolve artifact path
         id: pack
@@ -115,6 +130,11 @@ jobs:
 
       - name: Build, deploy and package (.exe)
         shell: pwsh
+        # 原生无缝播放引擎为可选：提供与 Qt 套件自带 FFmpeg DLL 同版本的 MinGW
+        # 开发树并设置仓库变量 NEKO_FFMPEG_WIN_ROOT 指向它即可启用；未设置则跳过
+        # （回退 QMediaPlayer），CI 保持绿。
+        env:
+          NEKO_FFMPEG_ROOT: ${{ vars.NEKO_FFMPEG_WIN_ROOT }}
         run: |
           $ErrorActionPreference = 'Stop'
           $root     = $PWD.Path
@@ -137,12 +157,21 @@ jobs:
             choco install ninja -y --no-progress
           }
 
+          $ffArg = @()
+          if ($env:NEKO_FFMPEG_ROOT) {
+            Write-Host "FFmpeg(engine): $env:NEKO_FFMPEG_ROOT"
+            $ffArg += "-DNEKO_FFMPEG_ROOT=$env:NEKO_FFMPEG_ROOT"
+          } else {
+            Write-Host "FFmpeg(engine): 未提供 → 跳过原生引擎（回退 QMediaPlayer）"
+          }
+
           # ---------------- 构建 ----------------
           cmake -S $root -B $buildDir -G Ninja `
             -DCMAKE_BUILD_TYPE=Release `
             -DCMAKE_C_COMPILER=gcc `
             -DCMAKE_CXX_COMPILER=g++ `
-            -DCMAKE_PREFIX_PATH="$env:QT_ROOT_DIR"
+            -DCMAKE_PREFIX_PATH="$env:QT_ROOT_DIR" `
+            @ffArg
           if ($LASTEXITCODE -ne 0) { throw "CMake 配置失败" }
 
           cmake --build $buildDir --parallel
@@ -303,11 +332,24 @@ jobs:
           QT_MAC_ROOT: ${{ env.QT_ROOT_DIR }}
           # Qt 6.10 的 dylib 最低要求 macOS 13，按 11 链接只会刷一堆 ld 版本告警
           OSX_DEPLOYMENT_TARGET: '13.0'
+          # 原生无缝播放引擎为可选：需提供**通用架构** FFmpeg 开发树并设置仓库变量
+          # NEKO_FFMPEG_MAC_ROOT（单架构 Homebrew FFmpeg 会导致通用链接失败，见
+          # third_party/archoera-audio-engine/CMakeLists.txt 的 macOS 守卫）；
+          # 未设置则跳过（回退 QMediaPlayer）。
+          NEKO_FFMPEG_ROOT: ${{ vars.NEKO_FFMPEG_MAC_ROOT }}
         run: |
           set -euo pipefail
           echo "Qt: ${QT_MAC_ROOT:-<未设置>}"
+          [ -n "${NEKO_FFMPEG_ROOT:-}" ] && echo "FFmpeg(engine): $NEKO_FFMPEG_ROOT" \
+            || echo "FFmpeg(engine): 未提供 → 跳过原生引擎（回退 QMediaPlayer）"
           chmod +x build_macos.sh
           ./build_macos.sh Release
+          if [ -n "${NEKO_FFMPEG_ROOT:-}" ]; then
+            APP="build-macos/install/NekoMusic.app/Contents/MacOS/NekoMusic"
+            echo "== 断言原生引擎已链接 =="
+            otool -L "$APP" | grep -E "libavformat|libavcodec|libswresample" \
+              || { echo "原生引擎未链接（libav* 缺失）"; exit 1; }
+          fi
 
       - name: Resolve artifact path
         id: pack
