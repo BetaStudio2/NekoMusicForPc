@@ -265,7 +265,7 @@ jobs:
               $srcDll = Join-Path $env:QT_ROOT_DIR "bin\$dll"
               if (Test-Path $srcDll) {
                 Copy-Item $srcDll $dst
-                Write-Host "  补拷 $dll（windeployqt 未部署）"
+                Write-Host "  补拷 ${dll}（windeployqt 未部署）"
               }
             }
           }
@@ -278,7 +278,7 @@ jobs:
               $srcDll = Join-Path $mingw.FullName "bin\$dll"
               if (Test-Path $srcDll) {
                 Copy-Item $srcDll $dst
-                Write-Host "  补拷 $dll（来自 MinGW 工具链）"
+                Write-Host "  补拷 ${dll}（来自 MinGW 工具链）"
               }
             }
           }
@@ -445,7 +445,7 @@ jobs:
             if [ ! -f "$SRC/libavformat/avformat.h" ]; then
               echo "下载 FFmpeg $FFM_VER 源码头…"
               curl -fsSL "https://ffmpeg.org/releases/ffmpeg-$FFM_VER.tar.xz" \
-                | tar -xJ -C "$RUNNER_TEMP" || true
+                | tar -xf - -C "$RUNNER_TEMP" || true
             fi
             # 生成配置头（avconfig.h 等）；仅为取头，不编译
             if [ -f "$SRC/configure" ] && [ ! -f "$SRC/libavutil/avconfig.h" ]; then
@@ -462,7 +462,7 @@ jobs:
             done
             if [ -f "$DEVDIR/include/libavformat/avformat.h" ] && [ -f "$DEVDIR/lib/libavformat.dylib" ]; then
               export NEKO_FFMPEG_ROOT="$DEVDIR"
-              echo "FFmpeg(engine): $DEVDIR（头=FFmpeg $FFM_VER 源码；库=Qt 自带 universal dylib）"
+              echo "FFmpeg(engine): ${DEVDIR}（头=FFmpeg $FFM_VER 源码；库=Qt 自带 universal dylib）"
             else
               echo "FFmpeg(engine): 头/库未就绪 → 跳过原生引擎"
             fi

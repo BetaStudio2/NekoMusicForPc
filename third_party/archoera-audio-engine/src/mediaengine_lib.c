@@ -39,6 +39,13 @@
 #define ERA_HAS_MALLOC_TRIM 1
 #endif
 
+/* NekoMusic 移植增补：MinGW 的 <time.h>（非 UCRT 路径）不提供 C11 的 TIME_UTC
+ * 常量（glibc/MSVC 均提供），导致 timespec_get(&ts, TIME_UTC) 编译失败。此处仅
+ * 在 MinGW 且未被头文件定义时补一个等价常量（基准只需非 0 且全文件一致）。 */
+#if defined(_WIN32) && defined(__MINGW32__) && !defined(TIME_UTC)
+#define TIME_UTC 1
+#endif
+
 /* ── UTF-8 安全 fopen（Windows 宽字符边界）──────────────────────
    会话目录 / 临时文件路径由 Dart 以 UTF-8 传入（%TEMP% 可能含中文用户名）。
    MSVC CRT fopen 把窄路径按 ANSI 代码页解释 → 非 ASCII 乱码/失败（同
