@@ -45,8 +45,9 @@ set(ARCHOERRA_FFMPEG_LIBRARIES "")
 set(ARCHOERRA_FFMPEG_LIBRARY_DIRS "")
 set(ARCHOERRA_FFMPEG_CFLAGS_OTHER "")
 
-# 1) 非 Windows：优先 pkg-config（Linux 系统 / macOS Homebrew）。
-if(NOT WIN32)
+# 1) 非 Windows 且未显式指定 NEKO_FFMPEG_ROOT：优先 pkg-config（Linux 系统 / macOS Homebrew）。
+#    显式指定 NEKO_FFMPEG_ROOT 时优先手工定位（用于精确对齐 Qt 自带 FFmpeg 版本）。
+if(NOT WIN32 AND NOT NEKO_FFMPEG_ROOT)
     find_package(PkgConfig QUIET)
     if(PkgConfig_FOUND)
         pkg_check_modules(ARCHOERRA_FFMPEG_PC QUIET

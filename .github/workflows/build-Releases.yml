@@ -170,6 +170,45 @@ jobs:
             choco install ninja -y --no-progress
           }
 
+          # ---- 获取与 Qt 自带 FFmpeg 同大版本的开发树（头 + MinGW 导入库）----
+          # Qt 6.10.2 自带 FFmpeg 7.1（avcodec-61.dll，无 lib 前缀）；用 BtbN MinGW
+          # 共享构建的 include/lib 链接，其导入库引用的 DLL 名与 Qt 自带一致 →
+          # 运行期加载 Qt 的 DLL（同一套，不额外分发第二份 FFmpeg）。
+          $avDll = Get-ChildItem "$env:QT_ROOT_DIR\bin" -Filter 'avcodec-*.dll' -ErrorAction SilentlyContinue |
+                   Select-Object -First 1
+          if ($avDll) {
+            $major = [regex]::Match($avDll.Name, '-(\d+)\.dll$').Groups[1].Value
+            $ffTag = ''
+            if     ($major -eq '61') { $ffTag = 'n7.1' }
+            elseif ($major -eq '62') { $ffTag = 'n8.0' }
+            elseif ($major -eq '60') { $ffTag = 'n6.1' }
+            if ($ffTag) {
+              $ver    = $ffTag.Substring(1)
+              $ffRoot = Join-Path $env:RUNNER_TEMP $ffTag
+              if (-not (Test-Path (Join-Path $ffRoot 'include\libavformat\avformat.h'))) {
+                $zip = Join-Path $env:RUNNER_TEMP "$ffTag.zip"
+                $url = "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-$ffTag-latest-win64-gpl-shared-$ver.zip"
+                Write-Host "下载 FFmpeg dev: $url"
+                Invoke-WebRequest -Uri $url -OutFile $zip
+                Expand-Archive -Path $zip -DestinationPath $env:RUNNER_TEMP -Force
+                $inner = Get-ChildItem $env:RUNNER_TEMP -Directory |
+                         Where-Object { $_.Name -like "ffmpeg-$ffTag*" } | Select-Object -First 1
+                if ($inner) {
+                  Remove-Item $ffRoot -Recurse -Force -ErrorAction SilentlyContinue
+                  Move-Item $inner.FullName $ffRoot
+                }
+              }
+              if (Test-Path (Join-Path $ffRoot 'include\libavformat\avformat.h')) {
+                $env:NEKO_FFMPEG_ROOT = $ffRoot
+                Write-Host "FFmpeg(engine): 使用 $ffRoot"
+              } else {
+                Write-Host "FFmpeg(engine): 获取失败 → 跳过原生引擎"
+              }
+            } else {
+              Write-Host "FFmpeg(engine): 未识别 Qt FFmpeg 大版本($major) → 跳过原生引擎"
+            }
+          }
+
           $ffArg = @()
           if ($env:NEKO_FFMPEG_ROOT) {
             Write-Host "FFmpeg(engine): $env:NEKO_FFMPEG_ROOT"
@@ -240,6 +279,26 @@ jobs:
                 Copy-Item $srcDll $dst
                 Write-Host "  补拷 $dll（来自 MinGW 工具链）"
               }
+            }
+          }
+
+          # 原生引擎链接的 FFmpeg：复用 Qt 自带的 av*/sw* DLL（与 Qt 插件同一套，
+          # 不额外分发第二份），并断言 exe 导入表确实引用了 av*.dll。
+          if ($env:NEKO_FFMPEG_ROOT) {
+            Get-ChildItem "$env:QT_ROOT_DIR\bin\*.dll" |
+              Where-Object { $_.Name -match '^(av|sw)[a-z0-9]+-\d+\.dll$' } |
+              ForEach-Object {
+                $dst = Join-Path $stage $_.Name
+                if (-not (Test-Path $dst)) {
+                  Copy-Item $_.FullName $dst
+                  Write-Host "  补拷 $($_.Name)（Qt FFmpeg）"
+                }
+              }
+            $objdump = Join-Path $mingw.FullName 'bin\objdump.exe'
+            if (Test-Path $objdump) {
+              $avImp = & $objdump -p $exe 2>$null | Select-String 'DLL Name: av'
+              if (-not $avImp) { throw "原生引擎未链接 FFmpeg（NEKO_FFMPEG_ROOT 未生效？）" }
+              Write-Host "  原生引擎已链接: $((($avImp | ForEach-Object { $_.ToString().Trim() }) -join '; '))"
             }
           }
 
@@ -370,6 +429,45 @@ jobs:
           fi
           echo "  套件内 libavcodec*.dylib 位置:"
           find "$QT_MAC_ROOT" -maxdepth 3 -name 'libavcodec*.dylib' 2>/dev/null | head -5 | sed 's/^/    /'
+
+          # ---- 复用 Qt 自带 universal FFmpeg 7.1：只补 7.1 头文件，库直接链 Qt 的 dylib ----
+          FFM_VER=""
+          for d in "$QT_MAC_ROOT"/lib/libavcodec.*.dylib; do
+            if [ -f "$d" ]; then
+              major="$(basename "$d" | sed -E 's/.*\.([0-9]+)\.[0-9.]*\.dylib/\1/')"
+              case "$major" in 61) FFM_VER="7.1" ;; 62) FFM_VER="8.0" ;; 60) FFM_VER="6.1" ;; esac
+              break
+            fi
+          done
+          if [ -n "$FFM_VER" ]; then
+            SRC="$RUNNER_TEMP/ffmpeg-$FFM_VER"
+            if [ ! -f "$SRC/libavformat/avformat.h" ]; then
+              echo "下载 FFmpeg $FFM_VER 源码头…"
+              curl -fsSL "https://ffmpeg.org/releases/ffmpeg-$FFM_VER.tar.xz" \
+                | tar -xJ -C "$RUNNER_TEMP" || true
+            fi
+            # 生成配置头（avconfig.h 等）；仅为取头，不编译
+            if [ -f "$SRC/configure" ] && [ ! -f "$SRC/libavutil/avconfig.h" ]; then
+              ( cd "$SRC" && ./configure --disable-everything --disable-programs \
+                  --disable-doc --disable-autodetect --disable-x86asm --disable-network \
+                  >/dev/null 2>&1 ) || true
+            fi
+            DEVDIR="$RUNNER_TEMP/ffdev"
+            rm -rf "$DEVDIR"; mkdir -p "$DEVDIR/lib"
+            ln -sfn "$SRC" "$DEVDIR/include"
+            for l in avcodec avformat avutil swresample; do
+              [ -f "$QT_MAC_ROOT/lib/lib$l.dylib" ] && \
+                ln -sf "$QT_MAC_ROOT/lib/lib$l.dylib" "$DEVDIR/lib/lib$l.dylib"
+            done
+            if [ -f "$DEVDIR/include/libavformat/avformat.h" ] && [ -f "$DEVDIR/lib/libavformat.dylib" ]; then
+              export NEKO_FFMPEG_ROOT="$DEVDIR"
+              echo "FFmpeg(engine): $DEVDIR（头=FFmpeg $FFM_VER 源码；库=Qt 自带 universal dylib）"
+            else
+              echo "FFmpeg(engine): 头/库未就绪 → 跳过原生引擎"
+            fi
+          else
+            echo "FFmpeg(engine): 未识别 Qt FFmpeg 大版本 → 跳过原生引擎"
+          fi
 
           chmod +x build_macos.sh
           ./build_macos.sh Release
