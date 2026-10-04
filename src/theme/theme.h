@@ -13,7 +13,7 @@ namespace Theme
 {
 
     // ─── 主色：玫红（与 Android Color.kt RoseRed / LightRose 一致）────────
-    constexpr const char *kLavender = "#F05E7A";   // 主强调（沿用旧名以免全工程改名）
+    constexpr const char *kLavender = "#F05E7A"; // 主强调（沿用旧名以免全工程改名）
     constexpr const char *kLavenderLt = "#FF879D";
     constexpr const char *kLavenderDk = "#D84B63";
 
@@ -51,9 +51,9 @@ namespace Theme
     constexpr const char *kGradMain = "qlineargradient(x1:0,y1:0,x2:0.28,y2:1,"
                                       "stop:0 #FF879D, stop:1 #D84B63)";
     constexpr const char *kGradSakura = "qlineargradient(x1:0,y1:0,x2:0.3,y2:1,"
-                                          "stop:0 #F7CDD6, stop:1 #E6AEBB)";
+                                        "stop:0 #F7CDD6, stop:1 #E6AEBB)";
     constexpr const char *kGradMint = "qlineargradient(x1:0,y1:0,x2:0.3,y2:1,"
-                                        "stop:0 #9FB5BC, stop:1 #7D9CA4)";
+                                      "stop:0 #9FB5BC, stop:1 #7D9CA4)";
     constexpr const char *kGradBg = "qlineargradient(x1:0,y1:0,x2:0,y2:1,"
                                     "stop:0 #101217, stop:1 #0B0D11)";
 
@@ -80,6 +80,6 @@ namespace Theme
     constexpr int kAnimSlow = 400;
     constexpr int kCarouselMs = 5000;
 
-    constexpr const char *kApiBase = "https://music.cnmsb.xin";
+    constexpr const char *kApiBase = "https://music.nekocore.cn";
 
 } // namespace Theme

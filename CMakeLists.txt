@@ -470,14 +470,14 @@ set(CPACK_PACKAGE_NAME "Neko歌姬计划")
 set(CPACK_PACKAGE_VERSION ${PROJECT_VERSION}${PROJECT_VERSION_SUFFIX})
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "梦幻网络CN免费云音乐平台的官方客户端")
 set(CPACK_PACKAGE_VENDOR "FantasyNetwork")
-set(CPACK_PACKAGE_CONTACT "support@cnmsb.xin")
+set(CPACK_PACKAGE_CONTACT "support@nekocore.cn")
 set(CPACK_PACKAGE_FILE_NAME "Neko歌姬计划-${CPACK_PACKAGE_VERSION}-${CMAKE_SYSTEM_PROCESSOR}")
 
 if(LINUX)
     # Debian package settings
     set(CPACK_GENERATOR "DEB")
     set(CPACK_DEBIAN_PACKAGE_NAME "nekomusic")
-    set(CPACK_DEBIAN_PACKAGE_MAINTAINER "FantasyNetwork <support@cnmsb.xin>")
+    set(CPACK_DEBIAN_PACKAGE_MAINTAINER "FantasyNetwork <support@nekocore.cn>")
     set(CPACK_DEBIAN_PACKAGE_SECTION "multimedia")
     set(CPACK_DEBIAN_PACKAGE_PRIORITY "optional")
     set(_neko_debian_depends
