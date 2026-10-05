@@ -232,12 +232,12 @@ public:
     // ─── 扫码登录（/api/user/qrlogin/*，SSE 状态推送） ────────────
     struct QrLoginSession {
         QString sessionId;
-        QString qrContent;   // nekomusic://qrlogin?sid=xxx
+        QString qrImage;     // data:image/png;base64,...（服务端渲染，中心已合成软件图标）
         int expiresIn = 0;
     };
     using QrLoginCreateCb =
         std::function<void(bool ok, const QString &message, const QrLoginSession &session)>;
-    /** 新建扫码会话（无需登录），成功后可拿 qrContent 渲染二维码。 */
+    /** 新建扫码会话（无需登录），成功后直接展示服务端返回的 qrImage。 */
     void createQrLoginSession(QrLoginCreateCb cb);
 
     struct QrLoginStatus {

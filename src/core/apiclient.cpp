@@ -1694,7 +1694,7 @@ void ApiClient::createQrLoginSession(QrLoginCreateCb cb)
         const QJsonObject root = QJsonDocument::fromJson(reply->readAll()).object();
         const QJsonObject data = root.value(QStringLiteral("data")).toObject();
         session.sessionId = data.value(QStringLiteral("sessionId")).toString();
-        session.qrContent = data.value(QStringLiteral("qrContent")).toString();
+        session.qrImage = data.value(QStringLiteral("qrImage")).toString();
         session.expiresIn = data.value(QStringLiteral("expiresIn")).toInt();
 
         const bool ok = root.value(QStringLiteral("success")).toBool() && !session.sessionId.isEmpty();
