@@ -164,6 +164,8 @@ set(SOURCES
         src/ui/artistdetailpage.cpp
         src/ui/roundcoverlabel.cpp
         src/core/playerengine.cpp
+        src/core/mcpserver.cpp
+        src/core/mcpbridge.cpp
         src/core/apiclient.cpp
         src/core/i18n.cpp
         src/core/legaltext.cpp
@@ -243,6 +245,8 @@ set(HEADERS
         src/ui/coverlistcard.h
         src/ui/roundcoverlabel.h
         src/core/playerengine.h
+        src/core/mcpserver.h
+        src/core/mcpbridge.h
         src/core/apiclient.h
         src/core/httpprotocollabel.h
         src/core/i18n.h
