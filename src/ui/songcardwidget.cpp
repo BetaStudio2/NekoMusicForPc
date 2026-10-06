@@ -23,6 +23,8 @@
 #include <QFontMetrics>
 #include <QApplication>
 #include <QTimer>
+#include <QStyle>
+#include <QStyleOption>
 
 namespace {
 
@@ -78,6 +80,39 @@ QString coverCacheKeyForSong(const MusicInfo &info, const QString &resolvedCover
         return QString::number(info.id);
     return {};
 }
+
+/**
+ * 单行省略标签：sizeHint 始终按完整文本计算（保证右侧徽标紧贴文字），
+ * minimumSizeHint 宽度收窄到 0（窄窗口下允许布局压缩），
+ * 绘制时按当前宽度用省略号截断，避免依赖 resize 时序拿到陈旧宽度而过早截断。
+ */
+class ElidedLabel : public QLabel
+{
+public:
+    using QLabel::QLabel;
+
+    QSize minimumSizeHint() const override
+    {
+        const QSize hint = QLabel::minimumSizeHint();
+        return QSize(0, hint.height());
+    }
+
+protected:
+    void paintEvent(QPaintEvent *) override
+    {
+        QPainter painter(this);
+        const QRect content = contentsRect();
+        const QString shown =
+            fontMetrics().elidedText(text(), Qt::ElideRight, qMax(0, content.width() - indent()));
+        QRect target = content;
+        target.translate(indent(), 0);
+
+        QStyleOption opt;
+        opt.initFrom(this);
+        style()->drawItemText(&painter, target, alignment(), palette(), isEnabled(), shown,
+                              foregroundRole());
+    }
+};
 
 } // namespace
 
@@ -167,25 +202,27 @@ void SongCardWidget::rebuildLayout()
     m_localBadge = new QLabel(titleRow);
     m_localBadge->setVisible(false);
     titleRowLay->addWidget(m_localBadge, 0, Qt::AlignVCenter);
-    m_titleLbl = new QLabel(titleRow);
-    titleRowLay->addWidget(m_titleLbl, 1, Qt::AlignVCenter);
+    m_titleLbl = new ElidedLabel(titleRow);
+    titleRowLay->addWidget(m_titleLbl, 0, Qt::AlignVCenter);
+    m_qualityBadge = new QLabel(titleRow);
+    m_qualityBadge->setVisible(false);
+    titleRowLay->addWidget(m_qualityBadge, 0, Qt::AlignVCenter);
     m_lrcBadge = new QLabel(titleRow);
     m_lrcBadge->setFixedSize(14, 14);
     m_lrcBadge->setScaledContents(true);
     m_lrcBadge->setVisible(false);
     titleRowLay->addWidget(m_lrcBadge, 0, Qt::AlignVCenter);
-    m_qualityBadge = new QLabel(titleRow);
-    m_qualityBadge->setVisible(false);
-    titleRowLay->addWidget(m_qualityBadge, 0, Qt::AlignVCenter);
+    // 徽标紧跟标题，剩余空间留在行尾，避免标题较短时徽标悬在行中间
+    titleRowLay->addStretch(1);
 
-    m_artistLbl = new QLabel(infoCol);
+    m_artistLbl = new ElidedLabel(infoCol);
     infoLay->addWidget(titleRow);
     infoLay->addWidget(m_artistLbl);
     titleLay->addWidget(infoCol, 1);
 
     lay->addWidget(titleCol, 1);
 
-    m_albumLbl = new QLabel(m_content);
+    m_albumLbl = new ElidedLabel(m_content);
     m_albumLbl->setMinimumWidth(80);
     lay->addWidget(m_albumLbl, 1);
 
@@ -321,7 +358,6 @@ void SongCardWidget::setDisplayMode(DisplayMode mode)
         return;
     m_displayMode = mode;
     updateSecondaryColumn();
-    elideTexts();
 }
 
 void SongCardWidget::bind(const MusicInfo &info, int index)
@@ -362,7 +398,6 @@ void SongCardWidget::bind(const MusicInfo &info, int index)
 
     loadCover();
     updateIndexColumn();
-    elideTexts();
 }
 
 void SongCardWidget::loadCover()
@@ -664,7 +699,10 @@ void SongCardWidget::updateQualityBadge()
     }
 
     const bool dark = Theme::ThemeManager::instance().isDarkMode();
-    const QColor fg = dark ? QColor(244, 246, 255, 168) : QColor(33, 37, 41, 158);
+    // 每档一个色相：描边 + 15% 同色底，在深色列表里辨识度更高
+    QColor fg = AudioQuality::tierColor(tier, dark);
+    if (!fg.isValid())
+        fg = dark ? QColor(244, 246, 255, 200) : QColor(33, 37, 41, 190);
     constexpr int kBadgeH = 16;
     const QByteArray iconName = AudioQuality::tierIconName(tier).toUtf8();
     QPixmap pm = Icons::renderResourceHeight(Icons::resourcePath(iconName.constData()), kBadgeH, fg);
@@ -706,12 +744,6 @@ void SongCardWidget::leaveEvent(QEvent *e)
 {
     setHover(false);
     QWidget::leaveEvent(e);
-}
-
-void SongCardWidget::resizeEvent(QResizeEvent *e)
-{
-    QWidget::resizeEvent(e);
-    elideTexts();
 }
 
 void SongCardWidget::contextMenuEvent(QContextMenuEvent *event)
@@ -779,18 +811,6 @@ QString SongCardWidget::secondaryColumnText() const
         break;
     }
     return m_info.album.isEmpty() ? QStringLiteral("—") : m_info.album;
-}
-
-void SongCardWidget::elideTexts()
-{
-    if (!m_titleLbl || !m_artistLbl || !m_albumLbl)
-        return;
-    const QFontMetrics tf(m_titleLbl->font());
-    const QFontMetrics af(m_artistLbl->font());
-    const QFontMetrics alf(m_albumLbl->font());
-    m_titleLbl->setText(tf.elidedText(m_info.title, Qt::ElideRight, qMax(40, m_titleLbl->width())));
-    m_artistLbl->setText(af.elidedText(m_info.artist, Qt::ElideRight, qMax(40, m_artistLbl->width())));
-    m_albumLbl->setText(alf.elidedText(m_secondaryText, Qt::ElideRight, qMax(60, m_albumLbl->width())));
 }
 
 QString SongCardWidget::formatDuration(int seconds) const

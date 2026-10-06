@@ -56,7 +56,6 @@ protected:
     void paintEvent(QPaintEvent *event) override;
     void enterEvent(QEnterEvent *event) override;
     void leaveEvent(QEvent *event) override;
-    void resizeEvent(QResizeEvent *event) override;
     void mouseDoubleClickEvent(QMouseEvent *event) override;
 
 private:
@@ -72,7 +71,6 @@ private:
     void updateCancelIcon();
     void updateDownloadTaskUi();
     void updateOverlayIcons();
-    void elideTexts();
     void loadCover();
     void updateSecondaryColumn();
     void updateLocalBadge();

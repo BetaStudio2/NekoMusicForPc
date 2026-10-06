@@ -19,6 +19,8 @@
 namespace {
 
 constexpr int kCoverGap = 62; // 50 cover + 12 spacing in header title gap
+// 数据行 titleLay 的右内边距，表头必须一致才能对齐后面的列
+constexpr int kTitleColRightPad = 20;
 
 } // namespace
 
@@ -60,12 +62,20 @@ void SongListWidget::setupUi()
     hdrLay->addWidget(m_hdrNum);
     hdrLay->addSpacing(12);
 
-    auto *titleGap = new QWidget(m_header);
-    titleGap->setFixedWidth(kCoverGap);
-    hdrLay->addWidget(titleGap);
+    // 与数据行同构：标题列是一个 stretch 容器，封面占位与 20px 右内边距都在列内，
+    // 这样表头的「专辑」「操作」「时长」才能和行内列边界对齐。
+    auto *hdrTitleCol = new QWidget(m_header);
+    auto *hdrTitleLay = new QHBoxLayout(hdrTitleCol);
+    hdrTitleLay->setContentsMargins(0, 0, kTitleColRightPad, 0);
+    hdrTitleLay->setSpacing(0);
 
-    m_hdrTitle = new QLabel(I18n::instance().tr(QStringLiteral("listColTitle")), m_header);
-    hdrLay->addWidget(m_hdrTitle, 1);
+    auto *titleGap = new QWidget(hdrTitleCol);
+    titleGap->setFixedWidth(kCoverGap);
+    hdrTitleLay->addWidget(titleGap);
+
+    m_hdrTitle = new QLabel(I18n::instance().tr(QStringLiteral("listColTitle")), hdrTitleCol);
+    hdrTitleLay->addWidget(m_hdrTitle, 1);
+    hdrLay->addWidget(hdrTitleCol, 1);
 
     m_hdrAlbum = new QLabel(I18n::instance().tr(QStringLiteral("listColAlbum")), m_header);
     hdrLay->addWidget(m_hdrAlbum, 1);
@@ -152,6 +162,7 @@ void SongListWidget::setShowDownloadActions(bool show)
     m_showDownloadActions = show;
     for (SongCardWidget *card : m_rowCards)
         card->setShowDownloadButton(show);
+    updateHeaderColumnWidths();
 }
 
 void SongListWidget::setDownloadTaskMode(bool enabled)
@@ -326,9 +337,11 @@ void SongListWidget::updateHeaderColumnWidths()
         return label->fontMetrics().horizontalAdvance(label->text()) + padding;
     };
 
-    // 「操作」列在数据行中没有固定宽度的对应控件，按文案自适应即可。
-    if (m_hdrActions)
-        m_hdrActions->setFixedWidth(qMax(40, textPx(m_hdrActions, 12)));
+    // 「操作」列必须覆盖数据行里的收藏 + 下载两个按钮，否则「专辑」「操作」列都会错位。
+    if (m_hdrActions) {
+        const int actionCols = m_showDownloadActions ? 80 : 40;
+        m_hdrActions->setFixedWidth(qMax(actionCols, textPx(m_hdrActions, 12)));
+    }
 
     // 「时长」列需与数据行的时间标签保持一致，否则会错位或裁切。
     if (m_hdrDuration) {

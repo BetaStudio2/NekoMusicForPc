@@ -187,6 +187,26 @@ Tier tierFromBitrateBps(int bitrateBps)
     return Tier::LQ;
 }
 
+QColor tierColor(Tier tier, bool dark)
+{
+    // 色相与 frontend/src/components/QualityBadge.vue 保持一致，暗色下略微提亮
+    switch (tier) {
+    case Tier::LQ:
+        return dark ? QColor(0x9a, 0xa3, 0xb2) : QColor(0x8b, 0x93, 0xa1);
+    case Tier::MQ:
+        return dark ? QColor(0x5c, 0xb4, 0xe0) : QColor(0x4a, 0x9e, 0xc9);
+    case Tier::HQ:
+        return dark ? QColor(0x4f, 0xc3, 0x8e) : QColor(0x3f, 0xae, 0x7d);
+    case Tier::SQ:
+        return dark ? QColor(0xe8, 0xb0, 0x4a) : QColor(0xd9, 0x9a, 0x2b);
+    case Tier::HiRes:
+        return dark ? QColor(0xff, 0x6f, 0x93) : QColor(0xe0, 0x56, 0x7a);
+    case Tier::Unknown:
+    default:
+        return {};
+    }
+}
+
 Tier tierFromApiQuality(const QString &apiQuality)
 {
     const QString value = apiQuality.trimmed().toLower();

@@ -1215,7 +1215,10 @@ void PlayerPage::applyAudioQualityBadge(const AudioQuality::ProbeResult &result)
     }
 
     m_lastQuality = AudioQuality::ensureVisibleTier(result);
-    const QColor fg = QColor(m_clrTitle);
+    const bool dark = Theme::ThemeManager::instance().isDarkMode();
+    QColor fg = AudioQuality::tierColor(m_lastQuality.tier, dark);
+    if (!fg.isValid())
+        fg = QColor(m_clrTitle);
     const QByteArray iconUtf8 = AudioQuality::tierIconName(m_lastQuality.tier).toUtf8();
     constexpr int kBadgeH = 20;
 

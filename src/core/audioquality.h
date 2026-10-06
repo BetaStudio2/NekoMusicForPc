@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QByteArray>
+#include <QColor>
 #include <QString>
 
 namespace AudioQuality {
@@ -47,5 +48,8 @@ ProbeResult ensureVisibleTier(ProbeResult result);
 bool isDefinitiveProbe(const ProbeResult &result);
 /** 切歌时先显示的预估档位 */
 ProbeResult guessInitialTier(bool isLocalFile, const QString &localPath);
+
+/** 音质标识配色（与 Web 端 QualityBadge 同一套色相）；Unknown 返回无效颜色 */
+QColor tierColor(Tier tier, bool dark);
 
 } // namespace AudioQuality
