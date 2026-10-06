@@ -7,7 +7,6 @@
 #include "httpprotocollabel.h"
 #include "theme/theme.h"
 #include "core/usermanager.h"
-#include "version.h"
 
 #include <QNetworkReply>
 #include <QNetworkRequest>
@@ -25,21 +24,6 @@
 #include <memory>
 
 ApiClient::ApiClient(QObject *parent) : QObject(parent) {}
-
-QNetworkReply *NekoNetworkAccessManager::createRequest(Operation op, const QNetworkRequest &request,
-                                                       QIODevice *outgoingData)
-{
-    QNetworkRequest req(request);
-    const QString version = QString::fromUtf8(APP_VERSION);
-    if (req.header(QNetworkRequest::UserAgentHeader).isNull()) {
-        req.setHeader(QNetworkRequest::UserAgentHeader,
-                      QStringLiteral("NekoMusic-PC/%1").arg(version));
-    }
-    if (!req.hasRawHeader("X-Neko-Client")) {
-        req.setRawHeader("X-Neko-Client", QStringLiteral("pc+%1").arg(version).toUtf8());
-    }
-    return QNetworkAccessManager::createRequest(op, req, outgoingData);
-}
 
 namespace {
 

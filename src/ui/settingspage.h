@@ -13,7 +13,7 @@ class QCheckBox;
 class QComboBox;
 class QLabel;
 class QLineEdit;
-class NekoNetworkAccessManager;
+#include "core/nekonetworkaccessmanager.h"
 class QNetworkReply;
 class QPixmap;
 class QPushButton;

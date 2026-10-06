@@ -8,7 +8,7 @@
  */
 
 #include <QObject>
-#include "nekonetworkaccessmanager.h"
+#include "core/nekonetworkaccessmanager.h"
 #include <QNetworkReply>
 #include <QString>
 

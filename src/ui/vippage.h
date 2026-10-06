@@ -16,7 +16,7 @@ class QVBoxLayout;
 class QHBoxLayout;
 class QScrollArea;
 class QWidget;
-class NekoNetworkAccessManager;
+#include "core/nekonetworkaccessmanager.h"
 class QNetworkReply;
 
 class VipPage : public QWidget

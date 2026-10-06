@@ -6,7 +6,7 @@
 #include "core/musicinfo.h"
 
 class ApiClient;
-class NekoNetworkAccessManager;
+#include "core/nekonetworkaccessmanager.h"
 class QNetworkReply;
 class QFile;
 

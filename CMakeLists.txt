@@ -17,7 +17,7 @@ file(GLOB_RECURSE NEKO_NET_SOURCES
         "${CMAKE_SOURCE_DIR}/src/*.h"
         "${CMAKE_SOURCE_DIR}/src/*.cpp")
 foreach(neko_net_src ${NEKO_NET_SOURCES})
-    if(NOT neko_net_src MATCHES "nekonetworkaccessmanager\\.h$")
+    if(NOT neko_net_src MATCHES "nekonetworkaccessmanager\\.(h|cpp)$")
         file(READ "${neko_net_src}" neko_net_content)
         string(FIND "${neko_net_content}" "QNetworkAccessManager" neko_net_hit)
         if(NOT neko_net_hit EQUAL -1)
@@ -187,6 +187,7 @@ set(SOURCES
         src/core/mcpserver.cpp
         src/core/mcpbridge.cpp
         src/core/apiclient.cpp
+        src/core/nekonetworkaccessmanager.cpp
         src/core/i18n.cpp
         src/core/legaltext.cpp
         src/core/appshortcuts.cpp
@@ -269,6 +270,7 @@ set(HEADERS
         src/core/mcpserver.h
         src/core/mcpbridge.h
         src/core/apiclient.h
+        src/core/nekonetworkaccessmanager.h
         src/core/httpprotocollabel.h
         src/core/i18n.h
         src/core/legaltext.h
