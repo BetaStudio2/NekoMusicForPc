@@ -641,6 +641,9 @@ void MusicListPage::fetchData()
                                         .arg(info.id);
                     if (info.id <= 0)
                         continue;
+                    info.maxQuality = firstNonNull(primary, fallback, QStringLiteral("maxQuality")).toString();
+                    if (info.maxQuality.isEmpty())
+                        info.maxQuality = deepFindByKeys(root, {QStringLiteral("maxQuality")}).toString();
                     if (m_type == Hot)
                         info.playCount =
                             firstNonNull(primary, fallback, QStringLiteral("playCount")).toInt();

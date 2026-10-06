@@ -194,6 +194,7 @@ QList<MusicInfo> ArtistDetailPage::tracksFromArtistMap(const QVariantMap &artist
         info.artist = m.value(QStringLiteral("artist")).toString();
         info.album = m.value(QStringLiteral("album")).toString();
         info.duration = m.value(QStringLiteral("duration")).toInt();
+        info.maxQuality = m.value(QStringLiteral("maxQuality")).toString();
         info.coverUrl = QString::fromUtf8("%1/api/music/cover/%2").arg(Theme::kApiBase).arg(info.id);
         list.append(info);
     }
