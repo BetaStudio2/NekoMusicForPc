@@ -6,7 +6,7 @@
  */
 
 #include <QObject>
-#include <QNetworkAccessManager>
+#include "nekonetworkaccessmanager.h"
 #include <functional>
 
 class QNetworkReply;
@@ -287,6 +287,6 @@ public:
     void deleteComment(int commentId, CommentsCb cb);
 
 private:
-    QNetworkAccessManager m_nam;
+    NekoNetworkAccessManager m_nam;
     QString getAuthToken() const;
 };

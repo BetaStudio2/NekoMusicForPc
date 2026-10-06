@@ -8,7 +8,7 @@
  */
 
 #include <QObject>
-#include <QNetworkAccessManager>
+#include "nekonetworkaccessmanager.h"
 #include <QNetworkReply>
 #include <QString>
 
@@ -55,5 +55,5 @@ private:
                                          const QString &downloadUrl) const;
 
     QString m_currentVersion;
-    QNetworkAccessManager m_nam;
+    NekoNetworkAccessManager m_nam;
 };

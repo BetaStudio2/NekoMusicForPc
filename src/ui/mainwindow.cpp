@@ -267,7 +267,7 @@ Qt::CursorShape cursorForResizeEdges(Qt::Edges edges)
 #include <QUrl>
 #include <QSystemTrayIcon>
 #include <QMenu>
-#include <QNetworkAccessManager>
+#include "core/nekonetworkaccessmanager.h"
 #include <QNetworkReply>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -2587,7 +2587,7 @@ void MainWindow::toggleFavorite(int musicId)
         QNetworkRequest req(url);
         req.setRawHeader("Authorization", UserManager::instance().token().toUtf8());
 
-        auto *nam = new QNetworkAccessManager(this);
+        auto *nam = new NekoNetworkAccessManager(this);
         auto *reply = nam->deleteResource(req);
         QObject::connect(reply, &QNetworkReply::finished, this, [this, reply, musicId, nam]() {
             reply->deleteLater();
@@ -2627,7 +2627,7 @@ void MainWindow::toggleFavorite(int musicId)
         obj.insert("musicId", musicId);
         QJsonDocument doc(obj);
 
-        auto *nam = new QNetworkAccessManager(this);
+        auto *nam = new NekoNetworkAccessManager(this);
         auto *reply = nam->post(req, doc.toJson());
         QObject::connect(reply, &QNetworkReply::finished, this, [this, reply, musicId, nam]() {
             reply->deleteLater();

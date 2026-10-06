@@ -13,7 +13,7 @@
 class QLineEdit;
 class QLabel;
 class QResizeEvent;
-class QNetworkAccessManager;
+class NekoNetworkAccessManager;
 class QNetworkReply;
 class VipPillButton;
 
@@ -48,7 +48,7 @@ private:
     void refreshSearchGlyph();
     void loadAvatarAsync(const QString &url, int userId);
 
-    QNetworkAccessManager *m_nam = nullptr;
+    NekoNetworkAccessManager *m_nam = nullptr;
     QNetworkReply *m_avatarReply = nullptr;
     QWidget *m_searchWrap = nullptr;
     QLabel *m_searchGlyph = nullptr;

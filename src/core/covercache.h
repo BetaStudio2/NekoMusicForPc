@@ -11,7 +11,7 @@
 #include <QObject>
 #include <QPixmap>
 #include <QHash>
-#include <QNetworkAccessManager>
+#include "nekonetworkaccessmanager.h"
 
 class QNetworkReply;
 
@@ -62,7 +62,7 @@ private:
 
     mutable QString m_cacheDir;
     mutable bool m_cacheDirInitialized = false;
-    QNetworkAccessManager m_nam;
+    NekoNetworkAccessManager m_nam;
     /** 同一 musicId 只保留一个进行中的请求，避免播放栏与播放页重复拉取。 */
     QHash<QString, QNetworkReply *> m_inFlight;
 };

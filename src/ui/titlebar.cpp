@@ -25,7 +25,7 @@
 #include <QGuiApplication>
 #include <QWindow>
 #include <QToolTip>
-#include <QNetworkAccessManager>
+#include "core/nekonetworkaccessmanager.h"
 #include <QNetworkReply>
 #include <QFontMetrics>
 #include <QPainterPath>
@@ -75,7 +75,7 @@ QColor searchBarIconMuted()
 }
 
 TitleBar::TitleBar(QWidget *parent) : QWidget(parent)
-    , m_nam(new QNetworkAccessManager(this))
+    , m_nam(new NekoNetworkAccessManager(this))
 {
     setupUi();
     // 安装事件过滤器到 QApplication，捕获标题栏内所有子控件的鼠标事件

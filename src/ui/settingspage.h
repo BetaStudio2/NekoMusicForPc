@@ -13,7 +13,7 @@ class QCheckBox;
 class QComboBox;
 class QLabel;
 class QLineEdit;
-class QNetworkAccessManager;
+class NekoNetworkAccessManager;
 class QNetworkReply;
 class QPixmap;
 class QPushButton;
@@ -119,7 +119,7 @@ private:
     QPushButton *m_backdropPickColorBtn = nullptr;
     QLabel *m_backdropColorSwatch = nullptr;
     ApiClient *m_apiClient = nullptr;
-    QNetworkAccessManager *m_nam = nullptr;
+    NekoNetworkAccessManager *m_nam = nullptr;
     QNetworkReply *m_avatarReply = nullptr;
 
     QLabel *m_accountSectionLabel = nullptr;

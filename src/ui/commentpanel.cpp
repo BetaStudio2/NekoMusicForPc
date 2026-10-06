@@ -15,7 +15,7 @@
 #include <QTextEdit>
 #include <QPainter>
 #include <QPainterPath>
-#include <QNetworkAccessManager>
+#include "core/nekonetworkaccessmanager.h"
 #include <QNetworkReply>
 #include <QNetworkRequest>
 #include <QPropertyAnimation>
@@ -127,7 +127,7 @@ CommentPanel::CommentPanel(ApiClient *api, QWidget *parent)
     setAttribute(Qt::WA_StyledBackground, true);
     setFixedWidth(kDrawerWidth);
 
-    m_avatarNam = new QNetworkAccessManager(this);
+    m_avatarNam = new NekoNetworkAccessManager(this);
 
     m_drawerShadow = new QGraphicsDropShadowEffect(this);
     m_drawerShadow->setBlurRadius(28);

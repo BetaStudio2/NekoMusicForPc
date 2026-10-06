@@ -29,7 +29,7 @@
 #include <QLabel>
 #include <QComboBox>
 #include <QLineEdit>
-#include <QNetworkAccessManager>
+#include "core/nekonetworkaccessmanager.h"
 #include <QNetworkReply>
 #include <QNetworkRequest>
 #include <QPainter>
@@ -85,7 +85,7 @@ SettingsPage::SettingsPage(ApiClient *apiClient, QWidget *parent)
 {
     setAttribute(Qt::WA_StyledBackground, false);
     setAutoFillBackground(false);
-    m_nam = new QNetworkAccessManager(this);
+    m_nam = new NekoNetworkAccessManager(this);
     setupUi();
     connect(&Theme::ThemeManager::instance(), &Theme::ThemeManager::themeChanged, this,
             [this](Theme::ThemeMode mode) {

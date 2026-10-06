@@ -34,7 +34,6 @@
 #include <QMenu>
 #include <QAction>
 #include <QDialog>
-#include <QNetworkAccessManager>
 #include <QNetworkReply>
 
 namespace {

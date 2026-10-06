@@ -22,7 +22,7 @@
 #include <QDesktopServices>
 #include <QGraphicsOpacityEffect>
 #include <QPropertyAnimation>
-#include <QNetworkAccessManager>
+#include "core/nekonetworkaccessmanager.h"
 #include <QNetworkReply>
 #include <QNetworkRequest>
 #include <algorithm>
@@ -118,7 +118,7 @@ QString qrFrameStyle()
 VipPage::VipPage(ApiClient *apiClient, QWidget *parent)
     : QWidget(parent)
     , m_apiClient(apiClient)
-    , m_nam(new QNetworkAccessManager(this))
+    , m_nam(new NekoNetworkAccessManager(this))
 {
     setAttribute(Qt::WA_StyledBackground, false);
     setAutoFillBackground(false);

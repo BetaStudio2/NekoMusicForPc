@@ -6,7 +6,7 @@
 #include "core/musicinfo.h"
 
 class ApiClient;
-class QNetworkAccessManager;
+class NekoNetworkAccessManager;
 class QNetworkReply;
 class QFile;
 
@@ -62,7 +62,7 @@ private:
     void saveLyrics(const MusicInfo &music);
 
     ApiClient *m_apiClient = nullptr;
-    QNetworkAccessManager *m_nam = nullptr;
+    NekoNetworkAccessManager *m_nam = nullptr;
     QNetworkReply *m_reply = nullptr;
     QFile *m_file = nullptr;
 

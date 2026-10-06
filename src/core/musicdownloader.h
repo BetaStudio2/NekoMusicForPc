@@ -1,7 +1,7 @@
 #pragma once
 
 #include <QObject>
-#include <QNetworkAccessManager>
+#include "nekonetworkaccessmanager.h"
 #include <QFile>
 #include <QUrl>
 
@@ -36,7 +36,7 @@ private:
     void onReadyRead();
     void abortOversizeDownload();
 
-    QNetworkAccessManager m_nam;
+    NekoNetworkAccessManager m_nam;
     QNetworkReply *m_reply = nullptr;
     QFile *m_file = nullptr;
     QString m_tempPath;

@@ -16,7 +16,7 @@ class QVBoxLayout;
 class QHBoxLayout;
 class QScrollArea;
 class QWidget;
-class QNetworkAccessManager;
+class NekoNetworkAccessManager;
 class QNetworkReply;
 
 class VipPage : public QWidget
@@ -49,7 +49,7 @@ private:
     const QVariantMap *selectedPlan() const;
 
     ApiClient *m_apiClient = nullptr;
-    QNetworkAccessManager *m_nam = nullptr;
+    NekoNetworkAccessManager *m_nam = nullptr;
     QNetworkReply *m_qrImageReply = nullptr;
 
     QScrollArea *m_leftScroll = nullptr;

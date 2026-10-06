@@ -21,7 +21,7 @@ class QVBoxLayout;
 class QLabel;
 class QPushButton;
 class QTextEdit;
-class QNetworkAccessManager;
+class NekoNetworkAccessManager;
 class QPropertyAnimation;
 class QGraphicsDropShadowEffect;
 
@@ -113,7 +113,7 @@ private:
     QLabel *m_statusLabel = nullptr;
     QPushButton *m_moreBtn = nullptr;
 
-    QNetworkAccessManager *m_avatarNam = nullptr;
+    NekoNetworkAccessManager *m_avatarNam = nullptr;
 
     bool m_drawerOpen = false;
     bool m_animating = false;

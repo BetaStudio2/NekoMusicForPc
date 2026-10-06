@@ -17,7 +17,6 @@
 #include <QDebug>
 #include <QUrl>
 #include <QRegularExpression>
-#include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QNetworkRequest>
 #include <QBuffer>

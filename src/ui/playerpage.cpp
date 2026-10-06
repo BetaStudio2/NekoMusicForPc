@@ -698,7 +698,7 @@ PlayerPage::PlayerPage(PlayerEngine *engine, ApiClient *apiClient, QWidget *pare
                     updateQualityBadgeStyle();
             });
 
-    m_qualityNam = new QNetworkAccessManager(this);
+    m_qualityNam = new NekoNetworkAccessManager(this);
     connect(&MusicDownloader::instance(), &MusicDownloader::downloadFinished, this,
             [this](const QString &) {
                 if (m_musicId > 0)
@@ -2917,7 +2917,7 @@ void PlayerPage::loadLyricsForTrack(const MusicInfo &info)
     m_lyrics.clear();
     rebuildLyricLabels();
 
-    QNetworkAccessManager *nam = new QNetworkAccessManager(this);
+    NekoNetworkAccessManager *nam = new NekoNetworkAccessManager(this);
     QString url = QString::fromUtf8("%1/api/music/lyrics/%2")
         .arg(QString::fromUtf8(Theme::kApiBase))
         .arg(musicId);

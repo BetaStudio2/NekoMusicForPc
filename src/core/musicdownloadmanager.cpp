@@ -92,7 +92,7 @@ MusicDownloadManager &MusicDownloadManager::instance()
 }
 
 MusicDownloadManager::MusicDownloadManager(QObject *parent)
-    : QObject(parent), m_nam(new QNetworkAccessManager(this))
+    : QObject(parent), m_nam(new NekoNetworkAccessManager(this))
 {
     m_nam->setRedirectPolicy(QNetworkRequest::NoLessSafeRedirectPolicy);
 }
