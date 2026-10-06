@@ -116,12 +116,16 @@ cd "$BUILD_DIR"
 # ============================================================
 # FFmpeg 开发树（原生无缝播放引擎）
 # ============================================================
-# 引擎构建期需 FFmpeg 头文件 + MinGW 导入库；运行期须与 Qt 自带 FFmpeg DLL
-# 同版本（同进程只加载一份，避免两份 FFmpeg 实例）。来源优先级：
+# 引擎 FFmpeg 来源优先级：
 #   1) 环境变量 NEKO_FFMPEG_ROOT（含 include/ 与 lib/ 的开发树）
-#   2) Qt 套件自带开发文件（部分发行包含）
-#   3) 常见 MinGW FFmpeg 前缀
+#   2) 自建最小 FFmpeg（tools/build-ffmpeg-minimal.sh，产物 windows-x86_64/）
+#   3) Qt 套件自带开发文件（部分发行包含）
+#   4) 常见 MinGW FFmpeg 前缀
 NEKO_FFMPEG_DEV="${NEKO_FFMPEG_ROOT:-}"
+if [ -z "$NEKO_FFMPEG_DEV" ] \
+   && [ -f "$SCRIPT_DIR/third_party/ffmpeg-minimal/windows-x86_64/include/libavformat/avformat.h" ]; then
+    NEKO_FFMPEG_DEV="$SCRIPT_DIR/third_party/ffmpeg-minimal/windows-x86_64"
+fi
 if [ -z "$NEKO_FFMPEG_DEV" ] && [ -f "$QT_WIN_ROOT/include/libavformat/avformat.h" ]; then
     NEKO_FFMPEG_DEV="$QT_WIN_ROOT"
 fi
@@ -143,9 +147,14 @@ if [ -n "$NEKO_FFMPEG_DEV" ]; then
 else
     echo ""
     echo "WARNING: 未找到 MinGW FFmpeg 开发树 —— 原生无缝播放引擎将被跳过（回退 QMediaPlayer）。"
-    echo "  如需启用，请提供与 Qt 套件自带 FFmpeg DLL 同版本的开发树并设置："
-    echo "    export NEKO_FFMPEG_ROOT=/path/to/ffmpeg-mingw   # 含 include/ 与 lib/"
+    echo "  建议先构建自建最小 FFmpeg："
+    echo "    FFMPEG_TARGET_OS=windows FFMPEG_TARGET_ARCH=x86_64 \\"
+    echo "      bash third_party/neko-audio-engine/tools/build-ffmpeg-minimal.sh"
+    echo "  或设置 NEKO_FFMPEG_ROOT=/path/to/ffmpeg-mingw（含 include/ 与 lib/）。"
     echo ""
+fi
+if [ -n "${NEKO_FFMPEG_BUNDLE:-}" ]; then
+    FFMPEG_CMAKE_ARG="$FFMPEG_CMAKE_ARG -DNEKO_FFMPEG_BUNDLE=$NEKO_FFMPEG_BUNDLE"
 fi
 
 # Configure with CMake using cross-compilation toolchain
@@ -229,16 +238,26 @@ for pattern in 'avcodec-*.dll' 'avformat-*.dll' 'avutil-*.dll' 'swresample-*.dll
     shopt -u nullglob
 done
 
-# 运行期**复用上面已拷的 Qt 自带 FFmpeg DLL**，不再从开发树另拷一份（否则同进程
-# 会出现两套 FFmpeg）。引擎导入表引用的 av*/sw* DLL 必须能由 Qt 这套满足；若开发树与
-# Qt 套件 FFmpeg 版本不一致（导入名不同）则此处显式报缺，避免运行期加载失败。
+# 自建最小 FFmpeg：若 NEKO_FFMPEG_DEV 下有 bin/*.dll，则用随包内嵌的自己那一套
+# 覆盖 Qt 自带的同名 av*/sw* DLL（保持与引擎导入表一致，避免版本/符号不匹配）。
+if [ -n "$NEKO_FFMPEG_DEV" ] && [ -d "$NEKO_FFMPEG_DEV/bin" ]; then
+    shopt -s nullglob
+    for f in "$NEKO_FFMPEG_DEV"/bin/av*.dll "$NEKO_FFMPEG_DEV"/bin/sw*.dll; do
+        cp -f "$f" "$DEPLOY_DIR/"
+        echo "  Copied $(basename "$f") (self-built minimal FFmpeg)"
+    done
+    shopt -u nullglob
+fi
+
+# 引擎导入表引用的 av*/sw* DLL 必须已随包就位；缺失则显式报错，
+# 避免运行期加载失败（自建最小 FFmpeg 时应已在上一步拷入）。
 if command -v x86_64-w64-mingw32-objdump &>/dev/null; then
     missing_ff=0
     while IFS= read -r imp; do
         case "${imp,,}" in
             avcodec-*.dll|avformat-*.dll|avutil-*.dll|swresample-*.dll|swscale-*.dll)
                 if [ ! -f "$DEPLOY_DIR/$imp" ]; then
-                    echo "  ERROR: 缺少引擎所需 $imp —— Qt 套件 FFmpeg 与 NEKO_FFMPEG_ROOT 版本不一致"
+                    echo "  ERROR: 缺少引擎所需 $imp —— 请用 build-ffmpeg-minimal.sh 构建并设 NEKO_FFMPEG_ROOT"
                     missing_ff=1
                 fi ;;
         esac

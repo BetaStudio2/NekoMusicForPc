@@ -77,7 +77,17 @@ void AudioEngine::start(const QString &source, const Config &cfg)
     engineCfg.output_channels = cfg.outputChannels > 0 ? cfg.outputChannels : 2;
     engineCfg.bitrate = cfg.bitrate;
     engineCfg.skip_encoder = cfg.skipEncoder;
-    engineCfg.engine_mode = 0; // 恒 FFmpeg（不移植 Zig 内核）
+#if defined(HAS_ARCHOERA_KERNEL)
+    // EraAudio Zig 解码内核已链接：默认“原生优先”（逐格式接管，遇到未支持/失败的
+    // 格式由引擎内部自动回退 FFmpeg）。可用环境变量 NEKO_ERAUDIO=0 在运行时强制 FFmpeg。
+    {
+        const QByteArray eraEnv = qgetenv("NEKO_ERAUDIO");
+        const bool disable = !eraEnv.isEmpty() && eraEnv.toInt() == 0;
+        engineCfg.engine_mode = disable ? 0 : 1;
+    }
+#else
+    engineCfg.engine_mode = 0; // 未链接 Zig 内核：恒 FFmpeg
+#endif
     engineCfg.no_disk_cache = cfg.noDiskCache;
     engineCfg.pcm_mem_cap_kb = cfg.pcmMemCapKb;
 

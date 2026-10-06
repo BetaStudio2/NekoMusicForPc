@@ -6,22 +6,15 @@
 
 #include "core/musicinfo.h"
 
-#if defined(NEKO_HAS_AUDIO_ENGINE)
 class AudioEngine;
-#else
-#include <QMediaPlayer>
-#include <QAudioOutput>
-#endif
 
 class QTimer;
 
 /**
- * PlayerEngine — 播放引擎门面，对外 API/信号保持稳定，内部实现按构建二选一：
- *   - 定义 NEKO_HAS_AUDIO_ENGINE：NativePlayerEngine（ArchoeraMusic 原生引擎，
- *     支持音质无缝切换与曲间无缝续播），实现见 playerengine_native.cpp；
- *   - 未定义（如 Windows/无 FFmpeg 开发库）：沿用 QMediaPlayer 实现，见
- *     playerengine_qtmedia.cpp。
- * 两条实现共享本头文件的公共接口，UI/系统媒体/麦克风同步无需改动。
+ * PlayerEngine — 播放引擎门面（ArchoeraMusic 原生引擎 + 随包内嵌 FFmpeg）。
+ *
+ * 已移除 QMediaPlayer 回退实现：始终使用原生引擎，支持音质无缝切换与曲间无缝续播，
+ * 实现见 playerengine_native.cpp。UI/系统媒体/麦克风同步无需感知底层差异。
  */
 class PlayerEngine : public QObject
 {
@@ -94,7 +87,6 @@ signals:
     void audioMetaReady();
 
 private:
-#if defined(NEKO_HAS_AUDIO_ENGINE)
     // ── 原生引擎实现（playerengine_native.cpp）──
     void cancelFade();
     void onFadeTick();
@@ -131,47 +123,6 @@ private:
     bool m_engineReady = false;
     /** 本会话是否已发过 musicStarted（避免暂停/恢复重复记最近播放）。 */
     bool m_musicStartedEmitted = false;
-#else
-    // ── QMediaPlayer 实现（playerengine_qtmedia.cpp）──
-    void onPlayerMetaDataChanged();
-    void connectPlayerSignals(QMediaPlayer *player);
-    void cancelFade();
-    void onMediaStateChanged(QMediaPlayer::PlaybackState state);
-    void onFadeTick();
-    /** 等底层 Stopped 后再 setSource，避免切歌/重试时 FFmpeg demuxer 竞态。 */
-    void openMedia(const QUrl &url, qint64 resumeMs = -1);
-    void applyPendingOpen(quint64 gen);
-    void scheduleResumeAfterOpen(qint64 resumeMs);
-    /** 新媒体可 seek 且时长就绪后执行断点 seek；未命中则后续信号继续重试。 */
-    void applyPendingResume();
-    /** 时长就绪且 mediaStatus 至少 LoadedMedia 时，setPosition 才不会被后端丢弃。 */
-    bool resumeMediaReady() const;
-    void clearPendingResume();
-    void cancelQualitySwitch();
-
-    QMediaPlayer *m_player;
-    QAudioOutput *m_audioOutput;
-    PlaybackState m_state = Stopped;
-    float m_targetVolume = 1.0f;
-    QTimer *m_fadeTimer = nullptr;
-    bool m_fadingIn = false;
-    bool m_fadingOut = false;
-    MusicInfo m_currentMusic;
-    qint64 m_seekLimitMs = -1; // -1 means no limit
-    QUrl m_pendingUrl;
-    qint64 m_pendingResumeMs = -1;
-    qint64 m_resumeTargetMs = -1;
-    QMetaObject::Connection m_resumeStatusConn;
-    QMetaObject::Connection m_resumeDurationConn;
-    QMetaObject::Connection m_resumeSeekableConn;
-    QMetaObject::Connection m_resumePositionConn;
-    QTimer *m_resumeTimeoutTimer = nullptr;
-    quint64 m_openGen = 0;
-    QMetaObject::Connection m_stopForOpenConn;
-    QMediaPlayer *m_qualitySwitchPlayer = nullptr;
-    QAudioOutput *m_qualitySwitchOutput = nullptr;
-    quint64 m_qualitySwitchGen = 0;
-#endif
 
 public:
     void setSeekLimitMs(qint64 limitMs) { m_seekLimitMs = limitMs; }

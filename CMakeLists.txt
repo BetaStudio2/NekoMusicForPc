@@ -317,18 +317,24 @@ else()
 endif()
 
 # ── ArchoeraAudio 原生音频引擎（无缝播放；FFmpeg-only，无 Zig 内核）──────
-# vendor 于 third_party/archoera-audio-engine/，见该目录 CMakeLists 的移植说明。
-# 仅在找到系统 FFmpeg 开发库时构建；否则回退 QMediaPlayer（保持既有行为）。
-add_subdirectory(third_party/archoera-audio-engine)
+# vendor 于 third_party/neko-audio-engine/，见该目录 CMakeLists 的移植说明。
+# QMediaPlayer 回退已移除：必须提供 FFmpeg（推荐自建最小 FFmpeg，见
+# third_party/neko-audio-engine/tools/build-ffmpeg-minimal.sh 与
+# docs/seamless-playback-port.md §6）。
+add_subdirectory(third_party/neko-audio-engine)
 if(ARCHOERRA_ENGINE_AVAILABLE)
     message(STATUS "NekoMusic: 启用原生引擎 — 无缝音质切换 + 曲间无缝续播")
     list(APPEND SOURCES
             src/core/audioengine.cpp
-            src/core/playerengine_native.cpp)
+            src/core/playerengine_native.cpp
+            src/core/mediaprobe.cpp)
     list(APPEND HEADERS src/core/audioengine.h)
 else()
-    message(STATUS "NekoMusic: 原生引擎不可用 — 播放回退 QMediaPlayer")
-    list(APPEND SOURCES src/core/playerengine_qtmedia.cpp)
+    message(FATAL_ERROR
+        "原生音频引擎不可用：QMediaPlayer 回退已移除，必须提供 FFmpeg。\n"
+        "请先构建最小 FFmpeg 并指定 -DNEKO_FFMPEG_ROOT=<第三方/ffmpeg-minimal/<target>> "
+        "-DNEKO_FFMPEG_BUNDLE=ON，或安装系统 FFmpeg 开发库"
+        "（pkg-config libavformat/libavcodec/libavutil/libswresample）。")
 endif()
 
 if(WIN32)
@@ -436,6 +442,27 @@ endif()
 if(ARCHOERRA_ENGINE_AVAILABLE)
     target_compile_definitions(${PROJECT_NAME} PRIVATE NEKO_HAS_AUDIO_ENGINE=1)
     target_link_libraries(${PROJECT_NAME} PRIVATE archoera_engine)
+    # mediaprobe.cpp 直接包含 FFmpeg 头（与引擎复用同一套库）
+    target_include_directories(${PROJECT_NAME} PRIVATE ${ARCHOERRA_FFMPEG_INCLUDE_DIRS})
+endif()
+
+# 随包内嵌自建最小 FFmpeg：设置运行时库搜索路径（$ORIGIN/@loader_path），
+# 开发树用 BUILD_RPATH 指向构建出的 lib 目录，直接可运行。
+if(ARCHOERRA_ENGINE_AVAILABLE AND NEKO_FFMPEG_BUNDLE AND ARCHOERRA_FFMPEG_ROOT)
+    message(STATUS "NekoMusic: 随包内嵌最小 FFmpeg（${ARCHOERRA_FFMPEG_ROOT}）")
+    set_property(TARGET ${PROJECT_NAME} APPEND PROPERTY
+        BUILD_RPATH "${ARCHOERRA_FFMPEG_ROOT}/lib")
+    if(APPLE)
+        # .app 内的 dylib 由 macdeployqt 收进 Contents/Frameworks
+        set_property(TARGET ${PROJECT_NAME} APPEND PROPERTY
+            INSTALL_RPATH "@loader_path/../Frameworks")
+    elseif(LINUX)
+        set_property(TARGET ${PROJECT_NAME} APPEND PROPERTY
+            INSTALL_RPATH "$ORIGIN/lib")
+    endif()
+elseif(NEKO_FFMPEG_BUNDLE)
+    message(WARNING
+        "NEKO_FFMPEG_BUNDLE=ON 但未提供 NEKO_FFMPEG_ROOT（或原生引擎不可用）— 不内嵌 FFmpeg")
 endif()
 
 target_include_directories(${PROJECT_NAME} PRIVATE
@@ -458,6 +485,13 @@ if(LINUX)
     install(TARGETS ${PROJECT_NAME}
             RUNTIME DESTINATION ${NEKO_LINUX_INSTALL_DIR}
     )
+
+    # 随包内嵌的最小 FFmpeg 共享库（RUNPATH=$ORIGIN/lib 指向此处，见上）
+    if(ARCHOERRA_ENGINE_AVAILABLE AND NEKO_FFMPEG_BUNDLE AND ARCHOERRA_FFMPEG_ROOT)
+        install(DIRECTORY "${ARCHOERRA_FFMPEG_ROOT}/lib/"
+                DESTINATION "${NEKO_LINUX_INSTALL_DIR}/lib"
+                FILES_MATCHING PATTERN "lib*.so*")
+    endif()
 
     # Desktop entry file
     install(FILES "${CMAKE_SOURCE_DIR}/packaging/nekomusic.desktop"
@@ -527,7 +561,13 @@ if(LINUX)
     # --ignore-missing-info 跳过，不报错）。
     list(JOIN _neko_debian_depends ", " CPACK_DEBIAN_PACKAGE_DEPENDS)
     set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
-    set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS_PRIVATE_DIRS "$ENV{QT_ROOT_DIR}/lib")
+    set(_neko_shlibdeps_dirs "$ENV{QT_ROOT_DIR}/lib")
+    if(ARCHOERRA_ENGINE_AVAILABLE AND NEKO_FFMPEG_BUNDLE AND ARCHOERRA_FFMPEG_ROOT)
+        # 自建最小 FFmpeg 属包内私有库：让 dpkg-shlibdeps 在此目录识别，
+        # 避免误判为外部依赖（其余如 libssl3/libc 仍会自动补全）。
+        list(APPEND _neko_shlibdeps_dirs "${ARCHOERRA_FFMPEG_ROOT}/lib")
+    endif()
+    set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS_PRIVATE_DIRS "${_neko_shlibdeps_dirs}")
     set(CPACK_DEBIAN_PACKAGE_ARCHITECTURE "amd64")
     set(CPACK_DEBIAN_PACKAGE_POSTINST "${CMAKE_SOURCE_DIR}/packaging/debian/postinst")
     set(CPACK_DEBIAN_PACKAGE_POSTRM "${CMAKE_SOURCE_DIR}/packaging/debian/postrm")

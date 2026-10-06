@@ -175,19 +175,23 @@ INSTALL_PREFIX="$SCRIPT_DIR/$BUILD_DIR/install"
 PKG_OUTDIR="$SCRIPT_DIR/$BUILD_DIR/pkg"
 
 echo "Configuring with CMake..."
-# 原生无缝播放引擎需要 FFmpeg 开发库：优先 pkg-config（Homebrew/系统），
-# 也可用 NEKO_FFMPEG_ROOT 指定与 Qt 自带 FFmpeg 同版本的开发树。
+# 原生无缝播放引擎的 FFmpeg：优先 NEKO_FFMPEG_ROOT（自建最小 FFmpeg，见
+# third_party/neko-audio-engine/tools/build-ffmpeg-minimal.sh），否则 pkg-config。
 NEKO_FFMPEG_ARG=""
 if [ -n "${NEKO_FFMPEG_ROOT:-}" ]; then
     NEKO_FFMPEG_ARG="-DNEKO_FFMPEG_ROOT=$NEKO_FFMPEG_ROOT"
     echo "Using FFmpeg dev root: $NEKO_FFMPEG_ROOT"
+fi
+NEKO_FFMPEG_BUNDLE_ARG=""
+if [ -n "${NEKO_FFMPEG_BUNDLE:-}" ]; then
+    NEKO_FFMPEG_BUNDLE_ARG="-DNEKO_FFMPEG_BUNDLE=$NEKO_FFMPEG_BUNDLE"
 fi
 cmake .. \
     -DCMAKE_BUILD_TYPE="$BUILD_TYPE" \
     -DCMAKE_PREFIX_PATH="$QT_MAC_ROOT" \
     -DCMAKE_OSX_DEPLOYMENT_TARGET="$OSX_DEPLOYMENT_TARGET" \
     -DCMAKE_OSX_ARCHITECTURES="$OSX_ARCHITECTURES" \
-    $NEKO_FFMPEG_ARG
+    $NEKO_FFMPEG_ARG $NEKO_FFMPEG_BUNDLE_ARG
 
 echo ""
 echo "Building..."

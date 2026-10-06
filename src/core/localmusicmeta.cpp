@@ -1,22 +1,16 @@
 #include "localmusicmeta.h"
+#include "mediaprobe.h"
 
 #include <QImage>
-#include <QPixmap>
 #include <QStringList>
-#include <QAudioOutput>
 #include <QDir>
-#include <QEventLoop>
 #include <QCryptographicHash>
 #include <QFile>
 #include <QFileInfo>
 #include <QHash>
-#include <QMediaMetaData>
-#include <QMediaPlayer>
 #include <QStandardPaths>
-#include <QTimer>
 #include <QUrl>
 #include <QStringConverter>
-#include <QVariant>
 
 namespace LocalMusic {
 
@@ -234,25 +228,6 @@ static QString resolvePath(const QString &filePath)
     return c;
 }
 
-static int durationSeconds(const QMediaMetaData &md, const QMediaPlayer &player)
-{
-    const QVariant v = md.value(QMediaMetaData::Duration);
-    if (v.isValid()) {
-        bool ok = false;
-        const qint64 ms = v.toLongLong(&ok);
-        if (ok && ms > 0)
-            return static_cast<int>(ms / 1000);
-    }
-    const QString ds = md.stringValue(QMediaMetaData::Duration);
-    bool ok = false;
-    const qint64 ms2 = ds.toLongLong(&ok);
-    if (ok && ms2 > 0)
-        return static_cast<int>(ms2 / 1000);
-    if (player.duration() > 0)
-        return static_cast<int>(player.duration() / 1000);
-    return 0;
-}
-
 QString cacheEmbeddedCover(const QImage &image, const QString &sourcePath)
 {
     if (image.isNull())
@@ -266,43 +241,6 @@ QString cacheEmbeddedCover(const QImage &image, const QString &sourcePath)
     if (!QFileInfo::exists(imagePath) && !image.save(imagePath, "PNG"))
         return {};
     return QUrl::fromLocalFile(imagePath).toString();
-}
-
-QImage embeddedCoverForFile(const QString &path, QMediaMetaData *metadata)
-{
-    if (!metadata)
-        return {};
-
-    QMediaPlayer player;
-    QEventLoop loop;
-    QTimer timeout;
-    timeout.setSingleShot(true);
-    timeout.setInterval(1500);
-    QObject::connect(&timeout, &QTimer::timeout, &loop, &QEventLoop::quit);
-    QObject::connect(&player, &QMediaPlayer::metaDataChanged, &loop, [&]() {
-        *metadata = player.metaData();
-        const auto value = metadata->value(QMediaMetaData::CoverArtImage);
-        if (value.isValid() || metadata->value(QMediaMetaData::ThumbnailImage).isValid())
-            loop.quit();
-    });
-    QObject::connect(&player, &QMediaPlayer::mediaStatusChanged, &loop,
-                     [&](QMediaPlayer::MediaStatus status) {
-                         if (status == QMediaPlayer::LoadedMedia || status == QMediaPlayer::InvalidMedia)
-                             loop.quit();
-                     });
-    player.setSource(QUrl::fromLocalFile(path));
-    timeout.start();
-    loop.exec();
-    *metadata = player.metaData();
-
-    const QVariant cover = metadata->value(QMediaMetaData::CoverArtImage);
-    const QVariant thumbnail = metadata->value(QMediaMetaData::ThumbnailImage);
-    const QVariant value = cover.isValid() ? cover : thumbnail;
-    if (value.canConvert<QImage>())
-        return value.value<QImage>();
-    if (value.canConvert<QPixmap>())
-        return value.value<QPixmap>().toImage();
-    return {};
 }
 
 MusicInfo probeAndBuildInfo(const QString &filePath)
@@ -325,15 +263,17 @@ MusicInfo probeAndBuildInfo(const QString &filePath)
         info.title = base;
     }
 
-    QMediaMetaData metadata;
-    const QImage embeddedCover = embeddedCoverForFile(path, &metadata);
-    if (!metadata.stringValue(QMediaMetaData::Title).isEmpty())
-        info.title = metadata.stringValue(QMediaMetaData::Title);
-    if (!metadata.stringValue(QMediaMetaData::Author).isEmpty())
-        info.artist = metadata.stringValue(QMediaMetaData::Author);
-    if (!metadata.stringValue(QMediaMetaData::AlbumTitle).isEmpty())
-        info.album = metadata.stringValue(QMediaMetaData::AlbumTitle);
-    info.coverUrl = cacheEmbeddedCover(embeddedCover, path);
+    // 标签与内嵌封面：直接走随包内嵌的 FFmpeg（不再依赖 QMediaPlayer）。
+    MediaProbe::Tags tags;
+    if (MediaProbe::readTags(path, &tags)) {
+        if (!tags.title.isEmpty())
+            info.title = tags.title;
+        if (!tags.artist.isEmpty())
+            info.artist = tags.artist;
+        if (!tags.album.isEmpty())
+            info.album = tags.album;
+    }
+    info.coverUrl = cacheEmbeddedCover(MediaProbe::readEmbeddedCover(path), path);
 
     return info;
 }

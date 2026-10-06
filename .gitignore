@@ -38,3 +38,10 @@ dist-electron/
 node_modules/
 release/
 build-mac-intel/
+
+# Self-built minimal FFmpeg（见 third_party/neko-audio-engine/tools/build-ffmpeg-minimal.sh）
+third_party/ffmpeg-minimal/
+
+# Zig（EraAudio 解码内核）构建产物
+.zig-cache/
+zig-out/

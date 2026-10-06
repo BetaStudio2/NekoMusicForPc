@@ -23,6 +23,7 @@ concurrency:
 
 env:
   QT_VERSION: '6.10.2'
+  ZIG_VERSION: '0.16.0'
 
 jobs:
   # ============================================================
@@ -47,22 +48,34 @@ jobs:
           modules: 'qtmultimedia'
           cache: true
 
+      - name: Setup Zig (EraAudio kernel)
+        uses: mlugg/setup-zig@v2
+        with:
+          version: ${{ env.ZIG_VERSION }}
+
       - name: Install packaging deps
         run: |
           sudo apt-get install -y --no-install-recommends \
             dpkg-dev \
             fakeroot \
-            libavformat-dev \
-            libavcodec-dev \
-            libavutil-dev \
-            libswresample-dev
+            nasm \
+            libssl-dev \
+            pkg-config
+
+      - name: Build minimal FFmpeg (audio-only, LGPL, TLS)
+        run: |
+          set -euo pipefail
+          bash third_party/neko-audio-engine/tools/build-ffmpeg-minimal.sh
 
       - name: Build and package (.deb)
         env:
           CMAKE_PREFIX_PATH: ${{ env.QT_ROOT_DIR }}
+          NEKO_FFMPEG_ROOT: ${{ github.workspace }}/third_party/ffmpeg-minimal/linux-x86_64
+          NEKO_FFMPEG_BUNDLE: 'ON'
         run: |
           set -euo pipefail
           echo "Qt: ${QT_ROOT_DIR:-<未设置>}"
+          echo "FFmpeg: ${NEKO_FFMPEG_ROOT}"
           chmod +x build_linux.sh
           ./build_linux.sh Release
 
@@ -76,6 +89,11 @@ jobs:
           echo "== ldd FFmpeg 依赖 =="
           ldd "$BIN" | grep -E "libavformat|libavcodec|libavutil|libswresample" \
             || { echo "原生引擎未链接（libav* 缺失）— FFmpeg 开发库可能未装"; exit 1; }
+          echo "== RUNPATH =="
+          readelf -d "$BIN" | grep -E 'RPATH|RUNPATH' || true
+          echo "== EraAudio 内核符号 =="
+          nm "$BIN" | grep -q ' T zk_decoder_open' \
+            || { echo "EraAudio 内核未链接（zk_* 缺失）— zig 未生效？"; exit 1; }
 
       - name: Resolve artifact path
         id: pack
@@ -128,13 +146,15 @@ jobs:
           cache: true
           install-deps: false
 
+      - name: Setup Zig (EraAudio kernel)
+        uses: mlugg/setup-zig@v2
+        with:
+          version: ${{ env.ZIG_VERSION }}
+
       - name: Build, deploy and package (.exe)
         shell: pwsh
-        # 原生无缝播放引擎为可选：提供与 Qt 套件自带 FFmpeg DLL 同版本的 MinGW
-        # 开发树并设置仓库变量 NEKO_FFMPEG_WIN_ROOT 指向它即可启用；未设置则跳过
-        # （回退 QMediaPlayer），CI 保持绿。
-        env:
-          NEKO_FFMPEG_ROOT: ${{ vars.NEKO_FFMPEG_WIN_ROOT }}
+        # 原生无缝播放引擎：CI 用 Qt 自带 MinGW 在 Git Bash 内自建「最小 · 仅音频 ·
+        # 纯 LGPL · schannel TLS」FFmpeg（见下方脚本调用），链接并随包分发其 DLL。
         run: |
           $ErrorActionPreference = 'Stop'
           $root     = $PWD.Path
@@ -153,69 +173,37 @@ jobs:
           Write-Host "MinGW : $($mingw.FullName)"
           & g++ --version | Select-Object -First 1
 
-          # ---- 诊断：Qt 套件自带 FFmpeg 布局（决定原生引擎如何链接）----
-          Write-Host "== Qt FFmpeg 布局诊断 =="
-          Write-Host "bin/av*.dll :"
-          Get-ChildItem "$env:QT_ROOT_DIR\bin" -Filter 'av*.dll' -ErrorAction SilentlyContinue |
+          # ---- 自建最小 FFmpeg（仅音频 · 纯 LGPL · schannel TLS）----
+          # 不再复用/下载 Qt 自带的完整 FFmpeg：自建一份最小、纯 LGPL 的共享库，
+          # 随包分发（CMake NEKO_FFMPEG_BUNDLE=ON 把 bin/*.dll 交给安装目录）。
+          if (-not (Get-Command bash -ErrorAction SilentlyContinue)) {
+            throw "未找到 bash（Git Bash）— 无法构建最小 FFmpeg"
+          }
+          $env:FFMPEG_TARGET_OS   = 'windows'
+          $env:FFMPEG_TARGET_ARCH = 'x86_64'
+          $env:CC     = 'gcc'
+          $env:CXX    = 'g++'
+          $env:AR     = 'ar'
+          $env:RANLIB = 'ranlib'
+          $env:NM     = 'nm'
+          $env:STRIP  = 'strip'
+          Write-Host "== 构建最小 FFmpeg（MinGW）=="
+          bash third_party/neko-audio-engine/tools/build-ffmpeg-minimal.sh
+          if ($LASTEXITCODE -ne 0) { throw "最小 FFmpeg 构建失败" }
+
+          $ffRoot = Join-Path $root 'third_party\ffmpeg-minimal\windows-x86_64'
+          if (-not (Test-Path (Join-Path $ffRoot 'include\libavformat\avformat.h'))) {
+            throw "未在 $ffRoot 找到最小 FFmpeg 头文件"
+          }
+          $env:NEKO_FFMPEG_ROOT = $ffRoot
+          Write-Host "FFmpeg(engine): $ffRoot"
+          Get-ChildItem (Join-Path $ffRoot 'bin') -Filter '*.dll' -ErrorAction SilentlyContinue |
             Select-Object -ExpandProperty Name | ForEach-Object { Write-Host "  $_" }
-          Write-Host "bin/sw*.dll :"
-          Get-ChildItem "$env:QT_ROOT_DIR\bin" -Filter 'sw*.dll' -ErrorAction SilentlyContinue |
-            Select-Object -ExpandProperty Name | ForEach-Object { Write-Host "  $_" }
-          Write-Host "lib/ *av*.a (导入库):"
-          Get-ChildItem "$env:QT_ROOT_DIR\lib" -Filter '*av*.a' -ErrorAction SilentlyContinue |
-            Select-Object -ExpandProperty Name | ForEach-Object { Write-Host "  $_" }
-          Write-Host ("include/libavformat/avformat.h: {0}" -f (Test-Path "$env:QT_ROOT_DIR\include\libavformat\avformat.h"))
+
+          $ffArg = @("-DNEKO_FFMPEG_ROOT=$ffRoot", "-DNEKO_FFMPEG_BUNDLE=ON")
 
           if (-not (Get-Command ninja -ErrorAction SilentlyContinue)) {
             choco install ninja -y --no-progress
-          }
-
-          # ---- 获取与 Qt 自带 FFmpeg 同大版本的开发树（头 + MinGW 导入库）----
-          # Qt 6.10.2 自带 FFmpeg 7.1（avcodec-61.dll，无 lib 前缀）；用 BtbN MinGW
-          # 共享构建的 include/lib 链接，其导入库引用的 DLL 名与 Qt 自带一致 →
-          # 运行期加载 Qt 的 DLL（同一套，不额外分发第二份 FFmpeg）。
-          $avDll = Get-ChildItem "$env:QT_ROOT_DIR\bin" -Filter 'avcodec-*.dll' -ErrorAction SilentlyContinue |
-                   Select-Object -First 1
-          if ($avDll) {
-            $major = [regex]::Match($avDll.Name, '-(\d+)\.dll$').Groups[1].Value
-            # 与 Qt 自带 FFmpeg 大版本对应的 BtbN MinGW 开发树（含头 + 导入库；
-            # 其 bin/avcodec-<major>.dll 与 Qt 同名 → 运行期复用 Qt 的 DLL）。
-            $ffUrl = ''
-            if     ($major -eq '61') { $ffUrl = 'https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-07-31-14-10/ffmpeg-n7.1.5-12-g1fdbca85aa-win64-gpl-shared-7.1.zip' }
-            elseif ($major -eq '62') { $ffUrl = 'https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n8.1-latest-win64-gpl-shared-8.1.zip' }
-            if ($ffUrl) {
-              $ffRoot = Join-Path $env:RUNNER_TEMP "ffdev-$major"
-              if (-not (Test-Path (Join-Path $ffRoot 'include\libavformat\avformat.h'))) {
-                try {
-                  $zip = Join-Path $env:RUNNER_TEMP "ffdev-$major.zip"
-                  Write-Host "下载 FFmpeg dev: $ffUrl"
-                  Invoke-WebRequest -Uri $ffUrl -OutFile $zip
-                  Expand-Archive -Path $zip -DestinationPath $env:RUNNER_TEMP -Force
-                  $inner = Get-ChildItem $env:RUNNER_TEMP -Directory |
-                           Where-Object { $_.Name -like 'ffmpeg-*win64-gpl-shared*' } | Select-Object -First 1
-                  if ($inner) {
-                    Remove-Item $ffRoot -Recurse -Force -ErrorAction SilentlyContinue
-                    Move-Item $inner.FullName $ffRoot
-                  }
-                } catch {
-                  Write-Host "FFmpeg(engine): 开发树获取失败（$($_.Exception.Message)）→ 跳过原生引擎"
-                }
-              }
-              if (Test-Path (Join-Path $ffRoot 'include\libavformat\avformat.h')) {
-                $env:NEKO_FFMPEG_ROOT = $ffRoot
-                Write-Host "FFmpeg(engine): 使用 $ffRoot"
-              }
-            } else {
-              Write-Host "FFmpeg(engine): 未识别 Qt FFmpeg 大版本($major) → 跳过原生引擎"
-            }
-          }
-
-          $ffArg = @()
-          if ($env:NEKO_FFMPEG_ROOT) {
-            Write-Host "FFmpeg(engine): $env:NEKO_FFMPEG_ROOT"
-            $ffArg += "-DNEKO_FFMPEG_ROOT=$env:NEKO_FFMPEG_ROOT"
-          } else {
-            Write-Host "FFmpeg(engine): 未提供 → 跳过原生引擎（回退 QMediaPlayer）"
           }
 
           # ---------------- 构建 ----------------
@@ -283,17 +271,14 @@ jobs:
             }
           }
 
-          # 原生引擎链接的 FFmpeg：复用 Qt 自带的 av*/sw* DLL（与 Qt 插件同一套，
-          # 不额外分发第二份），并断言 exe 导入表确实引用了 av*.dll。
+          # 原生引擎链接的最小 FFmpeg：拷自建 shared 构建的 bin/*.dll（不再复用 Qt 自带的
+          # 完整 FFmpeg），并断言 exe 导入表确实引用了 av*.dll。
           if ($env:NEKO_FFMPEG_ROOT) {
-            Get-ChildItem "$env:QT_ROOT_DIR\bin\*.dll" |
-              Where-Object { $_.Name -match '^(av|sw)[a-z0-9]+-\d+\.dll$' } |
+            $ffBin = Join-Path $env:NEKO_FFMPEG_ROOT 'bin'
+            Get-ChildItem (Join-Path $ffBin '*.dll') |
               ForEach-Object {
-                $dst = Join-Path $stage $_.Name
-                if (-not (Test-Path $dst)) {
-                  Copy-Item $_.FullName $dst
-                  Write-Host "  补拷 $($_.Name)（Qt FFmpeg）"
-                }
+                Copy-Item $_.FullName (Join-Path $stage $_.Name) -Force
+                Write-Host "  拷贝 $($_.Name)（自建最小 FFmpeg）"
               }
             $objdump = Join-Path $mingw.FullName 'bin\objdump.exe'
             if (Test-Path $objdump) {
@@ -400,84 +385,39 @@ jobs:
           modules: 'qtmultimedia'
           cache: true
 
+      - name: Setup Zig (EraAudio kernel)
+        uses: mlugg/setup-zig@v2
+        with:
+          version: ${{ env.ZIG_VERSION }}
+
       - name: Build and package (universal .pkg)
         env:
           QT_MAC_ROOT: ${{ env.QT_ROOT_DIR }}
           # Qt 6.10 的 dylib 最低要求 macOS 13，按 11 链接只会刷一堆 ld 版本告警
           OSX_DEPLOYMENT_TARGET: '13.0'
-          # 原生无缝播放引擎为可选：需提供**通用架构** FFmpeg 开发树并设置仓库变量
-          # NEKO_FFMPEG_MAC_ROOT（单架构 Homebrew FFmpeg 会导致通用链接失败，见
-          # third_party/archoera-audio-engine/CMakeLists.txt 的 macOS 守卫）；
-          # 未设置则跳过（回退 QMediaPlayer）。
-          NEKO_FFMPEG_ROOT: ${{ vars.NEKO_FFMPEG_MAC_ROOT }}
         run: |
           set -euo pipefail
           echo "Qt: ${QT_MAC_ROOT:-<未设置>}"
-          [ -n "${NEKO_FFMPEG_ROOT:-}" ] && echo "FFmpeg(engine): $NEKO_FFMPEG_ROOT" \
-            || echo "FFmpeg(engine): 未提供 → 跳过原生引擎（回退 QMediaPlayer）"
 
-          # ---- 诊断：Qt 套件自带 FFmpeg 布局（决定原生引擎如何链接）----
-          echo "== Qt 自带 FFmpeg 布局诊断 =="
-          ls -l "$QT_MAC_ROOT"/lib/libav*.dylib "$QT_MAC_ROOT"/lib/libsw*.dylib 2>/dev/null \
-            || echo "  (lib/ 下无 libav*.dylib)"
-          for f in "$QT_MAC_ROOT"/lib/libavcodec.*.dylib; do
-            if [ -f "$f" ]; then printf "  "; lipo -info "$f" || true; fi
-          done
-          if [ -f "$QT_MAC_ROOT/include/libavformat/avformat.h" ]; then
-            echo "  include: 有 FFmpeg 头文件"
-          else
-            echo "  include: 无 FFmpeg 头文件"
-          fi
-          echo "  套件内 libavcodec*.dylib 位置:"
-          find "$QT_MAC_ROOT" -maxdepth 3 -name 'libavcodec*.dylib' 2>/dev/null | head -5 | sed 's/^/    /'
-
-          # ---- 复用 Qt 自带 universal FFmpeg 7.1：只补 7.1 头文件，库直接链 Qt 的 dylib ----
-          FFM_VER=""
-          for d in "$QT_MAC_ROOT"/lib/libavcodec.*.dylib; do
-            if [ -f "$d" ]; then
-              major="$(basename "$d" | cut -d. -f2)"
-              case "$major" in 61) FFM_VER="7.1" ;; 62) FFM_VER="8.0" ;; 60) FFM_VER="6.1" ;; esac
-              break
-            fi
-          done
-          if [ -n "$FFM_VER" ]; then
-            SRC="$RUNNER_TEMP/ffmpeg-$FFM_VER"
-            if [ ! -f "$SRC/libavformat/avformat.h" ]; then
-              echo "下载 FFmpeg $FFM_VER 源码头…"
-              curl -fsSL "https://ffmpeg.org/releases/ffmpeg-$FFM_VER.tar.xz" \
-                | tar -xf - -C "$RUNNER_TEMP" || true
-            fi
-            # 生成配置头（avconfig.h 等）；仅为取头，不编译
-            if [ -f "$SRC/configure" ] && [ ! -f "$SRC/libavutil/avconfig.h" ]; then
-              ( cd "$SRC" && ./configure --disable-everything --disable-programs \
-                  --disable-doc --disable-autodetect --disable-x86asm --disable-network \
-                  >/dev/null 2>&1 ) || true
-            fi
-            DEVDIR="$RUNNER_TEMP/ffdev"
-            rm -rf "$DEVDIR"; mkdir -p "$DEVDIR/lib"
-            ln -sfn "$SRC" "$DEVDIR/include"
-            for l in avcodec avformat avutil swresample; do
-              [ -f "$QT_MAC_ROOT/lib/lib$l.dylib" ] && \
-                ln -sf "$QT_MAC_ROOT/lib/lib$l.dylib" "$DEVDIR/lib/lib$l.dylib"
-            done
-            if [ -f "$DEVDIR/include/libavformat/avformat.h" ] && [ -f "$DEVDIR/lib/libavformat.dylib" ]; then
-              export NEKO_FFMPEG_ROOT="$DEVDIR"
-              echo "FFmpeg(engine): ${DEVDIR}（头=FFmpeg $FFM_VER 源码；库=Qt 自带 universal dylib）"
-            else
-              echo "FFmpeg(engine): 头/库未就绪 → 跳过原生引擎"
-            fi
-          else
-            echo "FFmpeg(engine): 未识别 Qt FFmpeg 大版本 → 跳过原生引擎"
-          fi
+          # ---- 自建最小 FFmpeg（通用架构 · 仅音频 · 纯 LGPL · securetransport TLS）----
+          FFMPEG_UNIVERSAL=1 \
+            bash third_party/neko-audio-engine/tools/build-ffmpeg-minimal.sh
+          export NEKO_FFMPEG_ROOT="$PWD/third_party/ffmpeg-minimal/macos-universal"
+          export NEKO_FFMPEG_BUNDLE=ON
+          echo "FFmpeg(engine): $NEKO_FFMPEG_ROOT"
+          echo "== 通用架构校验 =="
+          lipo -info "$NEKO_FFMPEG_ROOT/lib/libavcodec."*.dylib || true
 
           chmod +x build_macos.sh
           ./build_macos.sh Release
-          if [ -n "${NEKO_FFMPEG_ROOT:-}" ]; then
-            APP="build-macos/install/NekoMusic.app/Contents/MacOS/NekoMusic"
-            echo "== 断言原生引擎已链接 =="
-            otool -L "$APP" | grep -E "libavformat|libavcodec|libswresample" \
-              || { echo "原生引擎未链接（libav* 缺失）"; exit 1; }
-          fi
+
+          APP="build-macos/install/NekoMusic.app/Contents/MacOS/NekoMusic"
+          echo "== 断言原生引擎已链接 =="
+          otool -L "$APP" | grep -E "libavformat|libavcodec|libswresample" \
+            || { echo "原生引擎未链接（libav* 缺失）"; exit 1; }
+          echo "== bundle 内 FFmpeg dylib =="
+          ls -1 "$(dirname "$APP")/../Frameworks"/libav*.dylib \
+                "$(dirname "$APP")/../Frameworks"/libsw*.dylib 2>/dev/null || true
 
       - name: Resolve artifact path
         id: pack

@@ -28,7 +28,8 @@ class AudioEngine : public QObject
     Q_OBJECT
 
 public:
-    /** 引擎配置（仅暴露 Qt 侧需要的字段；engine_mode 恒为 0=FFmpeg）。 */
+    /** 引擎配置（仅暴露 Qt 侧需要的字段）。engine_mode 由 audioengine.cpp 按
+     *  构建期是否链接 EraAudio 内核 + 运行时 NEKO_ERAUDIO 决定（默认原生优先）。 */
     struct Config {
         qint64 startOffsetMs = 0;   // 起播偏移（断点续播）
         int outputSampleRate = 0;   // 0 = 跟随源（passthrough）

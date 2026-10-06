@@ -28,10 +28,18 @@ cd "$BUILD_DIR"
 
 # Configure with CMake
 echo "Configuring with CMake..."
+FFMPEG_ARGS=()
+if [ -n "${NEKO_FFMPEG_ROOT:-}" ]; then
+    FFMPEG_ARGS+=("-DNEKO_FFMPEG_ROOT=$NEKO_FFMPEG_ROOT")
+fi
+if [ -n "${NEKO_FFMPEG_BUNDLE:-}" ]; then
+    FFMPEG_ARGS+=("-DNEKO_FFMPEG_BUNDLE=$NEKO_FFMPEG_BUNDLE")
+fi
 cmake .. \
     -DCMAKE_BUILD_TYPE="$BUILD_TYPE" \
     -DLINUX=ON \
-    -DCMAKE_INSTALL_PREFIX=/
+    -DCMAKE_INSTALL_PREFIX=/ \
+    "${FFMPEG_ARGS[@]}"
 
 # Build
 echo ""
