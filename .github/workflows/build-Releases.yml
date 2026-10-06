@@ -122,17 +122,64 @@ jobs:
           files: ${{ steps.pack.outputs.file }}
 
   # ============================================================
+  # Windows 用最小 FFmpeg：在 Linux 上交叉编译（MinGW-w64）
+  # 避免 Windows/Git-Bash 下 FFmpeg configure 生成 MSYS 路径、原生 make 无法解析。
+  # ============================================================
+  ffmpeg-win:
+    name: FFmpeg (Windows cross)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install MinGW cross toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            gcc-mingw-w64-x86-64 g++-mingw-w64-x86-64 nasm
+
+      - name: Build minimal FFmpeg (windows x86_64)
+        env:
+          CC: x86_64-w64-mingw32-gcc
+          CXX: x86_64-w64-mingw32-g++
+          AR: x86_64-w64-mingw32-ar
+          RANLIB: x86_64-w64-mingw32-ranlib
+          NM: x86_64-w64-mingw32-nm
+          STRIP: x86_64-w64-mingw32-strip
+          FFMPEG_TARGET_OS: windows
+          FFMPEG_TARGET_ARCH: x86_64
+          FFMPEG_CONFIGURE_EXTRA: --enable-cross-compile --cross-prefix=x86_64-w64-mingw32-
+        run: |
+          set -euo pipefail
+          bash third_party/neko-audio-engine/tools/build-ffmpeg-minimal.sh
+
+      - name: Upload FFmpeg artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: ffmpeg-win
+          path: third_party/ffmpeg-minimal/windows-x86_64
+          if-no-files-found: error
+
+  # ============================================================
   # Windows：原生构建（Qt 官方 MinGW 套件）→ windeployqt → NSIS 安装包
-  # 构建 / 部署 / 打包放在同一个步骤里，避免跨步骤丢失部署目录
   # ============================================================
   windows:
     name: Windows (.exe)
     runs-on: windows-latest
     timeout-minutes: 120
+    needs: ffmpeg-win
 
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+
+      - name: Download minimal FFmpeg (Windows)
+        uses: actions/download-artifact@v7
+        with:
+          name: ffmpeg-win
+          path: third_party/ffmpeg-minimal
 
       - name: Setup Qt 6 (Windows MinGW kit)
         uses: jurplel/install-qt-action@v4
@@ -173,27 +220,13 @@ jobs:
           Write-Host "MinGW : $($mingw.FullName)"
           & g++ --version | Select-Object -First 1
 
-          # ---- 自建最小 FFmpeg（仅音频 · 纯 LGPL · schannel TLS）----
-          # 不再复用/下载 Qt 自带的完整 FFmpeg：自建一份最小、纯 LGPL 的共享库，
-          # 随包分发（CMake NEKO_FFMPEG_BUNDLE=ON 把 bin/*.dll 交给安装目录）。
-          if (-not (Get-Command bash -ErrorAction SilentlyContinue)) {
-            throw "未找到 bash（Git Bash）— 无法构建最小 FFmpeg"
-          }
-          $env:FFMPEG_TARGET_OS   = 'windows'
-          $env:FFMPEG_TARGET_ARCH = 'x86_64'
-          $env:CC     = 'gcc'
-          $env:CXX    = 'g++'
-          $env:AR     = 'ar'
-          $env:RANLIB = 'ranlib'
-          $env:NM     = 'nm'
-          $env:STRIP  = 'strip'
-          Write-Host "== 构建最小 FFmpeg（MinGW）=="
-          bash third_party/neko-audio-engine/tools/build-ffmpeg-minimal.sh
-          if ($LASTEXITCODE -ne 0) { throw "最小 FFmpeg 构建失败" }
-
+          # ---- 最小 FFmpeg（仅音频 · 纯 LGPL · schannel TLS）----
+          # 由 `ffmpeg-win` job 在 Linux 上以 MinGW-w64 交叉编译后经 artifact 下载到
+          # third_party/ffmpeg-minimal/windows-x86_64（避免 Windows/Git-Bash 下
+          # FFmpeg configure 的 MSYS 路径问题）。CMake NEKO_FFMPEG_BUNDLE=ON 部署 DLL。
           $ffRoot = Join-Path $root 'third_party\ffmpeg-minimal\windows-x86_64'
           if (-not (Test-Path (Join-Path $ffRoot 'include\libavformat\avformat.h'))) {
-            throw "未在 $ffRoot 找到最小 FFmpeg 头文件"
+            throw "未在 $ffRoot 找到最小 FFmpeg（ffmpeg-win artifact 未下载？）"
           }
           $env:NEKO_FFMPEG_ROOT = $ffRoot
           Write-Host "FFmpeg(engine): $ffRoot"

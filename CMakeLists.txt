@@ -453,9 +453,10 @@ if(ARCHOERRA_ENGINE_AVAILABLE AND NEKO_FFMPEG_BUNDLE AND ARCHOERRA_FFMPEG_ROOT)
     set_property(TARGET ${PROJECT_NAME} APPEND PROPERTY
         BUILD_RPATH "${ARCHOERRA_FFMPEG_ROOT}/lib")
     if(APPLE)
-        # .app 内的 dylib 由 macdeployqt 收进 Contents/Frameworks
+        # .app 内的 dylib 由 macdeployqt 收进 Contents/Frameworks；
+        # 同时加入构建出的 lib 目录，供 macdeployqt 解析 @rpath 后拷贝。
         set_property(TARGET ${PROJECT_NAME} APPEND PROPERTY
-            INSTALL_RPATH "@loader_path/../Frameworks")
+            INSTALL_RPATH "@loader_path/../Frameworks" "${ARCHOERRA_FFMPEG_ROOT}/lib")
     elseif(LINUX)
         set_property(TARGET ${PROJECT_NAME} APPEND PROPERTY
             INSTALL_RPATH "$ORIGIN/lib")

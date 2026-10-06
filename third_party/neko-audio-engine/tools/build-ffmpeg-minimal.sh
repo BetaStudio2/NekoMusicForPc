@@ -118,16 +118,18 @@ case "$TARGET_OS" in
 esac
 
 # macOS 通用架构：clang 可一次编译多 -arch。禁用 x86asm（nasm 不支持通用对象）。
-# macOS 通用架构：clang 可一次编译多 -arch。但 FFmpeg 的 #if ARCH_* 由 configure 的
-# 单一宿主架构决定，跨架构 intrinsics 会误编 → 通用构建统一 --disable-asm（仅 C 路径，
-# 音频解码性能损失可接受，换取一次成型、无需双架构 lipo）。
+# macOS 通用架构：逐架构构建后 lipo 合成（一次性多 -arch 会让 configure 误判为
+# generic C，导致 unistd/dirent 等特性检测失败）。通用构建统一 --disable-x86asm，
+# 避免依赖 nasm；并用 --install-name-dir=@rpath 让两架构 install name 一致。
 UNIVERSAL_CFLAGS=()
 UNIVERSAL_LDFLAGS=()
 EXTRA_CONFIGURE=()
+MACOS_UNIVERSAL=0
+if [ "$TARGET_OS" = "macos" ]; then
+    EXTRA_CONFIGURE+=(--disable-x86asm --install-name-dir='@rpath')
+fi
 if [ "$TARGET_OS" = "macos" ] && [ "${FFMPEG_UNIVERSAL:-0}" = "1" ]; then
-    UNIVERSAL_CFLAGS=(-arch arm64 -arch x86_64)
-    UNIVERSAL_LDFLAGS=(-arch arm64 -arch x86_64)
-    EXTRA_CONFIGURE+=(--disable-asm)
+    MACOS_UNIVERSAL=1
 fi
 # Windows/MinGW：显式指定架构；x86asm 需要 nasm，跨平台 CI 下默认关闭以确保可编。
 if [ "$TARGET_OS" = "windows" ]; then
@@ -154,14 +156,8 @@ if [ ! -f "$SRC_DIR/configure" ]; then
     mv "$SRC_DIR.tmp" "$SRC_DIR"
 fi
 
-# ── 配置 ────────────────────────────────────────────────────────────────
-BUILD_DIR="$BUILD_ROOT/$FFMPEG_TARGET-$FFMPEG_VERSION"
-rm -rf "$BUILD_DIR"
-mkdir -p "$BUILD_DIR"
-cd "$BUILD_DIR"
-
-CONFIGURE_ARGS=(
-    --prefix="$PREFIX"
+# ── 配置与构建（函数化：macOS 通用需按架构各构建一次再 lipo）────────────
+CONFIGURE_COMMON=(
     $FF_CONFIGURE_TARGET
     --enable-shared
     --disable-static
@@ -194,27 +190,62 @@ CONFIGURE_ARGS=(
     --enable-protocol="$FF_PROTOCOLS"
     "${TLS_FLAGS[@]}"
     "${EXTRA_CONFIGURE[@]}"
-    --extra-cflags="${UNIVERSAL_CFLAGS[*]}"
-    --extra-ldflags="${UNIVERSAL_LDFLAGS[*]}"
 )
 
-echo "configure ${CONFIGURE_ARGS[*]}"
-"$SRC_DIR/configure" "${CONFIGURE_ARGS[@]}"
+# ff_build_one <prefix> <build_dir> [arch]
+ff_build_one() {
+    local prefix="$1" bdir="$2" arch="${3:-}"
+    rm -rf "$bdir"; mkdir -p "$bdir"; cd "$bdir"
+    local arch_args=()
+    if [ -n "$arch" ]; then
+        arch_args+=(--arch="$arch" "--extra-cflags=-arch $arch" "--extra-ldflags=-arch $arch")
+        if [ "$arch" != "$HOST_ARCH" ]; then
+            arch_args+=(--enable-cross-compile)
+        fi
+    fi
+    echo ""
+    echo "configure (arch=${arch:-host}) -> $prefix"
+    "$SRC_DIR/configure" --prefix="$prefix" "${CONFIGURE_COMMON[@]}" "${arch_args[@]}"
+    echo ""
+    echo "编译 ($MAKE · $JOBS 并行)..."
+    "$MAKE" -j"$JOBS"
+    echo "安装到 $prefix ..."
+    rm -rf "$prefix"
+    "$MAKE" install
+}
 
-# ── 构建并安装 ──────────────────────────────────────────────────────────
-echo ""
-echo "编译 ($MAKE · $JOBS 并行)..."
-"$MAKE" -j"$JOBS"
+if [ "$MACOS_UNIVERSAL" = "1" ]; then
+    # ── macOS：arm64 + x86_64 各建一次，lipo 合成通用 dylib ──────────────
+    THIN_ROOT="$OUT_ROOT/.thin/$FFMPEG_TARGET"
+    rm -rf "$THIN_ROOT" "$PREFIX"
+    for arch in arm64 x86_64; do
+        ff_build_one "$THIN_ROOT/$arch" \
+            "$BUILD_ROOT/$FFMPEG_TARGET-$FFMPEG_VERSION-$arch" "$arch"
+    done
+    echo ""
+    echo "lipo 合成通用架构 -> $PREFIX"
+    mkdir -p "$PREFIX/lib"
+    cp -R "$THIN_ROOT/arm64/include" "$PREFIX/include"
+    set +e
+    for f in "$THIN_ROOT/arm64/lib/"*.dylib; do
+        [ -L "$f" ] && continue
+        name="$(basename "$f")"
+        lipo -create "$f" "$THIN_ROOT/x86_64/lib/$name" -output "$PREFIX/lib/$name" \
+            || { echo "  lipo 失败: $name"; exit 1; }
+    done
+    set -e
+    for l in "$THIN_ROOT/arm64/lib/"*.dylib; do
+        [ -L "$l" ] || continue
+        ln -sf "$(readlink "$l")" "$PREFIX/lib/$(basename "$l")"
+    done
+    [ -d "$THIN_ROOT/arm64/lib/pkgconfig" ] && cp -R "$THIN_ROOT/arm64/lib/pkgconfig" "$PREFIX/lib/"
+else
+    ff_build_one "$PREFIX" "$BUILD_ROOT/$FFMPEG_TARGET-$FFMPEG_VERSION" ""
+fi
 
-echo ""
-echo "安装到 $PREFIX ..."
-rm -rf "$PREFIX"
-"$MAKE" install
-
-# Windows：DLL 默认装到 bin/ 之外的 lib/？确保 bin/ 下也有运行时 DLL。
+# Windows：MinGW 共享构建把 .dll 放 prefix/bin、导入库放 prefix/lib（此处仅确认布局）。
 if [ "$TARGET_OS" = "windows" ]; then
     mkdir -p "$PREFIX/bin" "$PREFIX/lib"
-    # MinGW 共享构建把 .dll 放在 prefix/bin，导入库在 prefix/lib；此处仅确认布局。
     ls -1 "$PREFIX/bin" 2>/dev/null || true
 fi
 
