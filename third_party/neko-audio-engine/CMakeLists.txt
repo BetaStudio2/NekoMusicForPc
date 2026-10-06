@@ -268,7 +268,15 @@ if(NEKO_ENABLE_ERAUDIO_KERNEL)
                         COMMAND "${NEKO_ZIG_EXECUTABLE}" build
                                 --prefix "${_thout}"
                                 --cache-dir "${_zk_cache}"
-                                -Doptimize=ReleaseFast -Dtarget=${_zt})
+                                -Doptimize=ReleaseFast -Dtarget=${_zt}
+                        # Zig 的 ar 成员非 8 字节对齐，Apple ld 拒绝 lipo 后的通用 .a；
+                        # 用 libtool 重新打包瘦库以对齐成员，再 lipo 合成。
+                        COMMAND libtool -static
+                                -o "${_thout}/lib/${_zk_lib_name}.aligned"
+                                "${_thout}/lib/${_zk_lib_name}"
+                        COMMAND "${CMAKE_COMMAND}" -E rename
+                                "${_thout}/lib/${_zk_lib_name}.aligned"
+                                "${_thout}/lib/${_zk_lib_name}")
                     list(APPEND _zk_thin "${_thout}/lib/${_zk_lib_name}")
                 else()
                     list(APPEND _zk_cmds

@@ -179,7 +179,7 @@ jobs:
         uses: actions/download-artifact@v7
         with:
           name: ffmpeg-win
-          path: third_party/ffmpeg-minimal
+          path: third_party/ffmpeg-minimal/windows-x86_64
 
       - name: Setup Qt 6 (Windows MinGW kit)
         uses: jurplel/install-qt-action@v4
