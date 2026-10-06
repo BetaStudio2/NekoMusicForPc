@@ -13,7 +13,7 @@
 class QLineEdit;
 class QLabel;
 class QResizeEvent;
-class NekoNetworkAccessManager;
+#include "core/nekonetworkaccessmanager.h"
 class QNetworkReply;
 class VipPillButton;
 

@@ -6,8 +6,9 @@
  */
 
 #include <QObject>
-#include "nekonetworkaccessmanager.h"
 #include <functional>
+
+#include "core/nekonetworkaccessmanager.h"
 
 class QNetworkReply;
 
