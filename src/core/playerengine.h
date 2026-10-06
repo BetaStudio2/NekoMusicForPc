@@ -9,6 +9,7 @@
 #include "core/musicinfo.h"
 
 class QTimer;
+class HttpMediaDevice;
 
 class PlayerEngine : public QObject
 {
@@ -74,6 +75,10 @@ signals:
 private:
     void onPlayerMetaDataChanged();
     void connectPlayerSignals(QMediaPlayer *player);
+    /** http(s) 源改用应用网络栈的 QIODevice，保证 User-Agent 与其它请求一致。 */
+    void attachHttpDevice(QMediaPlayer *player, const QUrl &url, HttpMediaDevice *&slot);
+    /** 延迟析构旧设备：FFmpeg 解复用线程可能仍在收尾，立即析构有 UAF 风险。 */
+    void retireStreamDevice(HttpMediaDevice *device);
     void cancelFade();
     void onMediaStateChanged(QMediaPlayer::PlaybackState state);
     void onFadeTick();
@@ -109,6 +114,8 @@ private:
     QMetaObject::Connection m_stopForOpenConn;
     QMediaPlayer *m_qualitySwitchPlayer = nullptr;
     QAudioOutput *m_qualitySwitchOutput = nullptr;
+    HttpMediaDevice *m_streamDevice = nullptr;
+    HttpMediaDevice *m_qualitySwitchDevice = nullptr;
     quint64 m_qualitySwitchGen = 0;
 
 public:

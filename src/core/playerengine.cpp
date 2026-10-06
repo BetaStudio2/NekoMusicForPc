@@ -1,7 +1,9 @@
 #include "playerengine.h"
+#include "httpmediadevice.h"
 #include <QDebug>
 #include <QMediaMetaData>
 #include <QSignalBlocker>
+#include <QUrl>
 #include <QTimer>
 #include <memory>
 
@@ -15,7 +17,58 @@ PlayerEngine::PlayerEngine(QObject *parent)
     connectPlayerSignals(m_player);
 }
 
-PlayerEngine::~PlayerEngine() = default;
+PlayerEngine::~PlayerEngine()
+{
+    if (m_player)
+        m_player->stop();
+    if (m_qualitySwitchPlayer)
+        m_qualitySwitchPlayer->stop();
+    if (m_streamDevice)
+        m_streamDevice->abort();
+    if (m_qualitySwitchDevice)
+        m_qualitySwitchDevice->abort();
+}
+
+namespace {
+
+bool isHttpUrl(const QUrl &url)
+{
+    const QString scheme = url.scheme().toLower();
+    return scheme == QLatin1String("http") || scheme == QLatin1String("https");
+}
+
+} // namespace
+
+void PlayerEngine::attachHttpDevice(QMediaPlayer *player, const QUrl &url, HttpMediaDevice *&slot)
+{
+    if (!player)
+        return;
+
+    auto *device = new HttpMediaDevice(url, this);
+    connect(device, &HttpMediaDevice::fetchError, this, [this, device](const QString &error) {
+        if (device != m_streamDevice && device != m_qualitySwitchDevice)
+            return;
+        qWarning() << "[PlayerEngine] 音频流错误:" << error;
+        emit mediaError(error);
+    });
+    device->open(QIODevice::ReadOnly);
+    device->start();
+    // 先交棒给播放器，再回收旧设备，避免交接瞬间旧设备读到半截数据。
+    player->setSourceDevice(device, url);
+
+    HttpMediaDevice *previous = slot;
+    slot = device;
+    retireStreamDevice(previous);
+}
+
+void PlayerEngine::retireStreamDevice(HttpMediaDevice *device)
+{
+    if (!device)
+        return;
+    device->abort();
+    // FFmpeg 的解复用线程可能仍在收尾，立即析构会出现 use-after-free，延迟释放。
+    QTimer::singleShot(10000, device, [device]() { device->deleteLater(); });
+}
 
 QAudioDevice PlayerEngine::outputDevice() const
 {
@@ -105,6 +158,10 @@ void PlayerEngine::switchSourceWithoutRestart(const QUrl &url)
             m_audioOutput = candidateOutput;
             m_qualitySwitchPlayer = nullptr;
             m_qualitySwitchOutput = nullptr;
+            HttpMediaDevice *retiredDevice = m_streamDevice;
+            m_streamDevice = m_qualitySwitchDevice;
+            m_qualitySwitchDevice = nullptr;
+            retireStreamDevice(retiredDevice);
             disconnect(candidate, nullptr, this, nullptr);
             connectPlayerSignals(candidate);
             candidateOutput->setVolume(m_targetVolume);
@@ -123,12 +180,17 @@ void PlayerEngine::switchSourceWithoutRestart(const QUrl &url)
             if (m_qualitySwitchPlayer == candidate) {
                 m_qualitySwitchPlayer = nullptr;
                 m_qualitySwitchOutput = nullptr;
+                retireStreamDevice(m_qualitySwitchDevice);
+                m_qualitySwitchDevice = nullptr;
                 candidate->deleteLater();
                 candidateOutput->deleteLater();
             }
         });
 
-    candidate->setSource(url);
+    if (isHttpUrl(url))
+        attachHttpDevice(candidate, url, m_qualitySwitchDevice);
+    else
+        candidate->setSource(url);
     candidate->play();
 }
 
@@ -176,7 +238,10 @@ void PlayerEngine::applyPendingOpen(quint64 gen)
 
     // 先清空再加载，降低 QFFmpeg demuxer 在快速切源时的崩溃概率
     m_player->setSource(QUrl());
-    m_player->setSource(url);
+    if (isHttpUrl(url))
+        attachHttpDevice(m_player, url, m_streamDevice);
+    else
+        m_player->setSource(url);
     m_player->play();
 
     if (resumeMs > 0)
@@ -317,6 +382,8 @@ void PlayerEngine::cancelQualitySwitch()
         m_qualitySwitchOutput->deleteLater();
         m_qualitySwitchOutput = nullptr;
     }
+    retireStreamDevice(m_qualitySwitchDevice);
+    m_qualitySwitchDevice = nullptr;
 }
 
 void PlayerEngine::setVolume(float volume)

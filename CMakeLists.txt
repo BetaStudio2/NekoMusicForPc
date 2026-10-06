@@ -200,6 +200,7 @@ set(SOURCES
         src/core/qrcodegen.cpp
         src/core/vipqrcode.cpp
         src/core/musicdownloader.cpp
+        src/core/httpmediadevice.cpp
         src/core/musicdownloadmanager.cpp
         src/core/playlistdb.cpp
         src/core/localmusicmeta.cpp
