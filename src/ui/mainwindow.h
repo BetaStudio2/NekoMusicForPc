@@ -49,6 +49,8 @@ class UpdateDialog;
 class SearchPage;
 class DesktopLrc;
 class SystemMediaController;
+class McpServer;
+class McpBridge;
 
 class MainWindow : public QMainWindow
 {
@@ -128,6 +130,10 @@ private:
     void pausePlaybackForSystemUi();
     void setupKeyboardShortcuts();
     void reloadKeyboardShortcuts();
+    /** 创建内置 MCP 服务端与播放器工具桥，并绑定设置页。 */
+    void setupMcpServer();
+    /** 依据 QSettings 启动/停止/重启 MCP 服务端。 */
+    void applyMcpSettings();
 
     /** 打开/关闭全屏播放页（SPlayer：隐藏底栏 MainPlayer，播放页铺满窗口） */
     void openPlayerPage();
@@ -192,6 +198,8 @@ private:
     UpdateDialog *m_updateDialog = nullptr;
     DesktopLrc *m_desktopLrc = nullptr;
     SystemMediaController *m_systemMedia = nullptr;
+    McpServer *m_mcpServer = nullptr;
+    McpBridge *m_mcpBridge = nullptr;
 
     // Download state
     bool m_isDownloading = false;

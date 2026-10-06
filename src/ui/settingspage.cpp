@@ -6,6 +6,7 @@
 #include "settingspage.h"
 #include "core/apiclient.h"
 #include "core/i18n.h"
+#include "core/mcpserver.h"
 #include "core/appshortcuts.h"
 #include "core/micsynccontroller.h"
 #include "core/shellbackdropsettings.h"
@@ -40,6 +41,14 @@
 #include <QScrollBar>
 #include <QFrame>
 #include <QSettings>
+#include <QCheckBox>
+#include <QClipboard>
+#include <QGuiApplication>
+#include <QIntValidator>
+#include <QUuid>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QTimer>
 #include <QDesktopServices>
 #include <QUrl>
 #include <QFileDialog>
@@ -55,7 +64,7 @@ namespace {
 
 constexpr auto kGithubUrl = "https://github.com/FantasyNetworkCN/NekoMusicForPc";
 constexpr auto kApiDocsUrl = "https://github.com/FantasyNetworkCN/NekoMusicDocs";
-constexpr int kSettingsTabCount = 4;
+constexpr int kSettingsTabCount = 5;
 
 QString formatAccountDate(const QString &raw)
 {
@@ -125,7 +134,7 @@ void SettingsPage::setActiveSettingsTab(int index)
     if (!m_settingsStack || index < 0 || index >= m_settingsStack->count())
         return;
     m_settingsStack->setCurrentIndex(index);
-    const QList<QPushButton *> tabs = {m_generalTabBtn, m_appearanceTabBtn, m_shortcutsTabBtn, m_aboutTabBtn};
+    const QList<QPushButton *> tabs = {m_generalTabBtn, m_appearanceTabBtn, m_shortcutsTabBtn, m_aboutTabBtn, m_mcpTabBtn};
     for (int i = 0; i < tabs.size(); ++i) {
         if (tabs[i])
             tabs[i]->setChecked(i == index);
@@ -144,14 +153,14 @@ void SettingsPage::updateTabBarGeometry()
 
     const int available = m_scrollArea ? qMax(320, m_scrollArea->viewport()->width() - 64) : width();
     const bool compact = available < 620;
-    const QList<QPushButton *> tabs = {m_generalTabBtn, m_appearanceTabBtn, m_shortcutsTabBtn, m_aboutTabBtn};
+    const QList<QPushButton *> tabs = {m_generalTabBtn, m_appearanceTabBtn, m_shortcutsTabBtn, m_aboutTabBtn, m_mcpTabBtn};
     for (auto *tab : tabs) {
         if (!tab)
             continue;
         tab->setMinimumWidth(compact ? 104 : 118);
         tab->setSizePolicy(compact ? QSizePolicy::Fixed : QSizePolicy::Preferred, QSizePolicy::Fixed);
     }
-    m_tabBarWidget->setMinimumWidth(compact ? 4 * 112 : 0);
+    m_tabBarWidget->setMinimumWidth(compact ? 5 * 112 : 0);
 }
 
 void SettingsPage::setupUi()
@@ -206,10 +215,12 @@ void SettingsPage::setupUi()
     m_appearanceTabBtn = createTabButton(I18n::instance().tr(QStringLiteral("settingsTabAppearance")), "Palette", tabsRow);
     m_shortcutsTabBtn = createTabButton(I18n::instance().tr(QStringLiteral("settingsTabShortcuts")), "Keyboard", tabsRow);
     m_aboutTabBtn = createTabButton(I18n::instance().tr(QStringLiteral("settingsTabAbout")), "Info", tabsRow);
+    m_mcpTabBtn = createTabButton(I18n::instance().tr(QStringLiteral("settingsTabMcp")), "Extension", tabsRow);
     tabsLay->addWidget(m_generalTabBtn);
     tabsLay->addWidget(m_appearanceTabBtn);
     tabsLay->addWidget(m_shortcutsTabBtn);
     tabsLay->addWidget(m_aboutTabBtn);
+    tabsLay->addWidget(m_mcpTabBtn);
     tabsLay->addStretch();
     tabsScroller->setWidget(tabsRow);
     lay->addWidget(tabsScroller);
@@ -222,6 +233,7 @@ void SettingsPage::setupUi()
     connect(m_appearanceTabBtn, &QPushButton::clicked, this, [this]() { setActiveSettingsTab(1); });
     connect(m_shortcutsTabBtn, &QPushButton::clicked, this, [this]() { setActiveSettingsTab(2); });
     connect(m_aboutTabBtn, &QPushButton::clicked, this, [this]() { setActiveSettingsTab(3); });
+    connect(m_mcpTabBtn, &QPushButton::clicked, this, [this]() { setActiveSettingsTab(4); });
 
     QVBoxLayout *generalLay = nullptr;
     QWidget *generalCard = createSettingsCard(container, &generalLay);
@@ -588,10 +600,17 @@ void SettingsPage::setupUi()
 
     aboutLay->addStretch();
 
+    // MCP（Model Context Protocol）服务端设置
+    QVBoxLayout *mcpLay = nullptr;
+    QWidget *mcpCard = createSettingsCard(container, &mcpLay);
+    QWidget *mcpBody = static_cast<GlassWidget *>(mcpCard)->contentWidget();
+    setupMcpSection(mcpLay, mcpBody);
+
     m_settingsStack->addWidget(generalCard);
     m_settingsStack->addWidget(appearanceCard);
     m_settingsStack->addWidget(shortcutsCard);
     m_settingsStack->addWidget(aboutCard);
+    m_settingsStack->addWidget(mcpCard);
     const int savedTab = qBound(0, settings.value(QStringLiteral("settings/pageTab"), 0).toInt(),
                                 kSettingsTabCount - 1);
     setActiveSettingsTab(savedTab);
@@ -907,6 +926,27 @@ void SettingsPage::retranslate()
         m_shortcutsTabBtn->setText(I18n::instance().tr(QStringLiteral("settingsTabShortcuts")));
     if (m_aboutTabBtn)
         m_aboutTabBtn->setText(I18n::instance().tr(QStringLiteral("settingsTabAbout")));
+    if (m_mcpTabBtn)
+        m_mcpTabBtn->setText(I18n::instance().tr(QStringLiteral("settingsTabMcp")));
+    if (m_mcpTitleLabel)
+        m_mcpTitleLabel->setText(I18n::instance().tr(QStringLiteral("mcpSectionTitle")));
+    if (m_mcpEnableLabel)
+        m_mcpEnableLabel->setText(I18n::instance().tr(QStringLiteral("mcpEnable")));
+    if (m_mcpPortLabel)
+        m_mcpPortLabel->setText(I18n::instance().tr(QStringLiteral("mcpPort")));
+    if (m_mcpTokenLabel)
+        m_mcpTokenLabel->setText(I18n::instance().tr(QStringLiteral("mcpToken")));
+    if (m_mcpGenerateBtn)
+        m_mcpGenerateBtn->setText(I18n::instance().tr(QStringLiteral("mcpGenerate")));
+    if (m_mcpRemoteCheck)
+        m_mcpRemoteCheck->setText(I18n::instance().tr(QStringLiteral("mcpAllowRemote")));
+    if (m_mcpApplyBtn)
+        m_mcpApplyBtn->setText(I18n::instance().tr(QStringLiteral("mcpApply")));
+    if (m_mcpCopyBtn)
+        m_mcpCopyBtn->setText(I18n::instance().tr(QStringLiteral("mcpCopyConfig")));
+    if (m_mcpHintLabel)
+        m_mcpHintLabel->setText(I18n::instance().tr(QStringLiteral("mcpHint")));
+    refreshMcpStatus();
     if (m_accountSectionLabel)
         m_accountSectionLabel->setText(I18n::instance().tr(QStringLiteral("account")));
     if (m_accountNicknameCaption)
@@ -1254,4 +1294,183 @@ void SettingsPage::setAccountAvatar(const QPixmap &pixmap)
     painter.end();
 
     m_accountAvatar->setPixmap(rounded);
+}
+
+// ──────────────────────────── MCP（Model Context Protocol） ────────────────────────────
+
+namespace {
+QString mcpTr(const char *key)
+{
+    return I18n::instance().tr(QString::fromLatin1(key));
+}
+} // namespace
+
+void SettingsPage::setupMcpSection(QVBoxLayout *cardLay, QWidget *cardBody)
+{
+    QSettings settings;
+
+    m_mcpTitleLabel = new QLabel(mcpTr("mcpSectionTitle"), cardBody);
+    m_mcpTitleLabel->setObjectName("settingsLabel");
+    cardLay->addWidget(m_mcpTitleLabel);
+
+    auto *enableRow = new QHBoxLayout();
+    enableRow->setSpacing(12);
+    m_mcpEnableLabel = new QLabel(mcpTr("mcpEnable"), cardBody);
+    m_mcpEnableLabel->setObjectName("settingsLabel");
+    m_mcpEnableLabel->setWordWrap(true);
+    enableRow->addWidget(m_mcpEnableLabel, 1);
+    m_mcpToggle = new ToggleSwitch(cardBody);
+    m_mcpToggle->setChecked(settings.value(QStringLiteral("mcp/enabled"), false).toBool());
+    connect(m_mcpToggle, &ToggleSwitch::toggled, this, [this]() { persistMcpSettings(); });
+    enableRow->addWidget(m_mcpToggle, 0, Qt::AlignRight);
+    cardLay->addLayout(enableRow);
+
+    auto *portRow = new QHBoxLayout();
+    portRow->setSpacing(12);
+    m_mcpPortLabel = new QLabel(mcpTr("mcpPort"), cardBody);
+    m_mcpPortLabel->setObjectName("settingsLabel");
+    m_mcpPortLabel->setWordWrap(true);
+    portRow->addWidget(m_mcpPortLabel, 1);
+    m_mcpPortEdit = new QLineEdit(cardBody);
+    m_mcpPortEdit->setObjectName("settingsInput");
+    m_mcpPortEdit->setFixedWidth(120);
+    m_mcpPortEdit->setFixedHeight(34);
+    m_mcpPortEdit->setValidator(new QIntValidator(1024, 65535, m_mcpPortEdit));
+    m_mcpPortEdit->setText(QString::number(settings.value(QStringLiteral("mcp/port"), 7788).toInt()));
+    connect(m_mcpPortEdit, &QLineEdit::editingFinished, this, [this]() { persistMcpSettings(); });
+    portRow->addWidget(m_mcpPortEdit, 0, Qt::AlignRight);
+    cardLay->addLayout(portRow);
+
+    auto *tokenRow = new QHBoxLayout();
+    tokenRow->setSpacing(12);
+    m_mcpTokenLabel = new QLabel(mcpTr("mcpToken"), cardBody);
+    m_mcpTokenLabel->setObjectName("settingsLabel");
+    m_mcpTokenLabel->setWordWrap(true);
+    tokenRow->addWidget(m_mcpTokenLabel, 1);
+    m_mcpTokenEdit = new QLineEdit(cardBody);
+    m_mcpTokenEdit->setObjectName("settingsInput");
+    m_mcpTokenEdit->setFixedHeight(34);
+    m_mcpTokenEdit->setEchoMode(QLineEdit::PasswordEchoOnEdit);
+    m_mcpTokenEdit->setPlaceholderText(mcpTr("mcpTokenPlaceholder"));
+    m_mcpTokenEdit->setText(settings.value(QStringLiteral("mcp/token")).toString());
+    connect(m_mcpTokenEdit, &QLineEdit::editingFinished, this, [this]() { persistMcpSettings(); });
+    tokenRow->addWidget(m_mcpTokenEdit, 1);
+    m_mcpGenerateBtn = new QPushButton(mcpTr("mcpGenerate"), cardBody);
+    m_mcpGenerateBtn->setObjectName("settingsLinkBtn");
+    m_mcpGenerateBtn->setCursor(Qt::PointingHandCursor);
+    m_mcpGenerateBtn->setFlat(true);
+    connect(m_mcpGenerateBtn, &QPushButton::clicked, this, [this]() {
+        m_mcpTokenEdit->setText(QUuid::createUuid().toString(QUuid::WithoutBraces));
+        persistMcpSettings();
+    });
+    tokenRow->addWidget(m_mcpGenerateBtn);
+    cardLay->addLayout(tokenRow);
+
+    m_mcpRemoteCheck = new QCheckBox(mcpTr("mcpAllowRemote"), cardBody);
+    m_mcpRemoteCheck->setObjectName("settingsInfo");
+    m_mcpRemoteCheck->setChecked(settings.value(QStringLiteral("mcp/allowRemote"), false).toBool());
+    connect(m_mcpRemoteCheck, &QCheckBox::toggled, this, [this]() { persistMcpSettings(); });
+    cardLay->addWidget(m_mcpRemoteCheck);
+
+    m_mcpStatusLabel = new QLabel(cardBody);
+    m_mcpStatusLabel->setObjectName("settingsInfo");
+    m_mcpStatusLabel->setWordWrap(true);
+    m_mcpStatusLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    cardLay->addWidget(m_mcpStatusLabel);
+
+    auto *btnRow = new QHBoxLayout();
+    btnRow->setSpacing(12);
+    m_mcpApplyBtn = new QPushButton(mcpTr("mcpApply"), cardBody);
+    m_mcpApplyBtn->setObjectName("settingsPrimaryBtn");
+    m_mcpApplyBtn->setCursor(Qt::PointingHandCursor);
+    m_mcpApplyBtn->setFixedHeight(36);
+    connect(m_mcpApplyBtn, &QPushButton::clicked, this, [this]() { persistMcpSettings(); });
+    btnRow->addWidget(m_mcpApplyBtn);
+    m_mcpCopyBtn = new QPushButton(mcpTr("mcpCopyConfig"), cardBody);
+    m_mcpCopyBtn->setObjectName("settingsLinkBtn");
+    m_mcpCopyBtn->setCursor(Qt::PointingHandCursor);
+    m_mcpCopyBtn->setFlat(true);
+    connect(m_mcpCopyBtn, &QPushButton::clicked, this, &SettingsPage::copyMcpClientConfig);
+    btnRow->addWidget(m_mcpCopyBtn);
+    btnRow->addStretch();
+    cardLay->addLayout(btnRow);
+
+    m_mcpFeedbackLabel = new QLabel(cardBody);
+    m_mcpFeedbackLabel->setObjectName("settingsInfo");
+    m_mcpFeedbackLabel->setWordWrap(true);
+    cardLay->addWidget(m_mcpFeedbackLabel);
+
+    m_mcpHintLabel = new QLabel(mcpTr("mcpHint"), cardBody);
+    m_mcpHintLabel->setObjectName("settingsInfo");
+    m_mcpHintLabel->setWordWrap(true);
+    cardLay->addWidget(m_mcpHintLabel);
+
+    cardLay->addStretch();
+    refreshMcpStatus();
+}
+
+void SettingsPage::persistMcpSettings()
+{
+    QSettings settings;
+    settings.setValue(QStringLiteral("mcp/enabled"), m_mcpToggle && m_mcpToggle->isChecked());
+    settings.setValue(QStringLiteral("mcp/port"),
+                      m_mcpPortEdit ? m_mcpPortEdit->text().toInt() : 7788);
+    settings.setValue(QStringLiteral("mcp/token"),
+                      m_mcpTokenEdit ? m_mcpTokenEdit->text().trimmed() : QString());
+    settings.setValue(QStringLiteral("mcp/allowRemote"),
+                      m_mcpRemoteCheck && m_mcpRemoteCheck->isChecked());
+    emit mcpSettingsChanged();
+}
+
+void SettingsPage::attachMcpServer(McpServer *server)
+{
+    m_mcpServer = server;
+    if (m_mcpServer) {
+        connect(m_mcpServer, &McpServer::runningChanged, this,
+                [this](bool) { refreshMcpStatus(); });
+    }
+    refreshMcpStatus();
+}
+
+void SettingsPage::refreshMcpStatus()
+{
+    if (!m_mcpStatusLabel)
+        return;
+    const bool enabled = m_mcpToggle && m_mcpToggle->isChecked();
+    if (!enabled) {
+        m_mcpStatusLabel->setText(mcpTr("mcpStatusStopped"));
+        return;
+    }
+    if (m_mcpServer && m_mcpServer->isRunning()) {
+        m_mcpStatusLabel->setText(mcpTr("mcpStatusRunning").arg(m_mcpServer->endpointUrl()));
+    } else {
+        const QString error = m_mcpServer ? m_mcpServer->errorString() : QString();
+        m_mcpStatusLabel->setText(
+            error.isEmpty() ? mcpTr("mcpStatusStopped") : mcpTr("mcpStatusError").arg(error));
+    }
+}
+
+void SettingsPage::copyMcpClientConfig()
+{
+    const int port = m_mcpPortEdit ? m_mcpPortEdit->text().toInt() : 7788;
+    const QString token = m_mcpTokenEdit ? m_mcpTokenEdit->text().trimmed() : QString();
+
+    QJsonObject server{{QStringLiteral("url"),
+                        QStringLiteral("http://127.0.0.1:%1/mcp").arg(port)}};
+    if (!token.isEmpty()) {
+        server.insert(QStringLiteral("headers"),
+                      QJsonObject{{QStringLiteral("Authorization"), QStringLiteral("Bearer ") + token}});
+    }
+    const QJsonObject root{{QStringLiteral("mcpServers"),
+                            QJsonObject{{QStringLiteral("nekomusic"), server}}}};
+    QGuiApplication::clipboard()->setText(
+        QString::fromUtf8(QJsonDocument(root).toJson(QJsonDocument::Indented)));
+
+    if (m_mcpFeedbackLabel) {
+        m_mcpFeedbackLabel->setText(mcpTr("mcpCopied"));
+        QTimer::singleShot(3000, this, [this]() {
+            if (m_mcpFeedbackLabel)
+                m_mcpFeedbackLabel->clear();
+        });
+    }
 }

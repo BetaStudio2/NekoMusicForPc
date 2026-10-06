@@ -77,7 +77,7 @@ body:
     attributes:
       label: 连接的后端 / API
       options:
-        - 官方 music.cnmsb.xin（或默认未改）
+        - 官方 music.nekocore.cn（或默认未改）
         - 自建 / 第三方（域名可打码）
         - 不确定
     validations:

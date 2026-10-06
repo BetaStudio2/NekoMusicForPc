@@ -9,6 +9,7 @@
 #include "core/appshortcuts.h"
 #include "theme/thememanager.h"
 
+class QCheckBox;
 class QComboBox;
 class QLabel;
 class QLineEdit;
@@ -22,6 +23,7 @@ class QStackedWidget;
 class QVBoxLayout;
 class QWidget;
 class ApiClient;
+class McpServer;
 class ShortcutCaptureButton;
 class ToggleSwitch;
 
@@ -32,9 +34,14 @@ class SettingsPage : public QWidget
 public:
     explicit SettingsPage(ApiClient *apiClient, QWidget *parent = nullptr);
 
+    /** 绑定内置 MCP 服务端，用于展示运行状态。 */
+    void attachMcpServer(McpServer *server);
+
 signals:
     void languageChanged(int language);
     void checkForUpdatesRequested();
+    /** MCP 开关/端口/令牌等发生变化，主窗口据此重启服务端。 */
+    void mcpSettingsChanged();
 
 protected:
     void paintEvent(QPaintEvent *) override;
@@ -54,6 +61,10 @@ private:
     void refreshShortcutEditors();
     void refreshMicSyncRow();
     void setupPersonalizationSection(QVBoxLayout *cardLay, QWidget *cardBody);
+    void setupMcpSection(QVBoxLayout *cardLay, QWidget *cardBody);
+    void persistMcpSettings();
+    void refreshMcpStatus();
+    void copyMcpClientConfig();
     /** 设置页独立的滚动条样式（不依赖全局 QSS，避免被上级样式覆盖）。 */
     void applyScrollbarStyle();
     void refreshAccountSection();
@@ -68,6 +79,22 @@ private:
     void refreshBackdropPathLabel();
     void refreshBackdropColorSwatch();
 
+    QLabel *m_mcpTitleLabel = nullptr;
+    QLabel *m_mcpEnableLabel = nullptr;
+    QLabel *m_mcpPortLabel = nullptr;
+    QLabel *m_mcpTokenLabel = nullptr;
+    QLabel *m_mcpHintLabel = nullptr;
+    QPushButton *m_mcpTabBtn = nullptr;
+    ToggleSwitch *m_mcpToggle = nullptr;
+    QLineEdit *m_mcpPortEdit = nullptr;
+    QLineEdit *m_mcpTokenEdit = nullptr;
+    QCheckBox *m_mcpRemoteCheck = nullptr;
+    QLabel *m_mcpStatusLabel = nullptr;
+    QLabel *m_mcpFeedbackLabel = nullptr;
+    QPushButton *m_mcpGenerateBtn = nullptr;
+    QPushButton *m_mcpCopyBtn = nullptr;
+    QPushButton *m_mcpApplyBtn = nullptr;
+    McpServer *m_mcpServer = nullptr;
     QComboBox *m_langCombo = nullptr;
     QComboBox *m_themeCombo = nullptr;
     QPushButton *m_generalTabBtn = nullptr;

@@ -37,6 +37,8 @@
 #include <QUrlQuery>
 #include <QSet>
 #include "core/playerengine.h"
+#include "core/mcpserver.h"
+#include "core/mcpbridge.h"
 #include "core/i18n.h"
 #include "core/apiclient.h"
 #include "core/httpprotocollabel.h"
@@ -346,6 +348,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
     m_engine = new PlayerEngine(this);
     m_downloader = &MusicDownloader::instance();
     setupUi();
+    setupMcpServer();
     loadStyleSheet();
     AppShortcuts::instance().load();
     GlobalShortcutController::instance().installFallback(this);
@@ -1260,6 +1263,43 @@ void MainWindow::setupUi()
     syncPlayModeUi();
     applyDesktopLyricsEnabled(QSettings().value(QStringLiteral("desktopLyrics"), false).toBool(), false);
 }
+void MainWindow::setupMcpServer()
+{
+    m_mcpBridge = new McpBridge(m_engine, m_apiClient, this);
+    m_mcpBridge->setPlayCallback([this](const MusicInfo &info) {
+        playMusicById(info.id, info.title, info.artist, info.coverUrl);
+    });
+    m_mcpBridge->setNextCallback([this]() { playNext(); });
+    m_mcpBridge->setPreviousCallback([this]() { playPrevious(); });
+
+    m_mcpServer = new McpServer(this);
+    m_mcpServer->setHost(m_mcpBridge);
+
+    if (m_settingsPage) {
+        m_settingsPage->attachMcpServer(m_mcpServer);
+        connect(m_settingsPage, &SettingsPage::mcpSettingsChanged, this,
+                &MainWindow::applyMcpSettings);
+    }
+    applyMcpSettings();
+}
+
+void MainWindow::applyMcpSettings()
+{
+    if (!m_mcpServer)
+        return;
+    QSettings settings;
+    if (!settings.value(QStringLiteral("mcp/enabled"), false).toBool()) {
+        m_mcpServer->stop();
+        return;
+    }
+    const int port =
+        qBound(1024, settings.value(QStringLiteral("mcp/port"), 7788).toInt(), 65535);
+    const QString token = settings.value(QStringLiteral("mcp/token")).toString().trimmed();
+    const bool allowRemote = settings.value(QStringLiteral("mcp/allowRemote"), false).toBool();
+    // start() 内部会先 stop()，因此端口/令牌/监听范围变化时可直接重启生效。
+    m_mcpServer->start(static_cast<quint16>(port), token, allowRemote);
+}
+
 void MainWindow::loadStyleSheet()
 {
     applyTheme();

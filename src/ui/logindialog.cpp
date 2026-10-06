@@ -11,7 +11,6 @@
 #include "core/apiclient.h"
 #include "core/usermanager.h"
 #include "core/i18n.h"
-#include "core/vipqrcode.h"
 #include "theme/theme.h"
 #include "theme/thememanager.h"
 
@@ -25,10 +24,40 @@
 #include <QTimer>
 #include <QNetworkReply>
 #include <QColor>
+#include <QPixmap>
+#include <QUrl>
 #include <QStyle>
 #include <QFrame>
 #include <QCheckBox>
 #include <QPalette>
+
+namespace {
+
+/** 解析服务端返回的 data:image/png;base64,... 图片；失败返回空 QPixmap。 */
+QPixmap pixmapFromDataUrl(const QString &dataUrl)
+{
+    const int comma = dataUrl.indexOf(QLatin1Char(','));
+    if (comma <= 0)
+        return {};
+
+    const QString header = dataUrl.left(comma);
+    if (!header.startsWith(QLatin1String("data:image/")))
+        return {};
+
+    const QByteArray payload = dataUrl.mid(comma + 1).toLatin1();
+    const QByteArray bytes = header.contains(QLatin1String(";base64"))
+                                 ? QByteArray::fromBase64(payload)
+                                 : QUrl::fromPercentEncoding(payload).toUtf8();
+    if (bytes.isEmpty())
+        return {};
+
+    QPixmap pixmap;
+    if (!pixmap.loadFromData(bytes))
+        return {};
+    return pixmap;
+}
+
+} // namespace
 
 LoginDialog::LoginDialog(QWidget *parent)
     : QDialog(parent)
@@ -368,17 +397,19 @@ void LoginDialog::refreshQrSession()
                 if (generation != m_qrGeneration)
                     return;
 
-                if (!ok || session.qrContent.isEmpty()) {
+                if (!ok || session.sessionId.isEmpty()) {
                     m_qrImageLabel->clear();
                     return;
                 }
 
-                const QPixmap qr = VipQrCode::pixmapFromText(session.qrContent, 204);
+                // 纯服务端渲染：只展示后端返回的成品二维码（中心已合成软件图标）
+                const QPixmap qr = pixmapFromDataUrl(session.qrImage);
                 if (qr.isNull()) {
+                    m_qrImageLabel->clear();
                     return;
                 }
 
-                m_qrImageLabel->setPixmap(qr);
+                m_qrImageLabel->setPixmap(qr.scaled(204, 204, Qt::KeepAspectRatio, Qt::SmoothTransformation));
                 startQrWatch(session.sessionId, generation);
             });
         });

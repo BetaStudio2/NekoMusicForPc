@@ -16,7 +16,7 @@
 
 1. 本协议是您与本软件开发者之间就您下载、安装、使用本软件所订立的协议。
 2. 本软件为第三方开源客户端，**与各音乐平台及其官方客户端不存在任何关联、合作、授权或代理关系**；项目本身不以营利为目的。
-3. 本软件的官方网站为 <https://music.cnmsb.xin>，源码仓库为 <https://github.com/FantasyNetworkCN/NekoMusicForPc>，后端服务与 API 文档见 <https://github.com/FantasyNetworkCN/NekoMusicDocs>。
+3. 本软件的官方网站为 <https://music.nekocore.cn>，源码仓库为 <https://github.com/FantasyNetworkCN/NekoMusicForPc>，后端服务与 API 文档见 <https://github.com/FantasyNetworkCN/NekoMusicDocs>。
 4. 本协议适用于本软件的各平台版本，包括 Windows、Linux 与 macOS 发行版。
 
 ---
