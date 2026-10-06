@@ -326,7 +326,6 @@ void CoverCache::fetchCover(const QString &musicId, const QString &coverUrl)
     QNetworkRequest req;
     req.setUrl(QUrl(absolute));
     req.setTransferTimeout(10000);
-    req.setHeader(QNetworkRequest::UserAgentHeader, QStringLiteral("NekoMusic Qt"));
     req.setRawHeader("Accept", "image/png,image/jpeg,image/jpg,image/gif,image/bmp,image/svg+xml,image/*;q=0.8,*/*;q=0.5");
     QNetworkReply *reply = m_nam.get(req);
     m_inFlight.insert(cacheKey, reply);

@@ -13,8 +13,12 @@
  *   - User-Agent:    NekoMusic-pc/<版本>(<系统>)，如 NekoMusic-pc/2026.105.48(Linux)
  *
  * 后端据此区分请求来自哪个客户端及其版本，因此本项目所有联网的
- * QNetworkAccessManager（API、封面、歌词、更新检查、音乐下载等）都改用本类，
+ * QNetworkAccessManager（API、封面、歌词、更新检查、音乐下载、媒体流等）都改用本类，
  * 通过重写 createRequest 在请求发出前注入标头，避免逐处 setRawHeader 遗漏。
+ *
+ * 两个标头都是**强制统一**的：调用方即使自己设置过 User-Agent（历史上封面缓存用过
+ * NekoMusic Qt），也会被这里覆盖，保证全链路只有一个客户端标识，不再出现 Lavf/xx
+ * 之类与后端放行规则不一致的 UA。
  */
 class NekoNetworkAccessManager : public QNetworkAccessManager
 {
@@ -57,10 +61,8 @@ protected:
     {
         QNetworkRequest tagged(request);
         tagged.setRawHeader("X-Neko-Client", clientValue().toUtf8());
-        // 调用方显式设置的 User-Agent 优先（如封面缓存使用的 NekoMusic Qt）
-        if (!tagged.hasRawHeader("User-Agent")) {
-            tagged.setRawHeader("User-Agent", userAgentValue().toUtf8());
-        }
+        // 强制覆盖，不保留调用方自定义 UA，确保所有请求标识严格一致。
+        tagged.setRawHeader("User-Agent", userAgentValue().toUtf8());
         return QNetworkAccessManager::createRequest(op, tagged, outgoingData);
     }
 };
