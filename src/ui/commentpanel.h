@@ -21,7 +21,7 @@ class QVBoxLayout;
 class QLabel;
 class QPushButton;
 class QTextEdit;
-class NekoNetworkAccessManager;
+#include "core/nekonetworkaccessmanager.h"
 class QPropertyAnimation;
 class QGraphicsDropShadowEffect;
 

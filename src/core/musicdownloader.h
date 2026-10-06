@@ -1,7 +1,7 @@
 #pragma once
 
 #include <QObject>
-#include "nekonetworkaccessmanager.h"
+#include "core/nekonetworkaccessmanager.h"
 #include <QFile>
 #include <QUrl>
 

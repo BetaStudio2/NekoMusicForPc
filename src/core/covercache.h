@@ -11,7 +11,7 @@
 #include <QObject>
 #include <QPixmap>
 #include <QHash>
-#include "nekonetworkaccessmanager.h"
+#include "core/nekonetworkaccessmanager.h"
 
 class QNetworkReply;
 

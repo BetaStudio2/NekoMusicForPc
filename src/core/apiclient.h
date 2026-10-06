@@ -6,34 +6,11 @@
  */
 
 #include <QObject>
-#include "nekonetworkaccessmanager.h"
 #include <functional>
 
-class QIODevice;
+#include "core/nekonetworkaccessmanager.h"
+
 class QNetworkReply;
-class QNetworkRequest;
-
-/**
- * @brief 统一附加客户端标识的网络管理器
- *
- * 拦截 ApiClient 的全部出站请求，附加：
- *   - User-Agent:    NekoMusic-PC/<版本>
- *   - X-Neko-Client: pc+<版本>
- *
- * 服务端（CrawlerProtectionFilter）据此把官方桌面端与爬虫区分开：仅凭 UA 无法识别
- * 桌面端，而显式标识可避免其被浏览器完整性校验误伤。
- */
-class NekoNetworkAccessManager : public QNetworkAccessManager
-{
-    Q_OBJECT
-public:
-    explicit NekoNetworkAccessManager(QObject *parent = nullptr)
-        : QNetworkAccessManager(parent) {}
-
-protected:
-    QNetworkReply *createRequest(Operation op, const QNetworkRequest &request,
-                                 QIODevice *outgoingData = nullptr) override;
-};
 
 class ApiClient : public QObject
 {
