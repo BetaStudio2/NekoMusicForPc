@@ -1085,22 +1085,31 @@ void PlayerPage::scrollLyricsToActiveLine(int line)
     if (qAbs(scrollBar->value() - target) < 2)
         return;
 
-    if (m_scrollAnim) {
-        m_scrollAnim->stop();
-        delete m_scrollAnim;
+    // 本函数会被滚动条自身的 valueChanged 信号重入（动画正在驱动该滚动条时），
+    // 因此必须先把成员指针摘掉再碰旧对象；且绝不能同步 delete 一个正在运行的动画。
+    if (auto *old = m_scrollAnim) {
         m_scrollAnim = nullptr;
+        old->disconnect(this);
+        if (old->state() != QAbstractAnimation::Stopped)
+            old->stop();
+        old->deleteLater();
     }
 
-    m_scrollAnim = new QPropertyAnimation(scrollBar, "value", this);
-    m_scrollAnim->setDuration(kLyricScrollAnimMs);
-    m_scrollAnim->setStartValue(scrollBar->value());
-    m_scrollAnim->setEndValue(target);
-    m_scrollAnim->setEasingCurve(splayerLyricScrollCurve());
-    connect(m_scrollAnim, &QPropertyAnimation::finished, this, [this]() {
-        m_scrollAnim = nullptr;
+    auto *anim = new QPropertyAnimation(scrollBar, "value", this);
+    m_scrollAnim = anim;
+    anim->setDuration(kLyricScrollAnimMs);
+    anim->setStartValue(scrollBar->value());
+    anim->setEndValue(target);
+    anim->setEasingCurve(splayerLyricScrollCurve());
+    connect(anim, &QPropertyAnimation::finished, this, [this, anim]() {
+        if (m_scrollAnim == anim)
+            m_scrollAnim = nullptr;
+        anim->deleteLater();
         scheduleLyricFocusBlurUpdate();
     });
-    m_scrollAnim->start(QAbstractAnimation::DeleteWhenStopped);
+    // KeepWhenStopped：由成员变量唯一持有。DeleteWhenStopped 会让 Qt 在背后
+    // 销毁对象，从而把 m_scrollAnim 留成野指针（正是本次闪退的根因）。
+    anim->start(QAbstractAnimation::KeepWhenStopped);
     scheduleLyricFocusBlurUpdate();
 }
 
@@ -1860,26 +1869,31 @@ void PlayerPage::updateCoverPlayScale(bool playing)
     m_coverScalePlaying = playing;
 
     const qreal target = playing ? kCoverScalePlaying : kCoverScalePaused;
-    if (m_coverScaleAnim) {
-        m_coverScaleAnim->stop();
-        delete m_coverScaleAnim;
+    if (auto *old = m_coverScaleAnim) {
         m_coverScaleAnim = nullptr;
+        old->disconnect(this);
+        if (old->state() != QAbstractAnimation::Stopped)
+            old->stop();
+        old->deleteLater();
     }
 
-    m_coverScaleAnim = new QVariantAnimation(this);
-    m_coverScaleAnim->setDuration(kCoverScaleAnimMs);
-    m_coverScaleAnim->setStartValue(m_coverVisualScale);
-    m_coverScaleAnim->setEndValue(target);
+    auto *anim = new QVariantAnimation(this);
+    m_coverScaleAnim = anim;
+    anim->setDuration(kCoverScaleAnimMs);
+    anim->setStartValue(m_coverVisualScale);
+    anim->setEndValue(target);
     QEasingCurve ec(QEasingCurve::OutBack);
     ec.setOvershoot(1.15);
-    m_coverScaleAnim->setEasingCurve(ec);
-    connect(m_coverScaleAnim, &QVariantAnimation::valueChanged, this, [this](const QVariant &v) {
+    anim->setEasingCurve(ec);
+    connect(anim, &QVariantAnimation::valueChanged, this, [this](const QVariant &v) {
         applyCoverVisualScale(v.toReal());
     });
-    connect(m_coverScaleAnim, &QVariantAnimation::finished, this, [this]() {
-        m_coverScaleAnim = nullptr;
+    connect(anim, &QVariantAnimation::finished, this, [this, anim]() {
+        if (m_coverScaleAnim == anim)
+            m_coverScaleAnim = nullptr;
+        anim->deleteLater();
     });
-    m_coverScaleAnim->start(QAbstractAnimation::DeleteWhenStopped);
+    anim->start(QAbstractAnimation::KeepWhenStopped);
 }
 
 void PlayerPage::updatePlayControlState()
@@ -1949,19 +1963,22 @@ void PlayerPage::setControlSidesVisible(bool visible)
         m_ppControlOpAnim->stop();
     if (m_ppMenuOpAnim)
         m_ppMenuOpAnim->stop();
-    if (m_chromeFadeAnim) {
-        m_chromeFadeAnim->stop();
-        delete m_chromeFadeAnim;
+    if (auto *old = m_chromeFadeAnim) {
         m_chromeFadeAnim = nullptr;
+        old->disconnect(this);
+        if (old->state() != QAbstractAnimation::Stopped)
+            old->stop();
+        old->deleteLater();
     }
 
-    m_chromeFadeAnim = new QVariantAnimation(this);
-    m_chromeFadeAnim->setDuration(300);
+    auto *anim = new QVariantAnimation(this);
+    m_chromeFadeAnim = anim;
+    anim->setDuration(300);
     const qreal startOp = m_ppControlOpacity ? m_ppControlOpacity->opacity() : 0.0;
-    m_chromeFadeAnim->setStartValue(startOp);
-    m_chromeFadeAnim->setEndValue(target);
-    m_chromeFadeAnim->setEasingCurve(QEasingCurve::OutCubic);
-    connect(m_chromeFadeAnim, &QVariantAnimation::valueChanged, this, [this](const QVariant &v) {
+    anim->setStartValue(startOp);
+    anim->setEndValue(target);
+    anim->setEasingCurve(QEasingCurve::OutCubic);
+    connect(anim, &QVariantAnimation::valueChanged, this, [this](const QVariant &v) {
         const qreal o = v.toReal();
         if (m_ppMenuOpacity)
             m_ppMenuOpacity->setOpacity(o);
@@ -1973,10 +1990,12 @@ void PlayerPage::setControlSidesVisible(bool visible)
         if (m_controlBar)
             m_controlBar->setAttribute(Qt::WA_TransparentForMouseEvents, passMouse);
     });
-    connect(m_chromeFadeAnim, &QVariantAnimation::finished, this, [this]() {
-        m_chromeFadeAnim = nullptr;
+    connect(anim, &QVariantAnimation::finished, this, [this, anim]() {
+        if (m_chromeFadeAnim == anim)
+            m_chromeFadeAnim = nullptr;
+        anim->deleteLater();
     });
-    m_chromeFadeAnim->start(QAbstractAnimation::DeleteWhenStopped);
+    anim->start(QAbstractAnimation::KeepWhenStopped);
 }
 
 void PlayerPage::hidePlayerChrome()
