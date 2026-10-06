@@ -269,14 +269,9 @@ if(NEKO_ENABLE_ERAUDIO_KERNEL)
                                 --prefix "${_thout}"
                                 --cache-dir "${_zk_cache}"
                                 -Doptimize=ReleaseFast -Dtarget=${_zt}
-                        # Zig 的 ar 成员非 8 字节对齐，Apple ld 拒绝 lipo 后的通用 .a；
-                        # 用 libtool 重新打包瘦库以对齐成员，再 lipo 合成。
-                        COMMAND libtool -static
-                                -o "${_thout}/lib/${_zk_lib_name}.aligned"
-                                "${_thout}/lib/${_zk_lib_name}"
-                        COMMAND "${CMAKE_COMMAND}" -E rename
-                                "${_thout}/lib/${_zk_lib_name}.aligned"
-                                "${_thout}/lib/${_zk_lib_name}")
+                        # Zig 归档成员非 8 字节对齐，Apple ld 拒绝 lipo 后的通用 .a。
+                        # 解包成 .o 后用 Apple libtool 从零重打包（会 8 字节对齐）再 lipo。
+                        COMMAND sh -c "mkdir -p '${_thout}/objs' && cd '${_thout}/objs' && ar x '${_thout}/lib/${_zk_lib_name}' && rm -f '${_thout}/lib/${_zk_lib_name}' && libtool -static -o '${_thout}/lib/${_zk_lib_name}' *.o")
                     list(APPEND _zk_thin "${_thout}/lib/${_zk_lib_name}")
                 else()
                     list(APPEND _zk_cmds
@@ -329,7 +324,8 @@ if(APPLE)
 endif()
 
 # Windows：miniaudio 的 WASAPI/WinMM 后端所需系统库（MinGW/MSVC 均自带）
+# ntdll：EraAudio Zig 内核在 Windows 上直接引用 NtClose/RtlAllocateHeap 等。
 if(WIN32)
     target_link_libraries(archoera_engine PUBLIC
-        ole32 winmm avrt uuid bcrypt secur32 ws2_32)
+        ole32 winmm avrt uuid bcrypt secur32 ws2_32 ntdll)
 endif()

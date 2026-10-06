@@ -79,6 +79,12 @@ case "$TARGET_OS" in
     *) echo "不支持的 TARGET_OS: $TARGET_OS" >&2; exit 1 ;;
 esac
 
+# macOS：统一部署目标，避免产物绑定到 runner 更高的系统版本号（与 app 的
+# OSX_DEPLOYMENT_TARGET 保持一致）。
+if [ "$TARGET_OS" = "macos" ]; then
+    export MACOSX_DEPLOYMENT_TARGET="${MACOSX_DEPLOYMENT_TARGET:-13.0}"
+fi
+
 PREFIX="$OUT_ROOT/$FFMPEG_TARGET"
 mkdir -p "$SRC_ROOT" "$BUILD_ROOT"
 
