@@ -25,6 +25,8 @@ struct ProbeResult {
 /** 统一为 bps（部分后端上报 kbps） */
 int normalizeBitrateBps(int rawBps);
 Tier tierFromBitrateBps(int bitrateBps);
+/** 后端 maxQuality 字符串（standard/hq/sq/hires）转档位；未知返回 Tier::Unknown */
+Tier tierFromApiQuality(const QString &apiQuality);
 
 /** 同步读取文件头（≤64KB）推断音质，本地/缓存曲用 */
 ProbeResult probeFile(const QString &filePath);

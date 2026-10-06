@@ -77,6 +77,7 @@ private:
     void updateSecondaryColumn();
     void updateLocalBadge();
     void updateLrcBadge();
+    void updateQualityBadge();
     QString secondaryColumnText() const;
     QString formatDuration(int seconds) const;
 
@@ -106,6 +107,7 @@ private:
     QLabel *m_localBadge = nullptr;
     QLabel *m_titleLbl = nullptr;
     QLabel *m_lrcBadge = nullptr;
+    QLabel *m_qualityBadge = nullptr;
     QLabel *m_artistLbl = nullptr;
     QLabel *m_albumLbl = nullptr;
     QWidget *m_progressCol = nullptr;

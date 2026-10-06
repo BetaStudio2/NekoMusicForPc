@@ -501,6 +501,7 @@ MusicInfo SearchPage::musicFromMap(const QVariantMap &item)
     info.duration = item.value(QStringLiteral("duration")).toInt();
     info.coverUrl = QString::fromUtf8("%1/api/music/cover/%2").arg(Theme::kApiBase).arg(info.id);
     info.lrc = item.value(QStringLiteral("lrc")).toBool();
+    info.maxQuality = item.value(QStringLiteral("maxQuality")).toString();
     return info;
 }
 

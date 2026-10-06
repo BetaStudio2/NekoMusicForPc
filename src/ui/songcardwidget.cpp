@@ -2,6 +2,7 @@
 #include "roundcoverlabel.h"
 
 #include "core/covercache.h"
+#include "core/audioquality.h"
 #include "core/i18n.h"
 #include "core/listmetaformat.h"
 #include "ui/localmusicbadgelabel.h"
@@ -173,6 +174,9 @@ void SongCardWidget::rebuildLayout()
     m_lrcBadge->setScaledContents(true);
     m_lrcBadge->setVisible(false);
     titleRowLay->addWidget(m_lrcBadge, 0, Qt::AlignVCenter);
+    m_qualityBadge = new QLabel(titleRow);
+    m_qualityBadge->setVisible(false);
+    titleRowLay->addWidget(m_qualityBadge, 0, Qt::AlignVCenter);
 
     m_artistLbl = new QLabel(infoCol);
     infoLay->addWidget(titleRow);
@@ -231,8 +235,8 @@ void SongCardWidget::rebuildLayout()
 
     outer->addWidget(m_content, 1);
 
-    for (QLabel *lbl : {m_indexLbl, m_coverLbl, m_titleLbl, m_lrcBadge, m_artistLbl, m_albumLbl,
-                        m_progressLbl, m_timeLbl})
+    for (QLabel *lbl : {m_indexLbl, m_coverLbl, m_titleLbl, m_lrcBadge, m_qualityBadge,
+                        m_artistLbl, m_albumLbl, m_progressLbl, m_timeLbl})
         lbl->setAttribute(Qt::WA_TransparentForMouseEvents, true);
 
     installContentEventFilters();
@@ -327,6 +331,7 @@ void SongCardWidget::bind(const MusicInfo &info, int index)
     const bool sameSong = m_info.id == info.id
         && m_info.coverUrl == info.coverUrl
         && m_info.localPath == info.localPath
+        && m_info.maxQuality == info.maxQuality
         && m_coverKey == newCoverKey;
     const int oldIndex = m_index;
     m_index = index;
@@ -347,6 +352,7 @@ void SongCardWidget::bind(const MusicInfo &info, int index)
     m_artistLbl->setText(info.artist);
     updateLocalBadge();
     updateLrcBadge();
+    updateQualityBadge();
     updateDownloadIcon();
     updateSecondaryColumn();
     if (!m_downloadTaskMode)
@@ -622,6 +628,7 @@ void SongCardWidget::applyTheme()
     updateOverlayIcons();
     updateLocalBadge();
     updateLrcBadge();
+    updateQualityBadge();
     update();
 }
 
@@ -644,6 +651,30 @@ void SongCardWidget::updateLrcBadge()
     static const QColor kLrcColor(0xF0, 0x5E, 0x7A);
     m_lrcBadge->setPixmap(Icons::renderNamed("DesktopLyric2", 14, kLrcColor));
     m_lrcBadge->setToolTip(I18n::instance().tr(QStringLiteral("hasLyrics")));
+}
+
+void SongCardWidget::updateQualityBadge()
+{
+    if (!m_qualityBadge)
+        return;
+    const AudioQuality::Tier tier = AudioQuality::tierFromApiQuality(m_info.maxQuality);
+    if (tier == AudioQuality::Tier::Unknown) {
+        m_qualityBadge->hide();
+        return;
+    }
+
+    const bool dark = Theme::ThemeManager::instance().isDarkMode();
+    const QColor fg = dark ? QColor(244, 246, 255, 168) : QColor(33, 37, 41, 158);
+    constexpr int kBadgeH = 16;
+    const QByteArray iconName = AudioQuality::tierIconName(tier).toUtf8();
+    QPixmap pm = Icons::renderResourceHeight(Icons::resourcePath(iconName.constData()), kBadgeH, fg);
+    if (pm.isNull())
+        pm = Icons::renderResourceHeight(Icons::resourcePath("HQ"), kBadgeH, fg);
+
+    m_qualityBadge->setPixmap(pm);
+    m_qualityBadge->setFixedSize(pm.deviceIndependentSize().toSize());
+    m_qualityBadge->setToolTip(AudioQuality::tierTooltip(tier, {}));
+    m_qualityBadge->show();
 }
 
 void SongCardWidget::paintEvent(QPaintEvent *)

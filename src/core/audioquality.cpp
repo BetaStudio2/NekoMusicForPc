@@ -187,6 +187,20 @@ Tier tierFromBitrateBps(int bitrateBps)
     return Tier::LQ;
 }
 
+Tier tierFromApiQuality(const QString &apiQuality)
+{
+    const QString value = apiQuality.trimmed().toLower();
+    if (value == QLatin1String("standard") || value == QLatin1String("lq"))
+        return Tier::LQ;
+    if (value == QLatin1String("hq") || value == QLatin1String("mq"))
+        return Tier::HQ;
+    if (value == QLatin1String("sq") || value == QLatin1String("lossless"))
+        return Tier::SQ;
+    if (value == QLatin1String("hires") || value == QLatin1String("hi-res"))
+        return Tier::HiRes;
+    return Tier::Unknown;
+}
+
 ProbeResult probeBuffer(const QByteArray &head, const QString &suffixHint)
 {
     ProbeResult out;
