@@ -12,6 +12,7 @@
 #include "../core/audioquality.h"
 #include "../core/embeddedlyrics.h"
 #include "../core/musicdownloader.h"
+#include "../core/musicurlresolver.h"
 #include "../core/playlistmanager.h"
 #include "../theme/theme.h"
 #include "../theme/thememanager.h"
@@ -1341,82 +1342,96 @@ void PlayerPage::scheduleAudioQualityProbe()
         applyAudioQualityBadge(result);
     };
 
-    QNetworkRequest req(url);
-    req.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
-                     QNetworkRequest::NoLessSafeRedirectPolicy);
-    QNetworkReply *headReply = m_qualityNam->head(req);
-    m_qualityReply = headReply;
-    QPointer<QNetworkReply> headPtr(headReply);
-    connect(headReply, &QNetworkReply::finished, this,
-            [this, probeGen, musicId, url, finishProbe, headPtr]() {
-        if (!headPtr) {
-            return;
-        }
+    auto runProbe = [this, musicId, probeGen, finishProbe](const QUrl &url) {
+        QNetworkRequest req(url);
+        req.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
+                         QNetworkRequest::NoLessSafeRedirectPolicy);
+        QNetworkReply *headReply = m_qualityNam->head(req);
+        m_qualityReply = headReply;
+        QPointer<QNetworkReply> headPtr(headReply);
+        connect(headReply, &QNetworkReply::finished, this,
+                [this, probeGen, musicId, url, finishProbe, headPtr]() {
+            if (!headPtr) {
+                return;
+            }
 
-        // 只有当当前成员仍指向本次 headReply 时才清理，避免误清理新请求。
-        if (m_qualityReply == headPtr)
-            m_qualityReply = nullptr;
+            // 只有当当前成员仍指向本次 headReply 时才清理，避免误清理新请求。
+            if (m_qualityReply == headPtr)
+                m_qualityReply = nullptr;
 
-        if (probeGen != m_qualityProbeGen || musicId != m_musicId) {
+            if (probeGen != m_qualityProbeGen || musicId != m_musicId) {
+                headPtr->deleteLater();
+                return;
+            }
+
+            AudioQuality::ProbeResult result;
+            QString ctLower;
+            if (headPtr->error() == QNetworkReply::NoError) {
+                const QString ct = headPtr->header(QNetworkRequest::ContentTypeHeader).toString();
+                ctLower = ct.toLower();
+                const qint64 len = headPtr->header(QNetworkRequest::ContentLengthHeader).toLongLong();
+                result = AudioQuality::probeHttpHint(ct, len, trackDurationSec());
+            }
             headPtr->deleteLater();
-            return;
-        }
 
-        AudioQuality::ProbeResult result;
-        QString ctLower;
-        if (headPtr->error() == QNetworkReply::NoError) {
-            const QString ct = headPtr->header(QNetworkRequest::ContentTypeHeader).toString();
-            ctLower = ct.toLower();
-            const qint64 len = headPtr->header(QNetworkRequest::ContentLengthHeader).toLongLong();
-            result = AudioQuality::probeHttpHint(ct, len, trackDurationSec());
-        }
-        headPtr->deleteLater();
-
-        const bool losslessCt =
-            ctLower.contains(QLatin1String("flac")) || ctLower.contains(QLatin1String("wav"));
-        if (result.tier != AudioQuality::Tier::Unknown && !losslessCt) {
-            finishProbe(result);
-            return;
-        }
-
-        if (!m_qualityNam) {
-            if (result.tier != AudioQuality::Tier::Unknown)
+            const bool losslessCt =
+                ctLower.contains(QLatin1String("flac")) || ctLower.contains(QLatin1String("wav"));
+            if (result.tier != AudioQuality::Tier::Unknown && !losslessCt) {
                 finishProbe(result);
-            return;
-        }
+                return;
+            }
 
-        QNetworkRequest getReq(url);
-        getReq.setRawHeader("Range", "bytes=0-16383");
-        QNetworkReply *rangeReply = m_qualityNam->get(getReq);
-        QPointer<QNetworkReply> rangePtr(rangeReply);
-        connect(rangeReply, &QNetworkReply::finished, this,
-                [this, probeGen, musicId, rangePtr, finishProbe, result]() {
-                    if (!rangePtr) {
-                        return;
-                    }
-                    if (probeGen != m_qualityProbeGen || musicId != m_musicId) {
+            if (!m_qualityNam) {
+                if (result.tier != AudioQuality::Tier::Unknown)
+                    finishProbe(result);
+                return;
+            }
+
+            QNetworkRequest getReq(url);
+            getReq.setRawHeader("Range", "bytes=0-16383");
+            QNetworkReply *rangeReply = m_qualityNam->get(getReq);
+            QPointer<QNetworkReply> rangePtr(rangeReply);
+            connect(rangeReply, &QNetworkReply::finished, this,
+                    [this, probeGen, musicId, rangePtr, finishProbe, result]() {
+                        if (!rangePtr) {
+                            return;
+                        }
+                        if (probeGen != m_qualityProbeGen || musicId != m_musicId) {
+                            rangePtr->deleteLater();
+                            return;
+                        }
+                        AudioQuality::ProbeResult r2 = result;
+                        if (rangePtr->error() == QNetworkReply::NoError)
+                            r2 = AudioQuality::probeBuffer(rangePtr->readAll());
+                        if (r2.tier == AudioQuality::Tier::Unknown && result.tier != AudioQuality::Tier::Unknown)
+                            r2 = result;
+                        else if (result.tier != AudioQuality::Tier::Unknown
+                                 && r2.tier != AudioQuality::Tier::Unknown
+                                 && int(r2.tier) < int(result.tier))
+                            r2.tier = result.tier;
                         rangePtr->deleteLater();
-                        return;
-                    }
-                    AudioQuality::ProbeResult r2 = result;
-                    if (rangePtr->error() == QNetworkReply::NoError)
-                        r2 = AudioQuality::probeBuffer(rangePtr->readAll());
-                    if (r2.tier == AudioQuality::Tier::Unknown && result.tier != AudioQuality::Tier::Unknown)
-                        r2 = result;
-                    else if (result.tier != AudioQuality::Tier::Unknown
-                             && r2.tier != AudioQuality::Tier::Unknown
-                             && int(r2.tier) < int(result.tier))
-                        r2.tier = result.tier;
-                    rangePtr->deleteLater();
-                    // Range 已读出容器头（采样率/位深）时，以解析结果为准，勿让 QMediaPlayer 的
-                    // AudioBitRate（常低于 2Mbps 或仅为解码比特率）在 durationChanged 里把 Hi-Res 盖成 SQ。
-                    if (r2.sampleRateHz > 0 || r2.bitsPerSample > 0) {
-                        m_fileProbedQuality = r2;
-                        m_hasFileProbedQuality = true;
-                    }
-                    finishProbe(r2);
-                });
-    });
+                        // Range 已读出容器头（采样率/位深）时，以解析结果为准，勿让 QMediaPlayer 的
+                        // AudioBitRate（常低于 2Mbps 或仅为解码比特率）在 durationChanged 里把 Hi-Res 盖成 SQ。
+                        if (r2.sampleRateHz > 0 || r2.bitsPerSample > 0) {
+                            m_fileProbedQuality = r2;
+                            m_hasFileProbedQuality = true;
+                        }
+                        finishProbe(r2);
+                    });
+        });
+    };
+
+    // 音质接口现在返回 200 + JSON，先解析成固定媒体地址再探测
+    if (MusicUrlResolver::isMusicFileApiUrl(url)) {
+        MusicUrlResolver::instance().resolve(url, this,
+            [this, probeGen, musicId, url, runProbe](bool ok, const QUrl &resolved) {
+                if (probeGen != m_qualityProbeGen || musicId != m_musicId)
+                    return;
+                runProbe(ok ? resolved : url);
+            });
+        return;
+    }
+    runProbe(url);
 }
 
 void PlayerPage::applyPlayerPageStyle()

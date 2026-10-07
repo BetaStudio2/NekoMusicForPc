@@ -188,6 +188,8 @@ set(SOURCES
         src/core/mcpbridge.cpp
         src/core/apiclient.cpp
         src/core/nekonetworkaccessmanager.cpp
+        src/core/replaynonce.cpp
+        src/core/musicurlresolver.cpp
         src/core/i18n.cpp
         src/core/legaltext.cpp
         src/core/appshortcuts.cpp
@@ -271,6 +273,8 @@ set(HEADERS
         src/core/mcpbridge.h
         src/core/apiclient.h
         src/core/nekonetworkaccessmanager.h
+        src/core/replaynonce.h
+        src/core/musicurlresolver.h
         src/core/httpprotocollabel.h
         src/core/i18n.h
         src/core/legaltext.h

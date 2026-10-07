@@ -1,6 +1,7 @@
 #include "musicdownloadmanager.h"
 #include "apiclient.h"
 #include "musicdownloader.h"
+#include "musicurlresolver.h"
 #include "playlistdb.h"
 #include "theme/theme.h"
 
@@ -354,6 +355,24 @@ void MusicDownloadManager::copyCachedToDownload(const MusicInfo &music, const QS
 
 void MusicDownloadManager::startNetworkDownload(const MusicInfo &music)
 {
+    const QUrl apiUrl(QString::fromUtf8("%1/api/music/file/%2")
+                          .arg(QString::fromUtf8(Theme::kApiBase))
+                          .arg(music.id));
+    if (MusicUrlResolver::isMusicFileApiUrl(apiUrl)) {
+        // 音质接口现在返回 200 + JSON，必须先解析成固定媒体地址
+        MusicUrlResolver::instance().resolve(apiUrl, this,
+            [this, music, apiUrl](bool ok, const QUrl &resolved) {
+                if (m_current.id != music.id)
+                    return; // 期间已被取消 / 切换
+                startNetworkDownloadResolved(music, ok ? resolved : apiUrl);
+            });
+        return;
+    }
+    startNetworkDownloadResolved(music, apiUrl);
+}
+
+void MusicDownloadManager::startNetworkDownloadResolved(const MusicInfo &music, const QUrl &url)
+{
     m_tempPath = downloadDir() + QLatin1Char('/') + QString::number(music.id) + QStringLiteral(".part");
     QFile::remove(m_tempPath);
 
@@ -363,9 +382,6 @@ void MusicDownloadManager::startNetworkDownload(const MusicInfo &music)
         return;
     }
 
-    const QUrl url(QString::fromUtf8("%1/api/music/file/%2")
-                       .arg(QString::fromUtf8(Theme::kApiBase))
-                       .arg(music.id));
     QNetworkRequest req(url);
     req.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
     req.setAttribute(QNetworkRequest::Http2AllowedAttribute, false);

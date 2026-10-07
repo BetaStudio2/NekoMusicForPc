@@ -43,6 +43,7 @@
 #include "core/apiclient.h"
 #include "core/httpprotocollabel.h"
 #include "core/musicdownloader.h"
+#include "core/musicurlresolver.h"
 #include "core/musicdownloadmanager.h"
 #include "core/linuxtmpfscache.h"
 #include "core/usermanager.h"
@@ -1123,8 +1124,16 @@ void MainWindow::setupUi()
         if (QFile::exists(cachedPath)) {
             m_engine->switchSourceWithoutRestart(QUrl::fromLocalFile(cachedPath));
         } else {
-            m_engine->switchSourceWithoutRestart(url);
-            startBackgroundCacheDownload(info.id, m_enginePlaySeq, url);
+            const quint64 switchSeq = m_enginePlaySeq;
+            // 音质接口返回 JSON：先解析成固定媒体地址再切换（失败时回退原地址）
+            MusicUrlResolver::instance().resolve(url, this,
+                [this, info, switchSeq, url](bool ok, const QUrl &resolved) {
+                    if (switchSeq != m_enginePlaySeq)
+                        return;
+                    const QUrl effectiveUrl = ok ? resolved : url;
+                    m_engine->switchSourceWithoutRestart(effectiveUrl);
+                    startBackgroundCacheDownload(info.id, switchSeq, effectiveUrl);
+                });
         }
         m_playerBar->setLoading(false);
     });
@@ -1795,6 +1804,23 @@ void MainWindow::cancelStreamWatch()
 
 void MainWindow::startRemotePlaybackWithBackgroundCache(int musicId, quint64 playSeq, const QUrl &remoteUrl,
                                                         bool pauseWhenReady, qint64 resumeMs)
+{
+    // 音质接口现在返回 200 + JSON：先解析成固定媒体地址，再交给播放器 / 下载器
+    if (MusicUrlResolver::isMusicFileApiUrl(remoteUrl)) {
+        MusicUrlResolver::instance().resolve(remoteUrl, this,
+            [this, musicId, playSeq, pauseWhenReady, resumeMs, remoteUrl](bool ok, const QUrl &resolved) {
+                if (playSeq != m_enginePlaySeq)
+                    return;
+                startResolvedRemotePlayback(musicId, playSeq, ok ? resolved : remoteUrl,
+                                            pauseWhenReady, resumeMs);
+            });
+        return;
+    }
+    startResolvedRemotePlayback(musicId, playSeq, remoteUrl, pauseWhenReady, resumeMs);
+}
+
+void MainWindow::startResolvedRemotePlayback(int musicId, quint64 playSeq, const QUrl &remoteUrl,
+                                            bool pauseWhenReady, qint64 resumeMs)
 {
     refreshPlayerMaxQuality(musicId);
     const QString quality = m_playerBar ? m_playerBar->selectedAudioQuality() : QStringLiteral("hq");

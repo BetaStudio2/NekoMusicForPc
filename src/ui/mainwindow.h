@@ -152,6 +152,9 @@ private:
      *  @param resumeMs 起播后跳转到的位置（ms，<0/0 = 从头；音质切换断点续传用）。 */
     void startRemotePlaybackWithBackgroundCache(int musicId, quint64 playSeq, const QUrl &remoteUrl,
                                                 bool pauseWhenReady = false, qint64 resumeMs = -1);
+    /** 已拿到固定媒体地址后的起播实现；[startRemotePlaybackWithBackgroundCache] 负责先做音质解析。 */
+    void startResolvedRemotePlayback(int musicId, quint64 playSeq, const QUrl &remoteUrl,
+                                     bool pauseWhenReady, qint64 resumeMs);
     void refreshPlayerMaxQuality(int musicId);
     void startBackgroundCacheDownload(int musicId, quint64 playSeq, const QUrl &url);
     void attachStreamPlaybackGuards(int musicId, quint64 playSeq);
