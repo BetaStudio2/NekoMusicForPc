@@ -1,6 +1,7 @@
 #include "httpmediadevice.h"
 #include "linuxtmpfscache.h"
 
+#include <QCoreApplication>
 #include <QDir>
 #include <QMetaObject>
 #include <QNetworkReply>
@@ -12,6 +13,7 @@ namespace {
 
 constexpr int kReadTimeoutMs = 20000;
 constexpr int kSizeWaitMs = 4000;
+constexpr int kThreadStopWaitMs = 3000;
 
 /** Content-Range: bytes 0-123/456 → 456；解析失败返回 -1。 */
 qint64 totalFromContentRange(const QByteArray &value)
@@ -24,6 +26,13 @@ qint64 totalFromContentRange(const QByteArray &value)
     return ok && total > 0 ? total : -1;
 }
 
+/** 当前线程是否为 GUI（主）线程：它永远不会被允许阻塞等待音频数据。 */
+bool isGuiThread()
+{
+    const QCoreApplication *app = QCoreApplication::instance();
+    return app && QThread::currentThread() == app->thread();
+}
+
 } // namespace
 
 HttpMediaDevice::HttpMediaDevice(const QUrl &url, QObject *parent)
@@ -31,16 +40,61 @@ HttpMediaDevice::HttpMediaDevice(const QUrl &url, QObject *parent)
     , m_url(url)
 {
     m_nam.setRedirectPolicy(QNetworkRequest::NoLessSafeRedirectPolicy);
+
+    // 网络 I/O 必须脱离 GUI 线程：GUI 线程在 FFmpeg 打开媒体源时会同步阻塞，
+    // 若 readyRead 投递到 GUI 线程，解复用线程将永远等不到数据（详见头文件）。
+    m_netThread.setObjectName(QStringLiteral("neko-http-media"));
+    m_netThread.start();
+    m_nam.moveToThread(&m_netThread);
 }
 
 HttpMediaDevice::~HttpMediaDevice()
 {
     abort();
+    m_netThread.quit();
+    if (!m_netThread.wait(kThreadStopWaitMs))
+        m_netThread.terminate();
+}
+
+QNetworkReply *HttpMediaDevice::peekReply()
+{
+    QMutexLocker locker(&m_replyMutex);
+    return m_reply;
+}
+
+QNetworkReply *HttpMediaDevice::takeReply()
+{
+    QMutexLocker locker(&m_replyMutex);
+    QNetworkReply *reply = m_reply;
+    m_reply = nullptr;
+    return reply;
+}
+
+void HttpMediaDevice::disposeReply(QNetworkReply *reply, bool blocking)
+{
+    if (!reply)
+        return;
+
+    const auto teardown = [reply]() {
+        reply->disconnect();
+        reply->abort();
+        reply->deleteLater();
+    };
+
+    // QNetworkReply 不是线程安全的：一定要在它自己的线程上收尾。
+    if (QThread::currentThread() == reply->thread()) {
+        teardown();
+        return;
+    }
+    if (!m_netThread.isRunning())
+        return;
+    QMetaObject::invokeMethod(reply, teardown,
+                              blocking ? Qt::BlockingQueuedConnection : Qt::QueuedConnection);
 }
 
 void HttpMediaDevice::start()
 {
-    if (m_reply)
+    if (peekReply())
         return;
 
     m_file = std::make_unique<QTemporaryFile>(QDir::tempPath() + QStringLiteral("/nekomusic-stream-XXXXXX"));
@@ -52,41 +106,54 @@ void HttpMediaDevice::start()
     QNetworkRequest req(m_url);
     req.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
     req.setAttribute(QNetworkRequest::Http2AllowedAttribute, false);
-    m_reply = m_nam.get(req);
 
-    connect(m_reply, &QNetworkReply::readyRead, this, &HttpMediaDevice::onReadyRead);
-    connect(m_reply, &QNetworkReply::finished, this, &HttpMediaDevice::onReplyFinished);
-    connect(m_reply, &QNetworkReply::downloadProgress, this,
-            [this](qint64, qint64 total) {
-                if (total <= 0)
-                    return;
-                QMutexLocker locker(&m_mutex);
-                if (m_total < 0)
-                    m_total = total;
-                m_cond.wakeAll();
-            });
+    // 在工作线程上发起请求：QNetworkReply 归属该线程，其信号也就在该线程触发，
+    // 不再依赖可能被 FFmpeg 阻塞的 GUI 事件循环。DirectConnection 保证回调
+    // 直接在工作线程执行（回调内部由 m_mutex 保护）。
+    QMetaObject::invokeMethod(&m_nam, [this, req]() {
+        QNetworkReply *reply = m_nam.get(req);
+        if (!reply)
+            return;
+        {
+            QMutexLocker locker(&m_replyMutex);
+            m_reply = reply;
+        }
+        connect(reply, &QNetworkReply::readyRead, this, &HttpMediaDevice::onReadyRead,
+                Qt::DirectConnection);
+        connect(reply, &QNetworkReply::finished, this, &HttpMediaDevice::onReplyFinished,
+                Qt::DirectConnection);
+        connect(reply, &QNetworkReply::downloadProgress, this,
+                [this](qint64, qint64 total) {
+                    if (total <= 0)
+                        return;
+                    QMutexLocker locker(&m_mutex);
+                    if (m_total < 0)
+                        m_total = total;
+                    m_cond.wakeAll();
+                },
+                Qt::DirectConnection);
+    }, Qt::QueuedConnection);
 }
 
 void HttpMediaDevice::abort()
 {
-    QNetworkReply *reply = m_reply;
-    m_reply = nullptr;
-    if (reply) {
-        reply->disconnect(this);
-        reply->abort();
-        reply->deleteLater();
+    QNetworkReply *reply = takeReply();
+
+    {
+        QMutexLocker locker(&m_mutex);
+        m_finished = true;
+        m_cond.wakeAll();
     }
-    QMutexLocker locker(&m_mutex);
-    m_finished = true;
-    m_cond.wakeAll();
+
+    disposeReply(reply, true);
 }
 
 qint64 HttpMediaDevice::size() const
 {
     QMutexLocker locker(&m_mutex);
     // 解复用线程等响应头到达再回答，避免 FFmpeg 认为长度未知而算错时长；
-    // 其它线程（如 UI）绝不能阻塞。
-    if (m_total < 0 && QThread::currentThread() != thread()) {
+    // GUI 线程绝不能阻塞，否则又会与媒体打开互相等待。
+    if (m_total < 0 && QThread::currentThread() != thread() && !isGuiThread()) {
         const int loops = kSizeWaitMs / 100;
         for (int i = 0; i < loops && m_total < 0 && !m_finished && !m_failed; ++i)
             m_cond.wait(&m_mutex, 100);
@@ -183,37 +250,39 @@ qint64 HttpMediaDevice::readData(char *data, qint64 maxlen)
 
 void HttpMediaDevice::onReadyRead()
 {
-    if (!m_reply)
+    // 运行在工作线程（DirectConnection）：即使 GUI 线程正被 FFmpeg 阻塞，
+    // 这里依旧能把数据写进缓冲并唤醒解复用线程。
+    QNetworkReply *reply = peekReply();
+    if (!reply)
         return;
 
     {
         QMutexLocker locker(&m_mutex);
         if (m_total < 0) {
-            const qint64 fromRange = totalFromContentRange(m_reply->rawHeader("Content-Range"));
-            const qint64 fromHeader = m_reply->header(QNetworkRequest::ContentLengthHeader).toLongLong();
+            const qint64 fromRange = totalFromContentRange(reply->rawHeader("Content-Range"));
+            const qint64 fromHeader = reply->header(QNetworkRequest::ContentLengthHeader).toLongLong();
             m_total = fromRange > 0 ? fromRange : (fromHeader > 0 ? fromHeader : -1);
         }
     }
 
-    const QString error = appendChunk(m_reply->readAll());
+    const QString error = appendChunk(reply->readAll());
     if (!error.isEmpty())
-        fail(error);
+        failFromAnyThread(error);
 }
 
 void HttpMediaDevice::onReplyFinished()
 {
-    QNetworkReply *reply = m_reply;
+    QNetworkReply *reply = takeReply();
     if (!reply)
         return;
-    m_reply = nullptr;
 
     const QString appendError = appendChunk(reply->readAll());
     const QNetworkReply::NetworkError error = reply->error();
     const QString errorText = reply->errorString();
-    reply->deleteLater();
+    reply->deleteLater(); // 与请求同线程，安全
 
     if (!appendError.isEmpty()) {
-        fail(appendError);
+        failFromAnyThread(appendError);
         return;
     }
 
@@ -225,7 +294,7 @@ void HttpMediaDevice::onReplyFinished()
     }
 
     if (error != QNetworkReply::OperationCanceledError)
-        fail(QStringLiteral("音频流请求失败: %1").arg(errorText));
+        failFromAnyThread(QStringLiteral("音频流请求失败: %1").arg(errorText));
 }
 
 void HttpMediaDevice::fail(const QString &error)
@@ -240,13 +309,7 @@ void HttpMediaDevice::fail(const QString &error)
         m_cond.wakeAll();
     }
 
-    QNetworkReply *reply = m_reply;
-    m_reply = nullptr;
-    if (reply) {
-        reply->disconnect(this);
-        reply->abort();
-        reply->deleteLater();
-    }
+    disposeReply(takeReply(), false);
 
     if (!m_errorEmitted) {
         m_errorEmitted = true;
@@ -265,5 +328,6 @@ void HttpMediaDevice::failFromAnyThread(const QString &error)
         m_finished = true;
         m_cond.wakeAll();
     }
+    // 仅错误信号与网络收尾切回设备线程；读取路径已在上面被唤醒。
     QMetaObject::invokeMethod(this, [this, error]() { fail(error); }, Qt::QueuedConnection);
 }
