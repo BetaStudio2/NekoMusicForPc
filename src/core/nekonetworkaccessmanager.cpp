@@ -140,9 +140,13 @@ public:
         // 调用方可能在收到响应前就丢弃本回复（换歌 / 取消）：先断开回调再中止内层请求，
         // 避免在析构过程中回调到半销毁的自身。
         if (m_inner) {
-            m_inner->disconnect(this);
-            m_inner->abort();
+            QNetworkReply *inner = m_inner;
             m_inner = nullptr;
+            inner->disconnect(this);
+            inner->abort();
+            // QNetworkAccessManager 不持有回复所有权，中止后必须自行回收，否则直到管理器
+            // 销毁前都不会释放（换歌 / 取消会不断产生这类请求）。
+            inner->deleteLater();
         }
     }
 
