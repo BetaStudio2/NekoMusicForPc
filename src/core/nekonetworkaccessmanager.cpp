@@ -87,6 +87,7 @@ bool isReplayProtected(const QNetworkRequest &request, QNetworkAccessManager::Op
         return false;
 
     static const QSet<QString> exemptPaths = {
+        QStringLiteral("/api/replay/challenge"), // 领 nonce 的第一步，同样必须自举
         QStringLiteral("/api/replay/nonce"),
         QStringLiteral("/api/music/latest"),
         QStringLiteral("/api/music/ranking"),

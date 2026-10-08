@@ -6,6 +6,7 @@
 #include "core/replaynonce.h"
 #include "theme/theme.h"
 
+#include <QCryptographicHash>
 #include <QDateTime>
 #include <QElapsedTimer>
 #include <QEventLoop>
@@ -19,6 +20,9 @@
 #include <QTimer>
 #include <QUrl>
 #include <QUrlQuery>
+#include <QtConcurrent>
+
+#include <cstring>
 
 namespace {
 
@@ -30,6 +34,69 @@ constexpr int kLowWater = 4;
 constexpr qint64 kLocalMaxAgeMs = 90 * 1000;
 /** 池空时同步补领的最长等待时间。 */
 constexpr int kBlockingFetchTimeoutMs = 4000;
+/** 一轮领取里「换题 → 解题 → 兑换」的最大尝试次数。 */
+constexpr int kClaimAttempts = 2;
+/** 与服务端约定的解题算法标识；换题响应里的 algorithm 必须与它一致，否则不盲解。 */
+constexpr char kPowAlgorithm[] = "sha256-leading-zero-bits";
+/** 难度上限：服务端远低于此值，这里只是防止异常输入把线程卡死。 */
+constexpr int kMaxDifficultyBits = 64;
+
+/** 摘要的前导零比特数是否达到 bits（与后端 ReplayChallengeService.meetsDifficulty 一致）。 */
+bool meetsDifficulty(const QByteArray &hash, int bits)
+{
+    const int fullBytes = bits / 8;
+    const int remainingBits = bits % 8;
+    if (hash.size() < fullBytes + (remainingBits > 0 ? 1 : 0))
+        return false;
+    for (int i = 0; i < fullBytes; ++i) {
+        if (static_cast<quint8>(hash.at(i)) != 0)
+            return false;
+    }
+    if (remainingBits == 0)
+        return true;
+    const int mask = (0xFF << (8 - remainingBits)) & 0xFF;
+    return (static_cast<quint8>(hash.at(fullBytes)) & mask) == 0;
+}
+
+/**
+ * 解出挑战题：找一个十进制计数器，使 SHA-256(seed + ":" + 计数器) 的前导零比特数达到 difficulty，
+ * 返回计数器的十进制字符串作为 proof。
+ *
+ * 服务端只验一次哈希，客户端要试 2^difficulty 量级的次数——这种成本不对称正是该方案的基础，
+ * 所以这里复用同一个哈希实例与消息缓冲区，不做多余分配。难度非法时返回空串。
+ */
+QString solveProof(const QString &seed, int difficulty)
+{
+    if (difficulty < 0 || difficulty > kMaxDifficultyBits)
+        return QString();
+
+    QByteArray message = seed.toUtf8();
+    message.append(':');
+    const int prefixLength = message.size();
+    // 留出最长 19 位十进制计数器，随用随覆盖
+    message.resize(prefixLength + 20);
+
+    QCryptographicHash hash(QCryptographicHash::Sha256);
+    for (quint64 counter = 0;; ++counter) {
+        const QByteArray digits = QByteArray::number(counter);
+        std::memcpy(message.data() + prefixLength, digits.constData(),
+                    static_cast<size_t>(digits.size()));
+        hash.reset();
+        hash.addData(QByteArrayView(message.constData(), prefixLength + digits.size()));
+        if (meetsDifficulty(hash.result(), difficulty))
+            return QString::fromLatin1(digits);
+    }
+}
+
+/** 领取链路（换题 / 兑换）的公共请求参数：不跟随跨域重定向、不走 HTTP/2、不缓存。 */
+QNetworkRequest buildFetchRequest(const QUrl &url)
+{
+    QNetworkRequest req(url);
+    req.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
+    req.setAttribute(QNetworkRequest::Http2AllowedAttribute, false);
+    req.setRawHeader("Cache-Control", "no-store");
+    return req;
+}
 
 } // namespace
 
@@ -84,26 +151,24 @@ QString ReplayNonceStore::takeLocal(bool write)
 {
     QString nonce = pop(write);
     if (nonce.isEmpty()) {
-        // 池已空：同步等一次领取（已有领取在途就等它，避免多头发请求）。
-        // 解析槽先于 quit 执行，返回时池已填充。
-        QNetworkReply *reply = startFetch(kBatch, kBatch);
-        if (!reply)
-            reply = pendingFetch();
-        if (reply) {
-            QPointer<QNetworkReply> guard(reply);
-            QEventLoop loop;
-            QTimer timer;
-            timer.setSingleShot(true);
-            QObject::connect(guard, &QNetworkReply::finished, &loop, &QEventLoop::quit);
-            QObject::connect(&timer, &QTimer::timeout, &loop, [&loop, guard]() {
-                if (guard)
-                    guard->abort();
-                loop.quit();
-            });
-            timer.start(kBlockingFetchTimeoutMs);
+        // 池已空：同步等一轮领取（换题 → 解题 → 兑换）。已有一轮在途就等它结束，避免多头发
+        // 请求；填充槽先于 quit 执行，返回时池已填好。超时只是不再等，在途请求照常填池。
+        bool finished = false;
+        QEventLoop loop;
+        QTimer timer;
+        timer.setSingleShot(true);
+        const QMetaObject::Connection roundDone = QObject::connect(
+                this, &ReplayNonceStore::fetchRoundFinished, &loop, [&finished, &loop]() {
+                    finished = true;
+                    loop.quit();
+                });
+        QObject::connect(&timer, &QTimer::timeout, &loop, &QEventLoop::quit);
+        timer.start(kBlockingFetchTimeoutMs);
+        startRound(kBatch, kBatch);
+        if (!finished)
             loop.exec();
-            nonce = pop(write);
-        }
+        QObject::disconnect(roundDone);
+        nonce = pop(write);
     }
 
     if (!nonce.isEmpty()) {
@@ -112,7 +177,7 @@ QString ReplayNonceStore::takeLocal(bool write)
             QMutexLocker locker(&m_mutex);
             low = (m_readPool.size() < kLowWater || m_writePool.size() < kLowWater);
         }
-        // 注意：不能在持锁时补领（startFetch 会再次加锁）
+        // 注意：不能在持锁时补领（领取过程会再次加锁）
         if (low)
             requestRefill();
     }
@@ -142,80 +207,162 @@ QString ReplayNonceStore::pop(bool write)
     return QString();
 }
 
-QNetworkReply *ReplayNonceStore::startFetch(int read, int write)
+void ReplayNonceStore::startRound(int read, int write)
 {
-    {
-        QMutexLocker locker(&m_mutex);
-        if (m_pendingFetch)
-            return nullptr;
-    }
+    if (m_roundActive)
+        return;
+    m_roundActive = true;
+    requestChallenge(read, write, 0);
+}
 
+void ReplayNonceStore::requestChallenge(int read, int write, int attempt)
+{
     const QString base = QString::fromUtf8(Theme::kApiBase);
     if (base.isEmpty()) {
-        return nullptr;
+        finishRound();
+        return;
     }
 
-    QUrl url(base + QStringLiteral("/api/replay/nonce"));
+    QUrl url(base + QStringLiteral("/api/replay/challenge"));
     QUrlQuery query;
     query.addQueryItem(QStringLiteral("read"), QString::number(read));
     query.addQueryItem(QStringLiteral("write"), QString::number(write));
     url.setQuery(query);
 
-    QNetworkRequest req(url);
-    req.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
-    req.setAttribute(QNetworkRequest::Http2AllowedAttribute, false);
-    req.setRawHeader("Cache-Control", "no-store");
-
-    QNetworkReply *reply = m_nam.get(req);
-    {
-        QMutexLocker locker(&m_mutex);
-        m_pendingFetch = reply; // get() 可能同步失败并返回已结束的回复，这里只做去重登记
-    }
-    QObject::connect(reply, &QNetworkReply::finished, this, [this, reply]() {
-        handleFetchReply(reply);
+    QNetworkReply *reply = m_nam.get(buildFetchRequest(url));
+    QObject::connect(reply, &QNetworkReply::finished, this, [this, reply, read, write, attempt]() {
+        handleChallengeReply(reply, read, write, attempt);
     });
-    return reply;
 }
 
-QNetworkReply *ReplayNonceStore::pendingFetch()
+void ReplayNonceStore::handleChallengeReply(QNetworkReply *reply, int read, int write, int attempt)
 {
-    QMutexLocker locker(&m_mutex);
-    return m_pendingFetch;
-}
-
-void ReplayNonceStore::handleFetchReply(QNetworkReply *reply)
-{
-    {
-        QMutexLocker locker(&m_mutex);
-        if (m_pendingFetch == reply)
-            m_pendingFetch = nullptr;
-    }
-
-    const bool ok = (reply->error() == QNetworkReply::NoError);
+    const int status = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
     const QByteArray body = reply->readAll();
+    const QNetworkReply::NetworkError error = reply->error();
     const QString errorString = reply->errorString();
     reply->deleteLater();
 
-    if (!ok) {
-        qWarning() << "[replay] 领取防重放 nonce 失败:" << errorString;
+    if (!m_roundActive)
+        return;
+
+    // 服务端还没有挑战接口（分批发版期间）：回退为不带挑战的领取。新服务端会拒绝，
+    // 拿不到 nonce 也没有副作用；旧服务端则能正常签发。
+    if (status == 404) {
+        requestClaim(QString(), QString(), read, write, attempt);
+        return;
+    }
+    if (error != QNetworkReply::NoError || status != 200) {
+        qWarning() << "[replay] 换题失败:" << status << errorString;
+        finishRound();
         return;
     }
 
-    const QJsonObject root = QJsonDocument::fromJson(body).object();
-    const QJsonObject nonces = root.value(QStringLiteral("data")).toObject()
-                                   .value(QStringLiteral("nonces")).toObject();
-    const qint64 now = QDateTime::currentMSecsSinceEpoch();
+    const QJsonObject data = QJsonDocument::fromJson(body).object()
+                                     .value(QStringLiteral("data")).toObject();
+    const QString algorithm = data.value(QStringLiteral("algorithm")).toString();
+    const QString challenge = data.value(QStringLiteral("challenge")).toString();
+    const QString seed = data.value(QStringLiteral("seed")).toString();
+    const int difficulty = data.value(QStringLiteral("difficulty")).toInt(-1);
+    if (algorithm != QLatin1String(kPowAlgorithm) || challenge.isEmpty() || seed.isEmpty()
+        || difficulty < 0) {
+        qWarning() << "[replay] 换题响应无法识别，放弃本轮领取";
+        finishRound();
+        return;
+    }
 
-    QMutexLocker locker(&m_mutex);
-    const auto append = [now](QList<Entry> &pool, const QJsonArray &array) {
-        for (const auto &value : array) {
-            const QString nonce = value.toString();
-            if (!nonce.isEmpty())
-                pool.append(Entry{nonce, now});
+    // 解题要试 2^difficulty 量级的哈希，放到工作线程算，避免卡住用户界面
+    QPointer<ReplayNonceStore> self(this);
+    (void)QtConcurrent::run([self, challenge, seed, difficulty, read, write, attempt]() {
+        const QString proof = solveProof(seed, difficulty);
+        if (!self)
+            return;
+        QMetaObject::invokeMethod(
+                self.data(),
+                [self, challenge, proof, read, write, attempt]() {
+                    if (!self || !self->m_roundActive)
+                        return;
+                    self->requestClaim(challenge, proof, read, write, attempt);
+                },
+                Qt::QueuedConnection);
+    });
+}
+
+void ReplayNonceStore::requestClaim(const QString &challenge, const QString &proof, int read,
+                                    int write, int attempt)
+{
+    const QString base = QString::fromUtf8(Theme::kApiBase);
+    if (base.isEmpty()) {
+        finishRound();
+        return;
+    }
+
+    QUrl url(base + QStringLiteral("/api/replay/nonce"));
+    QUrlQuery query;
+    if (challenge.isEmpty()) {
+        // 旧服务端回退路径：不带挑战直接领取
+        query.addQueryItem(QStringLiteral("read"), QString::number(read));
+        query.addQueryItem(QStringLiteral("write"), QString::number(write));
+    } else {
+        query.addQueryItem(QStringLiteral("challenge"), challenge);
+        query.addQueryItem(QStringLiteral("proof"), proof);
+    }
+    url.setQuery(query);
+
+    QNetworkReply *reply = m_nam.get(buildFetchRequest(url));
+    QObject::connect(reply, &QNetworkReply::finished, this, [this, reply, read, write, attempt]() {
+        handleClaimReply(reply, read, write, attempt);
+    });
+}
+
+void ReplayNonceStore::handleClaimReply(QNetworkReply *reply, int read, int write, int attempt)
+{
+    const int status = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+    const QByteArray body = reply->readAll();
+    const bool ok = (reply->error() == QNetworkReply::NoError);
+    const QString errorString = reply->errorString();
+    reply->deleteLater();
+
+    if (!m_roundActive)
+        return;
+
+    if (!ok) {
+        // 领取被拒（挑战失效 / 解答不合格 / 缺挑战）：换一道题重解一次。被限额（429）不在此列，
+        // 立刻重试只会继续撞限额——本轮就此打住，交给下一次补领。
+        if (attempt + 1 < kClaimAttempts && (status == 400 || status == 409)) {
+            requestChallenge(read, write, attempt + 1);
+            return;
         }
-    };
-    append(m_readPool, nonces.value(QStringLiteral("read")).toArray());
-    append(m_writePool, nonces.value(QStringLiteral("write")).toArray());
+        qWarning() << "[replay] 领取防重放 nonce 失败:" << status << errorString;
+        finishRound();
+        return;
+    }
+
+    const QJsonObject nonces = QJsonDocument::fromJson(body).object()
+                                       .value(QStringLiteral("data")).toObject()
+                                       .value(QStringLiteral("nonces")).toObject();
+    const qint64 now = QDateTime::currentMSecsSinceEpoch();
+    {
+        QMutexLocker locker(&m_mutex);
+        const auto append = [now](QList<Entry> &pool, const QJsonArray &array) {
+            for (const auto &value : array) {
+                const QString nonce = value.toString();
+                if (!nonce.isEmpty())
+                    pool.append(Entry{nonce, now});
+            }
+        };
+        append(m_readPool, nonces.value(QStringLiteral("read")).toArray());
+        append(m_writePool, nonces.value(QStringLiteral("write")).toArray());
+    }
+    finishRound();
+}
+
+void ReplayNonceStore::finishRound()
+{
+    if (!m_roundActive)
+        return;
+    m_roundActive = false;
+    emit fetchRoundFinished();
 }
 
 void ReplayNonceStore::requestRefill()
@@ -233,5 +380,5 @@ void ReplayNonceStore::refill()
         requestRefill();
         return;
     }
-    startFetch(kBatch, kBatch);
+    startRound(kBatch, kBatch);
 }
