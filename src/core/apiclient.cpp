@@ -254,13 +254,23 @@ void ApiClient::fetchSliderCaptchaChallenge(SliderCaptchaChallengeCb cb) {
     });
 }
 
-void ApiClient::verifySliderCaptcha(const QString &captchaToken, int captchaOffsetX, SliderCaptchaVerifyCb cb) {
+void ApiClient::verifySliderCaptcha(const QString &captchaToken, int captchaOffsetX,
+                                    const QVariantList &dragTrace, SliderCaptchaVerifyCb cb) {
     QUrl url(QString::fromUtf8("%1/api/captcha/slider/verify").arg(Theme::kApiBase));
     QNetworkRequest req(url);
     req.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
     QJsonObject body;
     body["captchaToken"] = captchaToken;
     body["captchaOffsetX"] = captchaOffsetX;
+    QJsonArray trace;
+    for (const QVariant &sampleValue : dragTrace) {
+        const QVariantMap sample = sampleValue.toMap();
+        QJsonObject item;
+        item["t"] = sample.value(QStringLiteral("t")).toLongLong();
+        item["x"] = sample.value(QStringLiteral("x")).toInt();
+        trace.append(item);
+    }
+    body["dragTrace"] = trace;
     auto *reply = m_nam.post(req, QJsonDocument(body).toJson());
     connect(reply, &QNetworkReply::finished, this, [reply, cb]() {
         reply->deleteLater();

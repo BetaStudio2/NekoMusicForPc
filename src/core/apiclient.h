@@ -107,7 +107,8 @@ public:
 
     using SliderCaptchaVerifyCb =
         std::function<void(bool ok, const QString &message, const QString &captchaPassToken)>;
-    void verifySliderCaptcha(const QString &captchaToken, int captchaOffsetX, SliderCaptchaVerifyCb cb);
+    void verifySliderCaptcha(const QString &captchaToken, int captchaOffsetX,
+                             const QVariantList &dragTrace, SliderCaptchaVerifyCb cb);
 
     // ─── 忘记密码 ────────────────────────────────────
     void sendResetCode(const QString &email, std::function<void(bool, const QString&)> cb);
