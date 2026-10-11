@@ -36,7 +36,7 @@ private:
     void switchMode();
     void showQrMode();
     void refreshQrSession();
-    void startQrWatch(const QString &sessionId, int generation);
+    void startQrWatch(const QString &sessionId, const QString &deliveryKey, int generation);
     void stopQrSession();
     void doLogin();
     void doRegister();

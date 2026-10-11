@@ -1695,6 +1695,7 @@ void ApiClient::createQrLoginSession(QrLoginCreateCb cb)
         const QJsonObject data = root.value(QStringLiteral("data")).toObject();
         session.sessionId = data.value(QStringLiteral("sessionId")).toString();
         session.qrImage = data.value(QStringLiteral("qrImage")).toString();
+        session.deliveryKey = data.value(QStringLiteral("deliveryKey")).toString();
         session.expiresIn = data.value(QStringLiteral("expiresIn")).toInt();
 
         const bool ok = root.value(QStringLiteral("success")).toBool() && !session.sessionId.isEmpty();
@@ -1764,6 +1765,36 @@ QNetworkReply *ApiClient::watchQrLoginStatus(const QString &sessionId, QrLoginSs
     });
 
     return reply;
+}
+
+void ApiClient::claimQrLoginToken(const QString &sessionId, const QString &deliveryKey,
+                                 QrLoginClaimCb cb)
+{
+    QUrl url(QString::fromUtf8("%1/api/user/qrlogin/claim").arg(Theme::kApiBase));
+    QNetworkRequest req(url);
+    req.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+
+    QJsonObject body;
+    body.insert(QStringLiteral("sessionId"), sessionId);
+    body.insert(QStringLiteral("deliveryKey"), deliveryKey);
+
+    auto *reply = m_nam.post(req, QJsonDocument(body).toJson(QJsonDocument::Compact));
+    connect(reply, &QNetworkReply::finished, this, [reply, cb]() {
+        reply->deleteLater();
+        // 取不到就按过期处理：调用方据此重新出码，避免卡在「已确认」
+        QrLoginStatus status;
+        status.status = QStringLiteral("expired");
+        if (reply->error() == QNetworkReply::NoError) {
+            const QJsonObject root = QJsonDocument::fromJson(reply->readAll()).object();
+            const QJsonObject data = root.value(QStringLiteral("data")).toObject();
+            const QString fromBody = data.value(QStringLiteral("status")).toString();
+            if (!fromBody.isEmpty())
+                status.status = fromBody;
+            status.token = data.value(QStringLiteral("token")).toString();
+            status.user = data.value(QStringLiteral("user")).toObject().toVariantMap();
+        }
+        if (cb) cb(status);
+    });
 }
 
 void ApiClient::batchAddFavorites(const QList<int> &musicIds, BatchAddMusicCb cb)

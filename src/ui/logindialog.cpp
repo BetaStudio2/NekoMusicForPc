@@ -410,12 +410,12 @@ void LoginDialog::refreshQrSession()
                 }
 
                 m_qrImageLabel->setPixmap(qr.scaled(204, 204, Qt::KeepAspectRatio, Qt::SmoothTransformation));
-                startQrWatch(session.sessionId, generation);
+                startQrWatch(session.sessionId, session.deliveryKey, generation);
             });
         });
 }
 
-void LoginDialog::startQrWatch(const QString &sessionId, int generation)
+void LoginDialog::startQrWatch(const QString &sessionId, const QString &deliveryKey, int generation)
 {
     ApiClient::QrLoginSseCallbacks callbacks;
 
@@ -425,12 +425,28 @@ void LoginDialog::startQrWatch(const QString &sessionId, int generation)
                 return;
 
             if (status.status == QLatin1String("confirmed")) {
-                if (status.token.isEmpty() || status.user.isEmpty()) {
-                    m_qrImageLabel->clear();
-                    return;
+                // 状态帧不带 token：只断本地流，再由创建方带投递密钥单独领取一次（不能再动 generation）
+                if (m_qrReply) {
+                    QNetworkReply *reply = m_qrReply;
+                    m_qrReply = nullptr;
+                    if (!reply->isFinished())
+                        reply->abort();
                 }
-                UserManager::instance().setLoginInfo(status.token, status.user);
-                accept();
+                m_api->claimQrLoginToken(sessionId, deliveryKey,
+                    [this, generation](const ApiClient::QrLoginStatus &claimed) {
+                        QTimer::singleShot(0, this, [this, generation, claimed]() {
+                            if (generation != m_qrGeneration)
+                                return;
+                            if (claimed.status == QLatin1String("confirmed")
+                                && !claimed.token.isEmpty() && !claimed.user.isEmpty()) {
+                                UserManager::instance().setLoginInfo(claimed.token, claimed.user);
+                                accept();
+                                return;
+                            }
+                            m_qrImageLabel->clear();
+                            refreshQrSession();
+                        });
+                    });
             } else if (status.status == QLatin1String("expired")) {
                 QTimer::singleShot(0, this, [this, generation]() {
                     if (generation == m_qrGeneration)
