@@ -193,10 +193,8 @@ void CaptchaSliderRail::mousePressEvent(QMouseEvent *event)
         m_dragging = true;
         m_dragDx = x - tl;
     } else {
-        const int thumbLeft = qBound(0, x, thumbMaxTravel());
-        applyThumbLeft(thumbLeft);
-        m_dragging = true;
-        m_dragDx = x - thumbLeftForOffset(m_offset);
+        event->ignore();
+        return;
     }
     m_dragTrace.clear();
     m_dragTimer.restart();
