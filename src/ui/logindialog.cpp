@@ -419,8 +419,8 @@ void LoginDialog::startQrWatch(const QString &sessionId, const QString &delivery
 {
     ApiClient::QrLoginSseCallbacks callbacks;
 
-    callbacks.onStatus = [this, generation](const ApiClient::QrLoginStatus &status) {
-        QTimer::singleShot(0, this, [this, generation, status]() {
+    callbacks.onStatus = [this, generation, sessionId, deliveryKey](const ApiClient::QrLoginStatus &status) {
+        QTimer::singleShot(0, this, [this, generation, status, sessionId, deliveryKey]() {
             if (generation != m_qrGeneration)
                 return;
 
