@@ -253,6 +253,8 @@ private:
     int m_qualityInfoMusicId = 0;
     /** 曲间无缝：预加载的下一首在队列中的下标（-1=无）。 */
     int m_gaplessNextIndex = -1;
+    /** 曲间无缝：正在异步解析下一首 /media 地址（防止逐个 position 事件重复解析/耗 nonce）。 */
+    bool m_gaplessResolving = false;
 
     QWidget *m_shellBackdrop = nullptr;
     QTimer *m_shellBackdropRebuildTimer = nullptr;

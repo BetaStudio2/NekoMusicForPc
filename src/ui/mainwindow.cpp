@@ -2086,7 +2086,7 @@ void MainWindow::maybePrepareGaplessNext(qint64 position, qint64 duration)
 {
     if (!m_engine || !m_engine->isActuallyPlaying())
         return;
-    if (m_engine->hasPreparedNext())
+    if (m_engine->hasPreparedNext() || m_gaplessResolving)
         return;
     if (duration <= 0 || position <= 0)
         return;
@@ -2108,6 +2108,29 @@ void MainWindow::maybePrepareGaplessNext(qint64 position, qint64 duration)
     const QUrl url = resolvePlaybackUrl(info);
     if (url.isEmpty())
         return;
+
+    // 音质接口返回 JSON：必须先用带 nonce 的请求解析成 /media 固定地址再预解码，
+    // 否则引擎拿到的是 JSON 端点（无 nonce → 409）→ 暂存源失败 → 曲尾硬切出顿挫。
+    if (MusicUrlResolver::isMusicFileApiUrl(url)) {
+        m_gaplessResolving = true;
+        const quint64 seq = m_enginePlaySeq;
+        MusicUrlResolver::instance().resolve(url, this,
+            [this, info, nextIdx, seq](bool ok, const QUrl &resolved) {
+                m_gaplessResolving = false;
+                if (seq != m_enginePlaySeq || !m_engine || !m_engine->isActuallyPlaying())
+                    return;
+                if (m_engine->hasPreparedNext())
+                    return;
+                if (!ok) {
+                    qWarning() << "[曲间无缝] 下一首媒体地址解析失败，跳过预加载:" << info.title;
+                    return;
+                }
+                m_gaplessNextIndex = nextIdx;
+                m_engine->prepareNextSource(resolved, info);
+                qDebug() << "[曲间无缝] 预加载下一首:" << info.title << resolved.toString();
+            });
+        return;
+    }
 
     m_gaplessNextIndex = nextIdx;
     m_engine->prepareNextSource(url, info);
