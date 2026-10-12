@@ -38,6 +38,9 @@ public:
         bool skipEncoder = true;    // player 模式：仅 PCM 落盘 + 设备自播
         int noDiskCache = 0;        // 保持文件模式（不改动缓存策略）
         qint64 pcmMemCapKb = 0;
+        /** 在线源额外请求头（`\n` 分行 `Name: value`，空 = 无）；经
+         *  create_with_headers 透传给原生 HTTP(S) 与 FFmpeg AVIO。 */
+        QString headers;
     };
 
     /** 系统输出设备（引擎视角）。 */

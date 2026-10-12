@@ -70,6 +70,8 @@ void AudioEngine::start(const QString &source, const Config &cfg)
     const std::string sessionDir = m_sessionDir.toUtf8().toStdString();
     const std::string playerFile =
         (m_sessionDir + QStringLiteral("/stream.wav")).toUtf8().toStdString();
+    // 在线源请求头（客户端标识）；空则走无头的 create（离线/本地源）。
+    const std::string headers = cfg.headers.toUtf8().toStdString();
 
     EngineConfig engineCfg = ENGINE_CONFIG_DEFAULT;
     engineCfg.start_offset_ms = cfg.startOffsetMs;
@@ -91,11 +93,17 @@ void AudioEngine::start(const QString &source, const Config &cfg)
     engineCfg.no_disk_cache = cfg.noDiskCache;
     engineCfg.pcm_mem_cap_kb = cfg.pcmMemCapKb;
 
-    m_thread = std::thread([this, src, sessionDir, playerFile, engineCfg]() {
+    m_thread = std::thread([this, src, sessionDir, playerFile, headers, engineCfg]() {
         char err[512] = {0};
-        ArchoeraMediaEngine *e = archoera_mediaengine_create(
-            src.c_str(), &engineCfg, playerFile.c_str(), sessionDir.c_str(),
-            err, static_cast<int>(sizeof(err)));
+        ArchoeraMediaEngine *e =
+            headers.empty()
+                ? archoera_mediaengine_create(
+                      src.c_str(), &engineCfg, playerFile.c_str(),
+                      sessionDir.c_str(), err, static_cast<int>(sizeof(err)))
+                : archoera_mediaengine_create_with_headers(
+                      src.c_str(), headers.c_str(), &engineCfg,
+                      playerFile.c_str(), sessionDir.c_str(), err,
+                      static_cast<int>(sizeof(err)));
         if (!e) {
             const QString msg = QStringLiteral("引擎创建失败: %1")
                                     .arg(QString::fromUtf8(err));

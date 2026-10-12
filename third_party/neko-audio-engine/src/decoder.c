@@ -125,6 +125,70 @@ static void frame_skip_samples(AVFrame *f, int n)
 
 Decoder* decoder_open(const char *url)
 {
+    return decoder_open_headers(url, NULL);
+}
+
+/* 大小写不敏感的头名比较（免平台 strcasecmp 依赖）。 */
+static int decoder_header_name_is(const char *a, const char *b)
+{
+    while (*a && *b) {
+        unsigned char ca = (unsigned char)*a;
+        unsigned char cb = (unsigned char)*b;
+        if (ca >= 'A' && ca <= 'Z') ca = (unsigned char)(ca - 'A' + 'a');
+        if (cb >= 'A' && cb <= 'Z') cb = (unsigned char)(cb - 'A' + 'a');
+        if (ca != cb) return 0;
+        a++;
+        b++;
+    }
+    return *a == '\0' && *b == '\0';
+}
+
+void decoder_apply_http_headers(AVDictionary **opts, const char *headers)
+{
+    if (!opts || !headers || !headers[0]) return;
+    char ua[256] = {0};
+    /* 是否显式提供了 User-Agent（即使值为空）：空值也要设进 user_agent，
+     * 否则 FFmpeg http 会用默认 `Lavf/…`（会被按客户端区分的服务端拦截）。
+     * NekoMusic 源会带非空客户端 UA——诚实自报 `ArchoeraMusic/<版本>`，或在
+     * 服务端不认自报标识时回退为官方桌面 UA 形状（见
+     * lib/services/neko/neko_identity.dart）；不再使用已拆除的「空 UA 放行」。 */
+    int has_ua = 0;
+    char extra[1024] = {0};
+    const char *cur = headers;
+    while (*cur) {
+        const char *eol = strpbrk(cur, "\r\n");
+        size_t len = eol ? (size_t)(eol - cur) : strlen(cur);
+        if (len > 0 && len < 220) {
+            char line[256];
+            memcpy(line, cur, len);
+            line[len] = '\0';
+            char *colon = strchr(line, ':');
+            if (colon) {
+                *colon = '\0';
+                const char *name = line;
+                const char *val = colon + 1;
+                while (*val == ' ' || *val == '\t') val++;
+                if (decoder_header_name_is(name, "User-Agent")) {
+                    snprintf(ua, sizeof(ua), "%s", val);
+                    has_ua = 1;
+                } else {
+                    size_t used = strlen(extra);
+                    if (used + 4 < sizeof(extra)) {
+                        snprintf(extra + used, sizeof(extra) - used, "%s: %s\r\n", name, val);
+                    }
+                }
+            }
+        }
+        if (!eol) break;
+        cur = eol;
+        while (*cur == '\r' || *cur == '\n') cur++;
+    }
+    if (has_ua) av_dict_set(opts, "user_agent", ua, 0);
+    if (extra[0]) av_dict_set(opts, "headers", extra, 0);
+}
+
+Decoder* decoder_open_headers(const char *url, const char *headers)
+{
     Decoder *d = calloc(1, sizeof(*d));
     if (!d) return NULL;
 
@@ -142,6 +206,8 @@ Decoder* decoder_open(const char *url)
     av_dict_set(&fmt_opts, "probesize", "1048576", 0);
     /* 分析时长 0.5 秒足够（默认 5 秒，对大文件导致首帧延迟数秒） */
     av_dict_set(&fmt_opts, "analyzeduration", "500000", 0);
+    /* 按源注入客户端标识头（如 NekoMusic；FFmpeg http 仅认 user_agent/headers）。 */
+    decoder_apply_http_headers(&fmt_opts, headers);
     int ret = avformat_open_input(&d->fmt_ctx, url, NULL, &fmt_opts);
     av_dict_free(&fmt_opts);
     if (ret < 0) {
@@ -442,6 +508,91 @@ const char* decoder_codec_name(const Decoder *d)
 {
     if (!d || !d->dec_ctx || !d->dec_ctx->codec) return "unknown";
     return d->dec_ctx->codec->name;
+}
+
+/* 从 metadata 取十进制浮点值（如 peak "0.999023"）；命中且可解析返回 1。
+ * av_dict_get 不区分大小写，故一次查表即可覆盖 REPLAYGAIN_* / replaygain_*。 */
+static int rg_get_float(AVDictionary *m, const char *key, float *out)
+{
+    if (!m) return 0;
+    AVDictionaryEntry *e = av_dict_get(m, key, NULL, 0);
+    if (!e || !e->value || !e->value[0]) return 0;
+    char *end = NULL;
+    float v = strtof(e->value, &end);
+    if (end == e->value) return 0;
+    *out = v;
+    return 1;
+}
+
+/* 增益标签形如 "  -7.89 dB" / "+2.00 dB"；strtof 自动跳过前导空白与单位。 */
+static int rg_get_gain_db(AVDictionary *m, const char *key, float *out)
+{
+    return rg_get_float(m, key, out);
+}
+
+/* Opus 的 R128_*_GAIN 为 Q7.8 定点整数（dB = value / 256）。 */
+static int rg_get_r128_db(AVDictionary *m, const char *key, float *out)
+{
+    if (!m) return 0;
+    AVDictionaryEntry *e = av_dict_get(m, key, NULL, 0);
+    if (!e || !e->value || !e->value[0]) return 0;
+    char *end = NULL;
+    long v = strtol(e->value, &end, 10);
+    if (end == e->value) return 0;
+    *out = (float)v / 256.0f;
+    return 1;
+}
+
+int decoder_replaygain(const Decoder *d,
+                       float *track_gain_db, float *track_peak,
+                       float *album_gain_db, float *album_peak)
+{
+    if (!d || !d->fmt_ctx) return 0;
+    AVDictionary *m = d->fmt_ctx->metadata;
+    AVDictionary *sm = NULL;
+    if (d->stream_index >= 0 && d->stream_index < (int)d->fmt_ctx->nb_streams) {
+        sm = d->fmt_ctx->streams[d->stream_index]->metadata;
+    }
+
+    int mask = 0;
+    float v;
+    if (track_gain_db) {
+        v = 0.0f;
+        if (rg_get_gain_db(sm, "replaygain_track_gain", &v) ||
+            rg_get_gain_db(m, "replaygain_track_gain", &v) ||
+            rg_get_r128_db(sm, "r128_track_gain", &v) ||
+            rg_get_r128_db(m, "r128_track_gain", &v)) {
+            *track_gain_db = v;
+            mask |= 1;
+        }
+    }
+    if (track_peak) {
+        v = 0.0f;
+        if (rg_get_float(sm, "replaygain_track_peak", &v) ||
+            rg_get_float(m, "replaygain_track_peak", &v)) {
+            *track_peak = v;
+            mask |= 2;
+        }
+    }
+    if (album_gain_db) {
+        v = 0.0f;
+        if (rg_get_gain_db(sm, "replaygain_album_gain", &v) ||
+            rg_get_gain_db(m, "replaygain_album_gain", &v) ||
+            rg_get_r128_db(sm, "r128_album_gain", &v) ||
+            rg_get_r128_db(m, "r128_album_gain", &v)) {
+            *album_gain_db = v;
+            mask |= 4;
+        }
+    }
+    if (album_peak) {
+        v = 0.0f;
+        if (rg_get_float(sm, "replaygain_album_peak", &v) ||
+            rg_get_float(m, "replaygain_album_peak", &v)) {
+            *album_peak = v;
+            mask |= 8;
+        }
+    }
+    return mask;
 }
 
 void decoder_close(Decoder *d)

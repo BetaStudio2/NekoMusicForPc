@@ -4,20 +4,29 @@ ArchoeraMusic 原生音频引擎（C 外壳 + Zig **EraAudio** 解码内核）�
 供 NekoMusicForPc 实现无缝播放。
 
 - 上游：ArchoeraMusic `app/core/audio-engine/`
-- 基准 commit：`0b2556a212eb651a8c337a4a09498b5ee0c6740e`
+- 基准 commit：`17f4e46`（v1.0.0；整体对齐上游 HEAD）
 - 许可证：AGPL-3.0-or-later（见 `LICENSE`、`THIRD-PARTY-LICENSES.md`）
 
 ## 与上游的差异
 
-1. **已移植 Zig 内核（EraAudio）**：`kernel/**` 与 `build.zig`/`build.zig.zon` 已 vendored；
-   CMake 调用 `zig build` 产出 `libarchoera_kernel.a` 并定义 `HAS_ARCHOERA_KERNEL`
-   （逐格式接管解码与 DSP，未支持/失败自动回退 FFmpeg）。需 **Zig 0.16.0**；
-   可用 `-DNEKO_ENABLE_ERAUDIO_KERNEL=OFF` 关闭，或运行时 `NEKO_ERAUDIO=0` 回退 FFmpeg。
-2. **移除 Rust tempo**：不定义 `HAS_TEMPO`，`tempo.c` 走旁通 stub（不搬运 `tempo-rs/`）。
-3. **仅静态库**：只产出 `archoera_engine`，不含 CLI（`main.c`）/ FFT 共享库 / 测试。
-4. **曲间无缝增补**（NekoMusic 移植）：`prepare_source` 支持 `"next_track": true`
-   与 `commit_source` 的跨曲接管（`stage_next_track` 标志、不裁剪、位置基准归零）；
-   `player.c` 新增 `player_stream_rebase_zero`。详见 `docs/seamless-playback-port.md`。
+1. **已移植并启用 Zig 内核（EraAudio）**：`kernel/**` 与 `build.zig`/`build.zig.zon`
+   已 vendored；CMake 调用 `zig build` 产出 `libarchoera_kernel.a` 并定义
+   `HAS_ARCHOERA_KERNEL`（逐格式接管解码与 DSP，未支持/失败自动回退 FFmpeg）。
+   需 **Zig 0.16.0**；可用 `-DNEKO_ENABLE_ERAUDIO_KERNEL=OFF` 关闭，或运行时
+   `NEKO_ERAUDIO=0` 回退 FFmpeg。
+2. **启用内核原生 HTTP(S)**（对齐上游 v1.0.0）：在线 `http(s)://` 源优先走
+   内核自研网络栈（`kernel/net.zig`：TCP + Zig std TLS、Range 随机访问、断流
+   重连/读超时），失败自动回退 FFmpeg AVIO。可用 `ARCHOERA_ERA_NATIVE_HTTP=0`
+   显式关闭。宿主经 `create_with_headers` / `pipeline_create_with_headers` 注入
+   客户端标识头（如 `User-Agent` + `X-Neko-Client`）。
+3. **移除 Rust tempo**：不定义 `HAS_TEMPO`，`tempo.c` 走旁通 stub（不搬运 `tempo-rs/`）。
+4. **仅静态库**：只产出 `archoera_engine`，不含 CLI（`main.c`）/ FFT 共享库 / 测试
+   （上游 `*_dump.zig` / `*_test.zig` / 样例数据未搬运）。
+5. **曲间无缝增补**（NekoMusic 移植，上游没有）：`prepare_source` 支持
+   `"next_track": true` 与 `commit_source` 的跨曲接管（`stage_next_track` 标志、
+   不裁剪、位置基准归零）；`player.c` 新增 `player_stream_rebase_zero`；
+   `mediaengine_lib.c` 另含 **MinGW `timespec_get` 兜底**（msvcrt 无 C11 实现）。
+   详见 `docs/seamless-playback-port.md`。
 
 ## 构建
 

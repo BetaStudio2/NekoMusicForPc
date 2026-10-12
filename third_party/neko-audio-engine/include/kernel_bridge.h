@@ -114,6 +114,25 @@ ZkDecoder *zk_decoder_open_cb(void *ctx, zk_read_cb on_read, zk_seek_cb on_seek,
                               ZkInfo *info, char *errbuf, int errbuf_size);
 
 /**
+ * 从 **EraAudio 原生 HTTP(S)** 打开解码器（在线直链；内核自研请求/响应解析，
+ * 不经宿主 FFmpeg AVIO 传输）。契约与 [zk_decoder_open] 完全一致；`url` 仅在
+ * 本调用内被读取，成功后网络流由 ZkDecoder 持有，[zk_decoder_close] 自动关闭。
+ *
+ * 仅接受 `http://` / `https://`；连接/TLS/状态码/重定向失败或格式未接管时
+ * 返回 NULL，C 壳据此回退宿主 AVIO / FFmpeg 主后端。
+ */
+ZkDecoder *zk_decoder_open_url(const char *url, ZkInfo *info,
+                               char *errbuf, int errbuf_size);
+
+/**
+ * 同 [zk_decoder_open_url]，另附带自定义请求头 [headers]（`\n`/`\r\n` 分行；
+ * NULL = 无）。供宿主按源注入 `X-Neko-Client` / `User-Agent` 等标识（如
+ * NekoMusic 防爬）。headers 生命周期仅本调用内。
+ */
+ZkDecoder *zk_decoder_open_url_headers(const char *url, const char *headers, ZkInfo *info,
+                                       char *errbuf, int errbuf_size);
+
+/**
  * 解码最多 max_frames 帧 float32 交错 PCM。
  * @return >=0：实际输出帧数（0 = EOF，正常文件尾）；
  *         <0：解码错误，返回值 = -（enum ZkStatus 状态码），
@@ -141,6 +160,13 @@ long long zk_decoder_position_samples(ZkDecoder *d);
 
 /** 释放解码会话（含底层文件句柄与全部缓冲）；d 为 NULL 时为空操作 */
 void zk_decoder_close(ZkDecoder *d);
+
+/**
+ * 中断解码：仅对 [zk_decoder_open_url] 打开的原生 HTTP(S) 源有效——置位中断
+ * 标志并尽力 shutdown 底层连接以解除阻塞读（best-effort，供 stop/SIGTERM 路径
+ * 调用）；其它源为空操作。线程安全：可与解码线程并发调用。
+ */
+void zk_decoder_abort(ZkDecoder *d);
 
 /* ---- DSP 下沉（kernel/dsp；docs/audio-kernel-zig.md §14，扩张计划方向① 地基）----
  *
@@ -218,6 +244,28 @@ void zk_dsp_loudness_process(ZkDspLoudness *l, float *pcm, int samples);
 
 /** 释放响度实例；NULL 空操作。 */
 void zk_dsp_loudness_destroy(ZkDspLoudness *l);
+
+/* ---- 离线 EBU R128 集成响度测量（scanner 直桥；ITU-R BS.1770-4）----
+ *
+ * 供 scanner 离线分析本地文件，把集成响度 + 线性采样峰值写入曲库
+ * （loudness_lufs / loudness_peak），作为无 ReplayGain 标签文件的兜底归一化
+ * 增益来源。解码走内核 decoder，按有界块喂入测量器，不保留整文件 PCM。
+ *
+ * 契约：
+ *   - 成功返回 0，并按测量结果填 *out；
+ *   - 失败返回 <0 = -（enum ZkStatus，如 ZK_OPEN_FAILED / ZK_CORRUPT /
+ *     ZK_OUT_OF_MEMORY / ZK_UNSUPPORTED）；
+ *   - 静音 / 时长不足 400ms 等**无通过绝对门限的块**时仍返回 0，但
+ *     out->valid = 0（integrated_lufs 保持 0，out->peak 仍为有效采样峰值）。
+ */
+typedef struct ZkLoudnessResult {
+    double integrated_lufs; /**< EBU R128 集成响度（LUFS）；valid=0 时无意义 */
+    double peak;            /**< 线性采样峰值（全声道 max |sample|，非 true peak） */
+    int    valid;           /**< 1 = 集成响度有效；0 = 无通过门限的块 */
+} ZkLoudnessResult;
+
+/* 解码 `path` 并测量集成响度 + 采样峰值。@return 0 成功，<0 见上。 */
+int zk_loudness_measure(const char *path, ZkLoudnessResult *out);
 
 /* ---- 常驻内核接入 seam（§7 async 主干；加法式，不改动既有路径）---- */
 
@@ -314,6 +362,35 @@ ZkEngineStream *zk_engine_open_cb(ZkEngine *h, void *ctx,
                                   zk_read_cb on_read, zk_seek_cb on_seek,
                                   unsigned long long size_hint,
                                   ZkInfo *info, char *errbuf, size_t errbuf_size);
+
+/**
+ * 同上，但从 **EraAudio 原生 HTTP(S)** 打开（在线直链；内核自研请求/响应解析，
+ * 见 kernel/net.zig），与 path/mem/cb 源一致走常驻池 seam。契约同
+ * [zk_engine_open]：失败返回 NULL 并写 errbuf 稳定状态码；`url` 仅在调用内被读取，
+ * 成功后网络流归会话，[zk_engine_close] 自动关闭。
+ *
+ * 失败语义：非 http(s) / 连接 / TLS / 状态码 / 重定向 / 格式未接管 / OOM /
+ * 流计数满（InstanceLimit）→ NULL。池未启用（`ARCHOERA_ERA_POOL` 关闭）时调用方
+ * 回退 [zk_decoder_open_url]（直连，再回退宿主 FFmpeg/AVIO），与既有 URL 路径一致。
+ */
+ZkEngineStream *zk_engine_open_url(ZkEngine *h, const char *url,
+                                   ZkInfo *info, char *errbuf, size_t errbuf_size);
+
+/**
+ * 同 [zk_engine_open_url]，另附带自定义请求头 [headers]（`\n`/`\r\n` 分行；
+ * NULL = 无）。供宿主按源注入 `X-Neko-Client` / `User-Agent` 等标识。headers
+ * 生命周期仅本调用内（内核会复制保留至会话关闭）。
+ */
+ZkEngineStream *zk_engine_open_url_headers(ZkEngine *h, const char *url, const char *headers,
+                                           ZkInfo *info, char *errbuf, size_t errbuf_size);
+
+/**
+ * 中断流式会话（供 stop/SIGTERM 路径调用）：仅对 [zk_engine_open_url] 打开的
+ * 原生 URL 源置位中断标志并尽力 `shutdown` 底层连接以解除阻塞网络读
+ * （best-effort），同时标记会话取消（后续拉块步首观察到 → Aborted）；其它源
+ * 为空操作。线程安全：可与池 worker 的解码并发调用；s 为 NULL 时空操作。
+ */
+void zk_engine_abort(ZkEngineStream *s);
 
 /**
  * 逐步拉块解码到 out（float32 交错，最多 max_frames 帧）。

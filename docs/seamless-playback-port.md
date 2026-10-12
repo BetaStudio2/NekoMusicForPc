@@ -1,6 +1,6 @@
 # 无缝播放移植说明（Qt / NekoMusicForPc）
 
-> 分支：`qt-seamless-playback`　来源：ArchoeraMusic `app/core/audio-engine` @ `0b2556a`
+> 分支：`qt-seamless-playback`　来源：ArchoeraMusic `app/core/audio-engine` @ `17f4e46`（v1.0.0）
 >
 > 目标：把 ArchoeraMusic 的「无缝播放」能力移植进 Qt 客户端——**音质无缝切换**与
 > **曲间无缝（gapless）**——且**不改动项目既有的歌曲缓存/下载模式**。
@@ -144,7 +144,12 @@ bash third_party/neko-audio-engine/tools/compile-check.sh all
 - **EraAudio 解码内核**：已移植 Zig 内核并**静态链接**（`libarchoera_kernel`），逐格式
   接管解码/滤波，未支持或失败自动回退 FFmpeg；需 Zig 0.16.0。可
   `-DNEKO_ENABLE_ERAUDIO_KERNEL=OFF` 构建期关闭，或运行时 `NEKO_ERAUDIO=0` 回退 FFmpeg。
-  内核内自带 HTTP(S)（`net.zig`）未启用——流式仍走 FFmpeg AVIO 传输，保持既有缓存模式。
+- **内核原生 HTTP(S)（已启用）**：在线 `http(s)://` 源优先走内核自研网络栈
+  （`kernel/net.zig`：TCP + Zig std TLS、Range 随机访问、断流重连/读超时），
+  失败自动回退 FFmpeg AVIO；`ARCHOERA_ERA_NATIVE_HTTP=0` 可显式关闭。宿主经
+  `archoera_mediaengine_create_with_headers`（Qt 侧 `AudioEngine::Config::headers`，
+  见 `src/core/clientidentity.h`）注入 `User-Agent` + `X-Neko-Client` 客户端标识，
+  避免在线拉流被服务端降级。`net.zig` 不使用系统代理。
 - **Windows**：CI 用 Qt 自带 MinGW 构建最小 FFmpeg；Qt 升级后仅需重跑脚本（不再依赖 BtbN 下载）。
 - **码率探测**：原生引擎不暴露源码率，`audioBitRateBps()` 返回 0，播放页音质角标回退到文件头/所选档位。
 - **输出设备映射**：Linux PulseAudio 下 `QAudioDevice.id()` 与引擎 sink id 一致，可直接映射；

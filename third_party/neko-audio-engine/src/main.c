@@ -3,20 +3,20 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 /**
- * main.c — neko-audio-engine CLI 入口
+ * main.c — archoera-audio-engine CLI 入口
  *
  * 用法：
  *   批量模式（默认）：
- *     neko-audio-engine <输入文件/URL> [选项]
+ *     archoera-audio-engine <输入文件/URL> [选项]
  *     一次性转码，stdout 输出 OGG/Opus 流
  *
  *   交互模式（Phase 3）：
- *     neko-audio-engine <输入文件/URL> --interactive --control-fd 3 [--fft-fd 4] [选项]
+ *     archoera-audio-engine <输入文件/URL> --interactive --control-fd 3 [--fft-fd 4] [选项]
  *     stdin 接收 JSON 控制命令，stdout 输出 OGG/Opus 流，control-fd 输出状态/响应的 JSON 行
  *     --fft-fd 指定的 fd 输出 FFT 频谱 JSON 行
  *
  *   播放模式（Phase 4，自写播放器，§10.8 替代 libmpv）：
- *     neko-audio-engine <输入文件/URL> --interactive --control-uds <path> \
+ *     archoera-audio-engine <输入文件/URL> --interactive --control-uds <path> \
  *         --stream-uds <path> --player-file <transcoded.wav> [选项]
  *     转码 PCM 落盘为 <transcoded.wav>，完成后经 miniaudio 播放（内置 dr_wav，
  *     本地完整文件 seek 即时）；播放中 stdin 仍接收 play/pause/seek/set_volume/get_status

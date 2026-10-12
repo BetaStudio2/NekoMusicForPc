@@ -15,6 +15,7 @@
 #include <QTimer>
 
 #include "core/audioengine.h"
+#include "core/clientidentity.h"
 
 PlayerEngine::PlayerEngine(QObject *parent)
     : QObject(parent)
@@ -255,6 +256,10 @@ void PlayerEngine::beginSession(const QUrl &url, qint64 resumeMs)
     cfg.outputChannels = 2;
     cfg.skipEncoder = true;
     cfg.noDiskCache = 0; // 保持文件模式，不改动既有缓存/落盘策略
+    // 在线源（http/https）：携带本站客户端标识头（UA + X-Neko-Client），
+    // 原生 HTTP(S) 与 FFmpeg AVIO 拉流均生效；本地文件无需。
+    if (url.scheme().startsWith(QLatin1String("http"), Qt::CaseInsensitive))
+        cfg.headers = QString::fromUtf8(ClientIdentity::engineHeaders());
     m_audio->start(url.toString(), cfg);
 }
 

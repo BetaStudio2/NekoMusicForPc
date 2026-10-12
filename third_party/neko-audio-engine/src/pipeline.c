@@ -69,6 +69,8 @@ struct AudioPipeline {
     NativeDecoder *native;      /* 自研 Zig 内核（engine_mode==EraAudio 且接管成功）；
                                   非 NULL 时为本解码源（FFmpeg 不再打开） */
     bool         native_active; /* 解码源是否为自研内核 */
+    bool         native_http;   /* native 源是否为 EraAudio 原生 HTTP(S)（transport 口径） */
+    const char  *headers;       /* 在线源额外请求头（借用宿主内存；可空） */
     const char  *backend;       /* 实际解码后端："zig" / "ffmpeg"（F5 ready 事件上报） */
     int          native_status; /* native open 失败状态码（ZkStatus；成功=0） */
     char         native_err[256]; /* native open 失败诊断（仅日志） */
@@ -98,6 +100,18 @@ struct AudioPipeline {
     Limiter     *limiter;
     Tempo       *tempo;
     FFTAnalyzer *fft;
+
+    /* 响度归一化：ReplayGain 标签（创建时读一次）+ Dart/扫描器兜底增益。
+     * 增益解析优先级：album/track 标签（按 norm_album）> 兜底增益 > 0。 */
+    bool   norm_enabled;     /* 归一化开关 */
+    int    norm_album;       /* 0=track / 1=album */
+    float  norm_fallback_db; /* 兜底增益（dB；仅无标签时使用） */
+    int    rg_has_track;     /* 1 = 文件含 track 增益标签 */
+    int    rg_has_album;     /* 1 = 文件含 album 增益标签 */
+    float  rg_track_gain_db;
+    float  rg_track_peak;
+    float  rg_album_gain_db;
+    float  rg_album_peak;
 
     EngineConfig cfg;
 
@@ -245,10 +259,40 @@ static int era_url_take_error(AudioPipeline *p)
     return ((EraUrlCb *)p->era_url_cb)->io_error;
 }
 
-/* 打开 URL → 构造 AVIO 宿主传输 → 回调式自研内核解码。
- * 成功置 p->native / p->native_active / p->era_url_cb；失败不残留资源。 */
+/* 打开 URL → 优先 EraAudio 原生 HTTP(S)，失败回退 FFmpeg AVIO 宿主传输。
+ * 成功置 p->native / p->native_active（+ native-http 时无 era_url_cb）；失败不残留资源。 */
 static int pipeline_era_url_open(AudioPipeline *p, const char *url)
 {
+    /* 0) EraAudio 原生 HTTP(S)：内核自研请求/响应解析（连接/TLS/Range/重定向），
+     *    不经宿主 FFmpeg AVIO（docs/audio-kernel-zig.md §6.1/§7 增强）。
+     *    ARCHOERA_ERA_NATIVE_HTTP=0 可显式关闭（回退下方 AVIO），便于对照/排障。 */
+#if defined(HAS_ARCHOERA_KERNEL)
+    {
+        const char *nv = getenv("ARCHOERA_ERA_NATIVE_HTTP");
+        const int enabled = !(nv && nv[0] == '0' && nv[1] == '\0');
+        if (enabled) {
+            NativeInfo ninfo;
+            int nst = 1; /* 默认 unsupported */
+            p->native = native_decoder_open_url(
+                url, p->headers, &ninfo, &nst, p->native_err, sizeof(p->native_err));
+            p->native_status = nst;
+            if (p->native) {
+                p->native_active = true;
+                p->native_http = true; /* transport 口径统一为 native-http */
+                ERA_LOGI(NULL,
+                        "%s EraAudio: 接管在线流（%s）— codec=%s / fmt=%s"
+                        " [transport=native-http]\n",
+                        LOG_TAG, url, ninfo.codec_name ? ninfo.codec_name : "?",
+                        ninfo.format_name ? ninfo.format_name : "?");
+                return 0;
+            }
+            ERA_LOGW(NULL,
+                    "%s EraAudio: 原生 HTTP 未接管 (status=%d %s)"
+                    " → 回退 FFmpeg AVIO 宿主传输（将重新发起 HTTP 请求）\n",
+                    LOG_TAG, nst, p->native_err[0] ? p->native_err : "");
+        }
+    }
+#endif
     EraUrlCb *cb = (EraUrlCb *)calloc(1, sizeof(*cb));
     if (!cb) return -1;
     /* 确保 FFmpeg 日志回调已装（URL 传输可能先于任何 decoder_open 发生）。 */
@@ -265,6 +309,8 @@ static int pipeline_era_url_open(AudioPipeline *p, const char *url)
     av_dict_set(&opts, "reconnect_streamed", "1", 0);
     av_dict_set(&opts, "reconnect_max_retries", "3", 0);
     av_dict_set(&opts, "reconnect_delay_max", "5", 0);
+    /* 按源注入客户端标识头（如 NekoMusic）；FFmpeg http 仅认这些选项。 */
+    decoder_apply_http_headers(&opts, p->headers);
     int oret = avio_open2(&cb->avio, url, AVIO_FLAG_READ, &cb->interrupt, &opts);
     av_dict_free(&opts);
     if (oret < 0) {
@@ -294,10 +340,55 @@ static int pipeline_era_url_open(AudioPipeline *p, const char *url)
     return 0;
 }
 
+/* 解析并下发响度归一化增益（创建时读标签后、运行时改开关/增益/口径后调用）。
+ * 优先级：album 标签（按 norm_album）→ track 标签 → 兜底增益 → 0。
+ * 标签路径按 peak 做削波保护（兜底增益由调用方预削波）。 */
+static void pipeline_apply_normalization(AudioPipeline *p)
+{
+    if (!p || !p->loudness) return;
+    if (!p->norm_enabled) {
+        loudness_set_enabled(p->loudness, false);
+        return;
+    }
+
+    float gain = p->norm_fallback_db;
+    float peak = 0.0f;
+    bool  from_tag = false;
+    const char *kind = "fallback";
+    if (p->norm_album && p->rg_has_album) {
+        gain = p->rg_album_gain_db;
+        peak = p->rg_album_peak;
+        from_tag = true;
+        kind = "album(RG)";
+    } else if (p->rg_has_track) {
+        gain = p->rg_track_gain_db;
+        peak = p->rg_track_peak;
+        from_tag = true;
+        kind = "track(RG)";
+    }
+
+    /* 削波保护（仅标签路径）：peak 为线性峰值，限制 peak·10^(g/20) ≤ 1。 */
+    bool limited = false;
+    if (from_tag && peak > 1e-6f) {
+        float max_gain_db = -20.0f * log10f(peak);
+        if (gain > max_gain_db) {
+            gain = max_gain_db;
+            limited = true;
+        }
+    }
+
+    bool effective = (gain != 0.0f);
+    loudness_set_enabled(p->loudness, effective);
+    loudness_set_gain(p->loudness, gain);
+    ERA_LOGI(NULL, "%s 响度归一化: %s gain=%.2fdB%s%s\n", LOG_TAG, kind,
+            gain, limited ? " (峰限)" : "", effective ? "" : "（无增益，等效关闭）");
+}
+
 /* pipeline_create / pipeline_create_store 共用实现：store 非空 → SegStore
  * 内存源（整曲已驻留，可 seek），经 AVIO + decoder_open_mem 解码；store 为空
  * → 磁盘/URL 源，完全走现状（engine_mode==EraAudio 优先自研内核，回退 FFmpeg）。 */
 static AudioPipeline* pipeline_create_impl(const char *source,
+                                            const char *headers,
                                             SegStore *store,
                                             const EngineConfig *cfg,
                                             OutputCallback output,
@@ -310,6 +401,7 @@ static AudioPipeline* pipeline_create_impl(const char *source,
     if (!p) return NULL;
 
     p->cfg = *cfg;
+    p->headers = headers;
     p->max_frames_per_call = 64;
 
     /* 1. 打开解码器：
@@ -408,7 +500,7 @@ static AudioPipeline* pipeline_create_impl(const char *source,
             goto fail;
         }
     } else {
-        p->dec = decoder_open(source);
+        p->dec = decoder_open_headers(source, p->headers);
         if (!p->dec) {
             ERA_LOGE(NULL, "%s 无法打开源: %s\n", LOG_TAG, source);
             goto fail;
@@ -486,10 +578,22 @@ static AudioPipeline* pipeline_create_impl(const char *source,
         ERA_LOGE(NULL, "%s 响度归一化创建失败\n", LOG_TAG);
         goto fail;
     }
-    if (cfg->normalization && cfg->normalization_gain != 0.0f) {
-        loudness_set_enabled(p->loudness, true);
-        loudness_set_gain(p->loudness, cfg->normalization_gain);
+    p->norm_enabled = cfg->normalization;
+    p->norm_album = cfg->normalization_album ? 1 : 0;
+    p->norm_fallback_db = cfg->normalization_gain;
+    if (p->dec) {
+        /* 文件内 ReplayGain 标签（FFmpeg 后端；native 内核路径无 FFmpeg
+         * fmt_ctx，仅用兜底增益）。 */
+        float tg = 0.0f, tp = 0.0f, ag = 0.0f, ap = 0.0f;
+        int mask = decoder_replaygain(p->dec, &tg, &tp, &ag, &ap);
+        p->rg_has_track = (mask & 0x1) ? 1 : 0;
+        p->rg_has_album = (mask & 0x4) ? 1 : 0;
+        p->rg_track_gain_db = tg;
+        p->rg_track_peak = tp;
+        p->rg_album_gain_db = ag;
+        p->rg_album_peak = ap;
     }
+    pipeline_apply_normalization(p);
 
     /* 3.3 限幅器 */
     p->limiter = limiter_create(out_rate, out_channels);
@@ -546,6 +650,7 @@ static AudioPipeline* pipeline_create_impl(const char *source,
             native_decoder_close(p->native);
             p->native = NULL;
             p->native_active = false;
+            p->native_http = false; /* 已回退 FFmpeg：transport 口径同步复位 */
             if (p->era_url_cb) { /* 在线回调流：native 已关，释放宿主 AVIO 传输 */
                 EraUrlCb *cb = (EraUrlCb *)p->era_url_cb;
                 cb->aborted = 1; /* 打断任何在途阻塞 IO 后再关闭 */
@@ -555,7 +660,7 @@ static AudioPipeline* pipeline_create_impl(const char *source,
             }
             if (p->native_buf) { free(p->native_buf); p->native_buf = NULL; }
             p->native_buf_frames = 0;
-            p->dec = decoder_open(source);
+            p->dec = decoder_open_headers(source, p->headers);
             if (!p->dec) {
                 ERA_LOGE(NULL, "%s 回退 FFmpeg 也无法打开源: %s\n",
                         LOG_TAG, source);
@@ -590,7 +695,9 @@ static AudioPipeline* pipeline_create_impl(const char *source,
             LOG_TAG, out_rate, out_channels,
             p->cfg.skip_encoder ? "PCM(无编码)" : "Opus 编码",
             p->native_active ? "zig" : "ffmpeg",
-            p->era_url_cb ? "ffmpeg-avio" : (p->native_active ? "direct" : "ffmpeg"));
+            p->native_http ? "native-http"
+                           : (p->era_url_cb ? "ffmpeg-avio"
+                                            : (p->native_active ? "direct" : "ffmpeg")));
     return p;
 
 fail:
@@ -604,7 +711,16 @@ AudioPipeline* pipeline_create(const char *source,
                                 OutputCallback output,
                                 void *user)
 {
-    return pipeline_create_impl(source, NULL, cfg, output, user);
+    return pipeline_create_impl(source, NULL, NULL, cfg, output, user);
+}
+
+AudioPipeline* pipeline_create_with_headers(const char *source,
+                                            const char *headers,
+                                            const EngineConfig *cfg,
+                                            OutputCallback output,
+                                            void *user)
+{
+    return pipeline_create_impl(source, headers, NULL, cfg, output, user);
 }
 
 /* SegStore 内存源（docs/audio-memory-source.md §7）：整曲已在 store、可 seek；
@@ -614,7 +730,7 @@ AudioPipeline* pipeline_create_store(SegStore *store,
                                       OutputCallback output,
                                       void *user)
 {
-    return pipeline_create_impl(NULL, store, cfg, output, user);
+    return pipeline_create_impl(NULL, NULL, store, cfg, output, user);
 }
 
 /* 处理链前段（不含 tempo/fft）：低频管理 → 参数化 EQ → 固定 EQ → 响度 → 限幅。
@@ -780,6 +896,13 @@ ssize_t pipeline_process(AudioPipeline *p)
             int ret = native_process_chunk(p);
             if (ret <= 0) {
                 if (ret < 0) {
+                    if (ret == -5) {
+                        /* -5 = ZK_ABORTED：stop/SIGTERM/切歌/跳转重建触发的主动中止，
+                         * 属**预期收尾**，非解码错误——不打 FATAL、不产生 error 事件。 */
+                        ERA_LOGI(NULL, "%s EraAudio 会话中止（预期）\n", LOG_TAG);
+                        p->eof = true;
+                        return 0;
+                    }
                     ERA_LOGF(NULL, "%s EraAudio 解码错误: %d（%s）\n", LOG_TAG, ret,
                              era_zk_status_hint(ret));
                     return ret;
@@ -942,8 +1065,23 @@ void pipeline_set_pcm_out_cb(AudioPipeline *p, PcmOutCallback cb, void *user_dat
 
 void pipeline_set_normalization_enabled(AudioPipeline *p, bool enabled)
 {
-    if (!p || !p->loudness) return;
-    loudness_set_enabled(p->loudness, enabled);
+    if (!p) return;
+    p->norm_enabled = enabled;
+    pipeline_apply_normalization(p);
+}
+
+void pipeline_set_normalization_gain(AudioPipeline *p, float gain_db)
+{
+    if (!p) return;
+    p->norm_fallback_db = gain_db;
+    pipeline_apply_normalization(p);
+}
+
+void pipeline_set_normalization_album(AudioPipeline *p, int album)
+{
+    if (!p) return;
+    p->norm_album = album ? 1 : 0;
+    pipeline_apply_normalization(p);
 }
 
 void pipeline_set_limiter_enabled(AudioPipeline *p, bool enabled)
@@ -1035,6 +1173,10 @@ void pipeline_signal_shutdown(AudioPipeline *p)
     if (p->era_url_cb) {
         ((EraUrlCb *)p->era_url_cb)->aborted = 1;
     }
+    /* 原生 HTTP 源（无 era_url_cb）：请求内核置位并 shutdown 连接解阻塞。 */
+    if (p->native_active && !p->era_url_cb && p->native) {
+        native_decoder_abort(p->native);
+    }
 }
 
 double pipeline_get_duration(const AudioPipeline *p)
@@ -1089,6 +1231,7 @@ void pipeline_destroy(AudioPipeline *p)
     if (!p) return;
     /* 先请求中断：若 native 关闭/AVIO 关闭会等待在途阻塞 IO，中断标志让其尽快返回 */
     if (p->era_url_cb) ((EraUrlCb *)p->era_url_cb)->aborted = 1;
+    if (p->native_active && !p->era_url_cb && p->native) native_decoder_abort(p->native);
     if (!p->flushed && p->encoder) {
         encoder_flush(p->encoder);
         p->flushed = true;

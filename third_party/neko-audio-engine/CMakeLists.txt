@@ -6,13 +6,15 @@
 #   - 曲间无缝续播（EOF 排空后 commit 新源）
 #
 # 与上游 CMakeLists 的差异（按移植决策刻意收敛）：
-#   1. **不构建 Zig 内核**：不定义 HAS_ARCHOERA_KERNEL，native_decoder.c /
-#      equalizer.c 编译期回退纯 FFmpeg（engine_mode 恒走 Stable）。
+#   1. **构建并链接 Zig 解码内核（EraAudio）**：定义 HAS_ARCHOERA_KERNEL，
+#      native_decoder.c 等逐格式接管解码（未支持/失败自动回退 FFmpeg）；
+#      可用 -DNEKO_ENABLE_ERAUDIO_KERNEL=OFF 关闭。
 #   2. **不链接 Rust tempo**：不定义 HAS_TEMPO，tempo.c 走旁通 stub。
 #   3. 只产出静态库 archoera_engine（供主程序直接链接），不构建 CLI / fft
 #      共享库 / 测试。
 #
-# 上游来源：ArchoeraMusic @ 0b2556a（app/core/audio-engine），
+# 引擎源码整体对齐上游 ArchoeraMusic（app/core/audio-engine）v1.0.0，
+# 仅保留 NekoMusic 移植增补（曲间无缝 gapless、MinGW timespec_get 兜底）。
 # 许可证 AGPL-3.0-or-later，见本目录 LICENSE 与 THIRD-PARTY-LICENSES.md。
 
 cmake_minimum_required(VERSION 3.20)
