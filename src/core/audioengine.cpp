@@ -8,6 +8,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QMetaObject>
+#include <QUrl>
 
 #include <cstring>
 #include <vector>
@@ -17,6 +18,23 @@
 namespace {
 constexpr int kEventBufCap = 2048;
 constexpr int kWaitTimeoutMs = 80;
+
+/**
+ * 源地址规范化：本地文件 URL（`file://…`）转成纯路径再交给引擎。
+ *
+ * 引擎的 `source_is_url()` 只识别 http(s)；`file://` 会被当作本地路径直接交给
+ * 内核原生解码器，而内核的本地打开不解析 `file://` 方案 → 打开失败（status=2）
+ * → 回退 FFmpeg。FFmpeg 的 seek 非样本级对齐，导致「切换音质」时按解码游标裁剪
+ * 的拼接点错位（实测约 +66ms）→ 可闻顿挫。转成纯路径后内核可正常接管（样本级
+ * 精确 seek），热切换恢复无缝。
+ */
+QString normalizeSource(const QString &source)
+{
+    const QUrl u(source);
+    if (u.isLocalFile())
+        return u.toLocalFile();
+    return source;
+}
 
 QString makeSessionDir()
 {
@@ -66,7 +84,7 @@ void AudioEngine::start(const QString &source, const Config &cfg)
     m_sessionDir = makeSessionDir();
     QDir().mkpath(m_sessionDir);
 
-    const std::string src = source.toUtf8().toStdString();
+    const std::string src = normalizeSource(source).toUtf8().toStdString();
     const std::string sessionDir = m_sessionDir.toUtf8().toStdString();
     const std::string playerFile =
         (m_sessionDir + QStringLiteral("/stream.wav")).toUtf8().toStdString();
@@ -203,7 +221,7 @@ void AudioEngine::prepareSource(const QString &url, bool nextTrack)
 {
     if (auto *e = m_handle.load()) {
         QJsonObject o{{QStringLiteral("type"), QStringLiteral("prepare_source")},
-                      {QStringLiteral("url"), url}};
+                      {QStringLiteral("url"), normalizeSource(url)}};
         if (nextTrack)
             o.insert(QStringLiteral("next_track"), true);
         const QByteArray cmd = QJsonDocument(o).toJson(QJsonDocument::Compact);
