@@ -1,5 +1,5 @@
-// ArchoeraMusic Audio Framework
-// Copyright (C) 2026 Archoera && BetaStudio2
+// NekoMusic-EraASync
+// Copyright (C) 2026 NekoEraASync && BetaStudio2
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 /**
@@ -19,8 +19,8 @@
  * 只引用其声明（被 player.c / audio_output.c 包含）。player.c 必须先 include
  * 带实现的 miniaudio.h，再 include 本头文件。
  */
-#ifndef ARCHOERA_AUDIO_OUTPUT_H
-#define ARCHOERA_AUDIO_OUTPUT_H
+#ifndef NEKO_ERAASYNC_AUDIO_OUTPUT_H
+#define NEKO_ERAASYNC_AUDIO_OUTPUT_H
 
 #include <stddef.h>
 #include <stdint.h>
@@ -123,4 +123,4 @@ const char *audio_output_class_str(int cls);
 }
 #endif
 
-#endif /* ARCHOERA_AUDIO_OUTPUT_H */
+#endif /* NEKO_ERAASYNC_AUDIO_OUTPUT_H */

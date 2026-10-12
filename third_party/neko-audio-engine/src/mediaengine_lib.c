@@ -1,13 +1,13 @@
-// ArchoeraMusic Audio Framework
-// Copyright (C) 2026 Archoera && BetaStudio2
+// NekoMusic-EraASync
+// Copyright (C) 2026 NekoEraASync && BetaStudio2
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 /**
  * mediaengine_lib.c — 音频引擎 FFI 库实现（Dart 桌面端直连，替代进程 IPC）
  *
  * 引擎线程复制 main.c run_interactive 的交互逻辑，数据源参数化：
- *   stdin 命令  → 命令 FIFO（archoera_mediaengine_command）
- *   control 事件 → 事件 FIFO（archoera_mediaengine_poll_event）
+ *   stdin 命令  → 命令 FIFO（neko_eraasync_command）
+ *   control 事件 → 事件 FIFO（neko_eraasync_poll_event）
  *   PCM UDS 发送 → 会话目录文件直写（stream.pcm / stream.wav）
  *
  * Web/CLI（main.c）路径不受影响。本文件为独立单元，与 main.c 无静态依赖。
@@ -23,12 +23,12 @@
 
 #include "audio_engine.h"
 #include "player.h"
-#include "archoera_mediaengine.h"
+#include "neko_eraasync.h"
 #include "native_decoder.h"
 #include "decoder.h"
 #include "era_log.h"
 #include "compat/qatomic.h"
-#if defined(HAS_ARCHOERA_KERNEL)
+#if defined(HAS_NEKO_ERAASYNC_KERNEL)
 #include "kernel_bridge.h"
 #endif
 
@@ -115,16 +115,16 @@ static FILE *fopen_utf8(const char *path, const char *mode) {
 }
 #endif
 
-/* ── 统一日志 sink（宿主注入；见 archoera_mediaengine.h）───────────── */
-void archoera_mediaengine_set_log_sink(ArchoeraMediaEngineLogFn fn,
+/* ── 统一日志 sink（宿主注入；见 neko_eraasync.h）───────────── */
+void neko_eraasync_set_log_sink(NekoEraASyncEngineLogFn fn,
                                        int min_level) {
     era_log_set_sink((EraLogSink)fn, min_level);
     /* 立即安装 FFmpeg 统一日志回调：URL 传输（AVIO）等早期日志也归入 sink，
      * 否则会走 FFmpeg 默认回调直写 stderr（见 decoder.h）。 */
     decoder_install_log_callback();
-#if defined(HAS_ARCHOERA_KERNEL)
+#if defined(HAS_NEKO_ERAASYNC_KERNEL)
     /* 同步把 sink 注入 Zig 内核（内核两条生产日志走同一格式）。 */
-    zk_set_log_sink((ZkLogFn)fn, min_level);
+    neko_eraasync_zk_set_log_sink((NekoEraASyncZkLogFn)fn, min_level);
 #endif
 }
 
@@ -154,7 +154,7 @@ typedef struct PcmPoolBuf {
     int32_t cap_samples;
 } PcmPoolBuf;
 
-typedef struct ArchoeraMediaEngine {
+typedef struct NekoEraASyncEngine {
     char *source;
     char *headers; /* 在线源额外请求头（`\n` 分行；可空）；随会话存活 */
     EngineConfig cfg;
@@ -164,7 +164,7 @@ typedef struct ArchoeraMediaEngine {
     char *pcm_file;
 
     /* store 内存源（docs/audio-memory-source.md §7/M2）：非空 → 引擎线程用
-     * pipeline_create_store 从 SegStore 解码（source 置空）。所有权归调用方
+     * neko_eraasync_pipeline_create_store 从 SegStore 解码（source 置空）。所有权归调用方
      * （Dart 会话持有）；destroy 不释放 store，由调用方在 destroy 后释放。 */
     SegStore *store;
 
@@ -172,7 +172,7 @@ typedef struct ArchoeraMediaEngine {
     int thread_created;
     /* 跨线程停止/完成标志：C11 原子（经 compat/qatomic.h，MSVC 走 volatile +
      * 屏障）。engine 线程 run 循环读 stop_requested；Dart/FFI 线程经
-     * archoera_mediaengine_destroy / is_done 读写。 */
+     * neko_eraasync_destroy / is_done 读写。 */
     qa_size stop_requested;
     qa_size done;           /* 引擎线程已退出 */
 
@@ -199,7 +199,7 @@ typedef struct ArchoeraMediaEngine {
     int waiters;
 
     /* 引擎线程内部状态 */
-    AudioPipeline *p;
+    NekoEraASyncPipeline *p;
     PlayerCtx *player;
     FILE *wav;
     FILE *pcm;
@@ -214,7 +214,7 @@ typedef struct ArchoeraMediaEngine {
     int pos_interval_ms;
 
     /* 播放输出 sink 选择（{"type":"set_sink","id":...} / env
-       ARCHOERA_AUDIO_SINK）：空串 "" = 系统默认。初始由 create 解析 env，
+       NEKO_ERAASYNC_AUDIO_SINK）：空串 "" = 系统默认。初始由 create 解析 env，
        set_sink 覆盖；player 启动/平滑重启时读取。仅引擎线程访问，无锁。 */
     char *sink_id;
     /* set_sink "" / 显式 id 是否来自用户显式选择（日志语义；播放适配按
@@ -244,7 +244,7 @@ typedef struct ArchoeraMediaEngine {
        音质切换：旧源照常出声，新源在**独立预取线程**内预开 + 预解码进 stage；
        commit_source 丢弃交叠段后把 stage 余量续喂同一 ring（设备/会话不重建）。
        未使用 prepare/commit 时全部为 0，行为与旧版逐位一致（惰性）。 */
-    AudioPipeline *p_next;      /* 暂存新源（NULL = 无） */
+    NekoEraASyncPipeline *p_next;      /* 暂存新源（NULL = 无） */
     int     next_ready;         /* 新源已就绪（source_ready 已发） */
     double  next_start_ms;      /* 新源解码起点（= 建源时旧源 decode cursor，绝对 ms） */
     /* NekoMusic 移植增补：曲间无缝（gapless）。prepare_source 带 "next_track":true
@@ -255,7 +255,7 @@ typedef struct ArchoeraMediaEngine {
     double  stage_origin_ms;    /* stage[0] 真实媒体时间（首回调反推，消 ms 截断误差） */
     int     stage_have_origin;  /* stage_origin_ms 已捕获 */
     int     stage_rate;         /* 暂存 PCM 采样率（管线输出采样率） */
-    int64_t p_start_ms;         /* 当前管线解码起点的绝对 ms（pipeline_get_position 相对它） */
+    int64_t p_start_ms;         /* 当前管线解码起点的绝对 ms（neko_eraasync_pipeline_get_position 相对它） */
     float  *stage;              /* 暂存 PCM（交织 float） */
     size_t  stage_len;          /* 已暂存 float 个数 */
     size_t  stage_cap;          /* 容量（float 个数） */
@@ -268,7 +268,7 @@ typedef struct ArchoeraMediaEngine {
     pthread_t       stage_thread;
     int             stage_thread_on;
     int             stage_stop;      /* 请求预取线程退出 */
-    int             stage_busy;      /* 预取线程正在 pipeline_process(p_next) */
+    int             stage_busy;      /* 预取线程正在 neko_eraasync_pipeline_process(p_next) */
     int             stage_eof;       /* 预取已到新源 EOF（无法再填） */
     int             stage_ready_sent;/* source_ready 已发（一次） */
     int64_t         stage_t0_ms;     /* 预取起点墙钟 ms（ready 阈值/超时判定） */
@@ -280,7 +280,7 @@ typedef struct ArchoeraMediaEngine {
      * 读侧为 Dart/FFI 线程（pcm_window/pcm_epoch）。mem_window 持锁期间仅做
      * 纯计算与定长拷贝，不调用任何可重入引擎的回调。 */
     pthread_mutex_t mem_lock;
-} ArchoeraMediaEngine;
+} NekoEraASyncEngine;
 
 /* ── 内存播放模式：cap / append / 保留 / 窗口（对齐 pcm_analyzer 语义）──
    规格见 docs/audio-memory-playback.md：auto 有界分析窗口（32 MiB 硬上限）+
@@ -319,7 +319,7 @@ static long long mem_avail_mb(void)
    说明：驻留 PCM 仅服务 pcm_window（频谱取帧，实际只需最近 fftSize≈2048 样本
    ≈46ms），全量整曲驻留没有消费者；auto 因而收敛到「覆盖解码前瞻 + 少量回访」
    的小窗口，把单会话原生内存从数百 MB 压到有界 ≤32 MiB。 */
-static int64_t mem_resolve_cap(ArchoeraMediaEngine *e)
+static int64_t mem_resolve_cap(NekoEraASyncEngine *e)
 {
     const int64_t floor_bytes = 8LL * 1024LL * 1024LL;  /* 8 MiB 下限 */
     const int64_t hard_bytes  = 32LL * 1024LL * 1024LL; /* 32 MiB 硬上限 */
@@ -351,14 +351,14 @@ static void mem_heap_trim(void)
 /* 缓冲复用池字节上限（固定 8 MiB，与 cap 无关）：池只用于「免逐块 malloc/free
    的少量在途缓冲」，稳态深度仅 1~2 块；封顶 8 MiB 足以覆盖且让「驻留块列表 +
    池」总原生内存 ≤ cap + 8 MiB（auto 下 ≤40 MiB）。调用方须持 mem_lock。 */
-static int64_t mem_pool_limit(const ArchoeraMediaEngine *e)
+static int64_t mem_pool_limit(const NekoEraASyncEngine *e)
 {
     (void)e;
     return 8LL * 1024LL * 1024LL;
 }
 
 /* 归还缓冲到池（持锁）。池满/超限/扩容失败 → 直接 free。 */
-static void mem_pool_put(ArchoeraMediaEngine *e, float *buf, int32_t cap_samples)
+static void mem_pool_put(NekoEraASyncEngine *e, float *buf, int32_t cap_samples)
 {
     int64_t need;
     if (!buf) return;
@@ -386,7 +386,7 @@ static void mem_pool_put(ArchoeraMediaEngine *e, float *buf, int32_t cap_samples
 
 /* 取一个容量 ≥ needed（float 个数）的最小池缓冲（best-fit）；无则 NULL。
    取出即从池移除，所有权归调用方。持锁。 */
-static float *mem_pool_get(ArchoeraMediaEngine *e, int needed,
+static float *mem_pool_get(NekoEraASyncEngine *e, int needed,
                            int32_t *out_cap)
 {
     int best = -1;
@@ -409,7 +409,7 @@ static float *mem_pool_get(ArchoeraMediaEngine *e, int needed,
 }
 
 /* 清空池并释放全部缓冲（reset/free 用）。持锁。 */
-static void mem_pool_clear(ArchoeraMediaEngine *e)
+static void mem_pool_clear(NekoEraASyncEngine *e)
 {
     for (int i = 0; i < e->mem_pool_len; i++) free(e->mem_pool[i].buf);
     e->mem_pool_len = 0;
@@ -418,7 +418,7 @@ static void mem_pool_clear(ArchoeraMediaEngine *e)
 
 /* append 后记账：超过 cap 即自队头逐最旧淘汰，直至 ≤ cap（音频超量也不越过）。
    调用方须持 mem_lock。 */
-static void mem_enforce_cap(ArchoeraMediaEngine *e)
+static void mem_enforce_cap(NekoEraASyncEngine *e)
 {
     if (e->mem_cap_bytes == INT64_MAX) return;
     while (e->mem_block_count > 0 && e->mem_bytes > e->mem_cap_bytes) {
@@ -434,7 +434,7 @@ static void mem_enforce_cap(ArchoeraMediaEngine *e)
 
 /* 追加一块解码 PCM（内存播放模式取代 fwrite）；OOM 丢弃本块并返回 -1。
    内部持 mem_lock（Dart/FFI 线程正读 mem_window）。 */
-static int mem_append(ArchoeraMediaEngine *e, const float *pcm,
+static int mem_append(NekoEraASyncEngine *e, const float *pcm,
                       int samples, int channels, double pos_ms)
 {
     PcmMemBlock *b;
@@ -484,7 +484,7 @@ static int mem_append(ArchoeraMediaEngine *e, const float *pcm,
 
 /* mem_reset 的核心（调用方须持 mem_lock）：整表清空 + epoch++。
    缓冲交还复用池（而非 free）——seek 重建/无缝切换后立即可复用，免重新分配。 */
-static void mem_reset_locked(ArchoeraMediaEngine *e)
+static void mem_reset_locked(NekoEraASyncEngine *e)
 {
     int i;
     for (i = 0; i < e->mem_block_count; i++) {
@@ -496,7 +496,7 @@ static void mem_reset_locked(ArchoeraMediaEngine *e)
 }
 
 /* seek 重建：整表清空（对齐文件「截断重建 stream.pcm」）+ epoch++ */
-static void mem_reset(ArchoeraMediaEngine *e)
+static void mem_reset(NekoEraASyncEngine *e)
 {
     pthread_mutex_lock(&e->mem_lock);
     mem_reset_locked(e);
@@ -506,7 +506,7 @@ static void mem_reset(ArchoeraMediaEngine *e)
 /* 会话结束：释放块数组与复用池（destroy 调；epoch 不再递增无妨）。
    释放后 malloc_trim 把空闲堆归还 OS——否则跨曲累积的保留区在 glibc 下
    只涨不缩（实测 stop 后 RSS 不回退）。 */
-static void mem_free(ArchoeraMediaEngine *e)
+static void mem_free(NekoEraASyncEngine *e)
 {
     pthread_mutex_lock(&e->mem_lock);
     mem_reset_locked(e);
@@ -555,7 +555,7 @@ static void mem_downmix_sample(const float *d, int si, int channels,
 }
 
 /* 最后一个 pos_ms <= end_ms 的块下标（块按 pos_ms 升序）；无返回 -1 */
-static int mem_last_block_le(ArchoeraMediaEngine *e, int end_ms)
+static int mem_last_block_le(NekoEraASyncEngine *e, int end_ms)
 {
     int lo = 0, hi = e->mem_block_count;
     while (lo < hi) {
@@ -567,7 +567,7 @@ static int mem_last_block_le(ArchoeraMediaEngine *e, int end_ms)
 }
 
 /* 含全局样本 s 的块下标；越界返回 -1 / count */
-static int mem_block_of_sample(ArchoeraMediaEngine *e, int64_t s)
+static int mem_block_of_sample(NekoEraASyncEngine *e, int64_t s)
 {
     int lo = 0, hi = e->mem_block_count;
     if (s < 0 || hi == 0) return -1;
@@ -582,7 +582,7 @@ static int mem_block_of_sample(ArchoeraMediaEngine *e, int64_t s)
 /* pcm_window 实现：以 end_pos_ms 为终点取最近 frames 样本（L/R），语义对齐
    PcmAnalyzer.frameAt：终点样本 = 定位块内 (posMs 偏移×采样率) 取整；前缀不足
    补零（仅当头部仍在）；被淘汰/未解码 → -1。返回 0 命中 / -1 / -2。 */
-static int mem_window(ArchoeraMediaEngine *e, int end_pos_ms, int frames,
+static int mem_window(NekoEraASyncEngine *e, int end_pos_ms, int frames,
                       float *out_l, float *out_r)
 {
     int sr, bi, bi2, in_block, fill, c;
@@ -647,7 +647,7 @@ static int mem_window(ArchoeraMediaEngine *e, int end_pos_ms, int frames,
 
 /* ── 事件/命令队列 ───────────────────────────────────────────── */
 
-static void ev_enqueue(ArchoeraMediaEngine *e, const char *line)
+static void ev_enqueue(NekoEraASyncEngine *e, const char *line)
 {
     int wake = 0;
     pthread_mutex_lock(&e->ev_mutex);
@@ -677,7 +677,7 @@ static void ev_enqueue(ArchoeraMediaEngine *e, const char *line)
     pthread_mutex_unlock(&e->ev_mutex);
 }
 
-static int cmd_enqueue(ArchoeraMediaEngine *e, const char *line)
+static int cmd_enqueue(NekoEraASyncEngine *e, const char *line)
 {
     int r = -1;
     pthread_mutex_lock(&e->cmd_mutex);
@@ -694,7 +694,7 @@ static int cmd_enqueue(ArchoeraMediaEngine *e, const char *line)
 }
 
 /* 非阻塞取一条命令（引擎线程调用）；返回 1 有命令、0 空 */
-static int cmd_dequeue(ArchoeraMediaEngine *e, char *buf, int cap)
+static int cmd_dequeue(NekoEraASyncEngine *e, char *buf, int cap)
 {
     int r = 0;
     pthread_mutex_lock(&e->cmd_mutex);
@@ -778,12 +778,12 @@ static int json_get_float_array(const char *json, const char *key,
 
 /* ── WAV 落盘（float32 IEEE，格式 3；miniaudio dr_wav 解码播放） ── */
 
-static void wav_begin(ArchoeraMediaEngine *e)
+static void wav_begin(NekoEraASyncEngine *e)
 {
     e->wav = fopen_utf8(e->wav_file, "wb");
     if (!e->wav) return;
 
-    int sample_rate = pipeline_get_output_sample_rate(e->p);
+    int sample_rate = neko_eraasync_pipeline_get_output_sample_rate(e->p);
     int channels = e->cfg.output_channels;
     uint16_t block_align = (uint16_t)(channels * 4);
     uint32_t byte_rate = (uint32_t)(sample_rate * channels * 4);
@@ -808,7 +808,7 @@ static void wav_begin(ArchoeraMediaEngine *e)
     fwrite(&placeholder, 4, 1, e->wav);
 }
 
-static void wav_finalize(ArchoeraMediaEngine *e)
+static void wav_finalize(NekoEraASyncEngine *e)
 {
     if (!e->wav) return;
     long data_size = ftell(e->wav) - 44;
@@ -827,7 +827,7 @@ static void wav_finalize(ArchoeraMediaEngine *e)
 static void on_pcm_out(const float *pcm, int samples, int channels,
                        double position_ms, void *user_data)
 {
-    ArchoeraMediaEngine *e = (ArchoeraMediaEngine *)user_data;
+    NekoEraASyncEngine *e = (NekoEraASyncEngine *)user_data;
     if (samples <= 0 || channels <= 0) return;
 
     if (e->mem_mode) {
@@ -879,7 +879,7 @@ static int64_t me_now_ms(void)
 static void on_stage_out(const float *pcm, int samples, int channels,
                          double position_ms, void *user_data)
 {
-    ArchoeraMediaEngine *e = (ArchoeraMediaEngine *)user_data;
+    NekoEraASyncEngine *e = (NekoEraASyncEngine *)user_data;
     size_t add;
     if (!e || !pcm || samples <= 0 || channels <= 0) return;
     if (!e->stage_have_origin && e->stage_rate > 0) {
@@ -908,7 +908,7 @@ static void on_stage_out(const float *pcm, int samples, int channels,
 #define STAGE_READY_TIMEOUT_MS 10000  /* 网络慢也最多等这么久即放行 */
 #define STAGE_CAP_MS           20000  /* stage 容量上限（内存兜底，remain≈lead） */
 
-static int stage_target_reached(ArchoeraMediaEngine *e)
+static int stage_target_reached(NekoEraASyncEngine *e)
 {
     double staged_ms, elapsed_ms;
     if (e->stage_full || e->stage_eof) return 1;
@@ -922,7 +922,7 @@ static int stage_target_reached(ArchoeraMediaEngine *e)
 
 /* 发 source_ready 事件（含暂存管线的输出格式，供调用方校验/诊断）。调用方
    须已置 stage_ready_sent，并自行处理锁（引擎线程 commit 路径无锁）。 */
-static void stage_emit_ready_event(ArchoeraMediaEngine *e)
+static void stage_emit_ready_event(NekoEraASyncEngine *e)
 {
     char buf[128];
     snprintf(buf, sizeof(buf),
@@ -936,7 +936,7 @@ static void stage_emit_ready_event(ArchoeraMediaEngine *e)
    join 后由引擎线程接管。 */
 static void *stage_prefetch_thread(void *arg)
 {
-    ArchoeraMediaEngine *e = (ArchoeraMediaEngine *)arg;
+    NekoEraASyncEngine *e = (NekoEraASyncEngine *)arg;
     pthread_mutex_lock(&e->stage_lock);
     while (!e->stage_stop) {
         if (stage_target_reached(e)) {
@@ -952,7 +952,7 @@ static void *stage_prefetch_thread(void *arg)
         }
         e->stage_busy = 1;
         pthread_mutex_unlock(&e->stage_lock);
-        ssize_t n = pipeline_process(e->p_next);
+        ssize_t n = neko_eraasync_pipeline_process(e->p_next);
         pthread_mutex_lock(&e->stage_lock);
         e->stage_busy = 0;
         if (e->stage_stop) break; /* 已被 discard/commit 接管，勿再发事件 */
@@ -983,10 +983,10 @@ static void *stage_prefetch_thread(void *arg)
 /* 停止并汇合预取线程（幂等）。interrupt_next!=0 时先 signal_shutdown 打断
    线程可能阻塞的网络读（用于彻底丢弃 p_next 的场景；commit 需保留 p_next
    以接力续播，故传 0）。 */
-static void mediaengine_stage_stop_join(ArchoeraMediaEngine *e, int interrupt_next)
+static void mediaengine_stage_stop_join(NekoEraASyncEngine *e, int interrupt_next)
 {
     if (!e->stage_thread_on) return;
-    if (interrupt_next && e->p_next) pipeline_signal_shutdown(e->p_next);
+    if (interrupt_next && e->p_next) neko_eraasync_pipeline_signal_shutdown(e->p_next);
     pthread_mutex_lock(&e->stage_lock);
     e->stage_stop = 1;
     pthread_cond_broadcast(&e->stage_cv);
@@ -1000,7 +1000,7 @@ static void mediaengine_stage_stop_join(ArchoeraMediaEngine *e, int interrupt_ne
      frames  = llround(drop_ms * rate / 1000)
      samples = frames * stage_ch（夹取到 [0, staged]）
    参数非法 / 无交叠 → 0。纯函数，供测试直接调用。 */
-size_t archoera_mediaengine_stage_drop_samples(size_t staged, int stage_ch,
+size_t neko_eraasync_stage_drop_samples(size_t staged, int stage_ch,
                                                int rate, double old_ms,
                                                double next_start_ms)
 {
@@ -1021,12 +1021,12 @@ size_t archoera_mediaengine_stage_drop_samples(size_t staged, int stage_ch,
 }
 
 /* 丢弃暂存新源 + 释放 stage（幂等；未使用则空操作）。引擎线程/destroy 调用。 */
-static void mediaengine_discard_next(ArchoeraMediaEngine *e)
+static void mediaengine_discard_next(NekoEraASyncEngine *e)
 {
     mediaengine_stage_stop_join(e, 1); /* 先停预取线程（打断阻塞读），再销毁管线 */
     if (e->p_next) {
-        pipeline_signal_shutdown(e->p_next); /* 优雅中断（若正阻塞 IO） */
-        pipeline_destroy(e->p_next);
+        neko_eraasync_pipeline_signal_shutdown(e->p_next); /* 优雅中断（若正阻塞 IO） */
+        neko_eraasync_pipeline_destroy(e->p_next);
         e->p_next = NULL;
     }
     free(e->stage);
@@ -1049,7 +1049,7 @@ static void mediaengine_discard_next(ArchoeraMediaEngine *e)
 /* 暂存余量延迟续喂：把 e->stage 里剩余的新源 PCM 喂完再继续解码新源，保证
    「旧已排队 PCM → 新源」连续。流式走 ring（背压=实时），无设备（headless/
    文件）直接写出。用于 commit 时设备未消费（暂停）的 deferred 场景。 */
-static void mediaengine_flush_carry(ArchoeraMediaEngine *e)
+static void mediaengine_flush_carry(NekoEraASyncEngine *e)
 {
     int ch, frames;
     if (!e->stage || e->stage_len == 0) {
@@ -1071,7 +1071,7 @@ static void mediaengine_flush_carry(ArchoeraMediaEngine *e)
 
 /* prepare_source：为旧源当前 decode cursor（绝对 ms）预开新源并预解码进 stage。
    已有暂存源则先销毁（幂等重发覆盖）。失败 emit source_error 且旧源原样保留。 */
-static void handle_prepare_source(ArchoeraMediaEngine *e, const char *line)
+static void handle_prepare_source(NekoEraASyncEngine *e, const char *line)
 {
     char url[2048] = {0};
     EngineConfig cfg;
@@ -1093,10 +1093,10 @@ static void handle_prepare_source(ArchoeraMediaEngine *e, const char *line)
 
     mediaengine_discard_next(e); /* 已有暂存源：先丢弃 */
 
-    /* 旧源 decode cursor（写头，绝对 ms）：pipeline_get_position 相对本管线
+    /* 旧源 decode cursor（写头，绝对 ms）：neko_eraasync_pipeline_get_position 相对本管线
        start_offset，故须加回 p_start_ms，跨 seek/CUE 偏移亦正确。
        新源从此处续，commit 时按交叠裁剪。 */
-    base_ms = (double)e->p_start_ms + pipeline_get_position(e->p) * 1000.0;
+    base_ms = (double)e->p_start_ms + neko_eraasync_pipeline_get_position(e->p) * 1000.0;
     cfg = e->cfg;
     e->stage_next_track = next_track ? 1 : 0;
     /* 同一首歌（音质切换）从旧源 decode cursor 续起；下一首新曲从 0 起。 */
@@ -1113,12 +1113,12 @@ static void handle_prepare_source(ArchoeraMediaEngine *e, const char *line)
        （如转码 MP3 44.1k ↔ 无损 48k/96k）时，切档后新源会以不同速率喂入
        **未重建**的 player → 变调/变速（默认 passthrough 下必现）。锁定后
        新源必要时做一次重采样，ring/设备格式始终不变。 */
-    cfg.output_sample_rate = pipeline_get_output_sample_rate(e->p);
+    cfg.output_sample_rate = neko_eraasync_pipeline_get_output_sample_rate(e->p);
     if (cfg.output_sample_rate <= 0) cfg.output_sample_rate = e->cfg.output_sample_rate;
-    cfg.output_channels = pipeline_get_output_channels(e->p);
+    cfg.output_channels = neko_eraasync_pipeline_get_output_channels(e->p);
     if (cfg.output_channels <= 0) cfg.output_channels = e->cfg.output_channels;
 
-    e->p_next = pipeline_create_with_headers(url, e->headers, &cfg, dummy_output, NULL);
+    e->p_next = neko_eraasync_pipeline_create_with_headers(url, e->headers, &cfg, dummy_output, NULL);
     if (!e->p_next) {
         char msg[320], esc[384], buf[512];
         snprintf(msg, sizeof(msg), "prepare create failed: %s", url);
@@ -1128,19 +1128,19 @@ static void handle_prepare_source(ArchoeraMediaEngine *e, const char *line)
         ev_enqueue(e, buf);
         return;
     }
-    pipeline_set_playback_streaming(e->p_next, true);
+    neko_eraasync_pipeline_set_playback_streaming(e->p_next, true);
 
-    rate = pipeline_get_output_sample_rate(e->p_next);
-    if (rate <= 0) rate = pipeline_get_output_sample_rate(e->p);
+    rate = neko_eraasync_pipeline_get_output_sample_rate(e->p_next);
+    if (rate <= 0) rate = neko_eraasync_pipeline_get_output_sample_rate(e->p);
     if (rate <= 0) rate = 48000;
-    ch = pipeline_get_output_channels(e->p_next);
+    ch = neko_eraasync_pipeline_get_output_channels(e->p_next);
     if (ch <= 0) ch = e->cfg.output_channels > 0 ? e->cfg.output_channels : 2;
     cap = (size_t)((double)rate * (STAGE_CAP_MS / 1000.0)) * (size_t)ch;
     if (cap == 0) cap = (size_t)rate * (size_t)ch;
     e->stage = (float *)malloc(cap * sizeof(float));
     if (!e->stage) {
-        pipeline_signal_shutdown(e->p_next);
-        pipeline_destroy(e->p_next);
+        neko_eraasync_pipeline_signal_shutdown(e->p_next);
+        neko_eraasync_pipeline_destroy(e->p_next);
         e->p_next = NULL;
         ev_enqueue(e, "{\"type\":\"source_error\",\"message\":\"stage alloc failed\"}");
         return;
@@ -1159,13 +1159,13 @@ static void handle_prepare_source(ArchoeraMediaEngine *e, const char *line)
     e->stage_t0_ms = me_now_ms();
     e->stage_stop = 0;
     e->stage_busy = 0;
-    pipeline_set_pcm_out_cb(e->p_next, on_stage_out, e);
+    neko_eraasync_pipeline_set_pcm_out_cb(e->p_next, on_stage_out, e);
 
     /* 独立预取线程：把新源解码从实时引擎线程剥离（旧源照常喂环），避免争抢
        造成旧源欠载顿挫。source_ready 由该线程在「缓冲富余达标/EOF/超时」异步发。 */
     if (pthread_create(&e->stage_thread, NULL, stage_prefetch_thread, e) != 0) {
-        pipeline_signal_shutdown(e->p_next);
-        pipeline_destroy(e->p_next);
+        neko_eraasync_pipeline_signal_shutdown(e->p_next);
+        neko_eraasync_pipeline_destroy(e->p_next);
         e->p_next = NULL;
         free(e->stage);
         e->stage = NULL;
@@ -1185,7 +1185,7 @@ static void handle_prepare_source(ArchoeraMediaEngine *e, const char *line)
    （背压=实时）；暂停时挂起为 carry，由主循环在恢复后先喂（不阻塞引擎线程）；
    无设备（headless/文件）直接写出保持连续；若旧源已在曲尾排空（EOF），先清
    EOF/停止标志并重启设备，保证新源被播出（尾部切档不失效）。 */
-static void handle_commit_source(ArchoeraMediaEngine *e)
+static void handle_commit_source(NekoEraASyncEngine *e)
 {
     double old_ms, origin_ms;
     int rate, ch;
@@ -1208,10 +1208,10 @@ static void handle_commit_source(ArchoeraMediaEngine *e)
         stage_emit_ready_event(e);
     }
 
-    old_ms = (double)e->p_start_ms + pipeline_get_position(e->p) * 1000.0;
+    old_ms = (double)e->p_start_ms + neko_eraasync_pipeline_get_position(e->p) * 1000.0;
     rate = e->stage_rate > 0 ? e->stage_rate
-                             : pipeline_get_output_sample_rate(e->p_next);
-    if (rate <= 0) rate = pipeline_get_output_sample_rate(e->p);
+                             : neko_eraasync_pipeline_get_output_sample_rate(e->p_next);
+    if (rate <= 0) rate = neko_eraasync_pipeline_get_output_sample_rate(e->p);
     if (rate <= 0) rate = 48000;
     ch = e->stage_ch > 0 ? e->stage_ch : e->cfg.output_channels;
     if (ch <= 0) ch = 2;
@@ -1222,7 +1222,7 @@ static void handle_commit_source(ArchoeraMediaEngine *e)
         /* 跨曲接管：stage 从新曲 0 起，不裁剪，全量续喂。 */
         drop = 0;
     } else {
-        drop = archoera_mediaengine_stage_drop_samples(e->stage_len, ch, rate,
+        drop = neko_eraasync_stage_drop_samples(e->stage_len, ch, rate,
                                                        old_ms, origin_ms);
     }
     remain = e->stage_len - drop;
@@ -1234,10 +1234,10 @@ static void handle_commit_source(ArchoeraMediaEngine *e)
     e->stage_len = remain;
 
     /* 新源转正：回调切回正常输出（内存/文件/ring），保持流式小块语义。 */
-    pipeline_set_pcm_out_cb(e->p_next, on_pcm_out, e);
-    pipeline_set_playback_streaming(e->p_next, true);
-    pipeline_signal_shutdown(e->p);
-    pipeline_destroy(e->p);
+    neko_eraasync_pipeline_set_pcm_out_cb(e->p_next, on_pcm_out, e);
+    neko_eraasync_pipeline_set_playback_streaming(e->p_next, true);
+    neko_eraasync_pipeline_signal_shutdown(e->p);
+    neko_eraasync_pipeline_destroy(e->p);
     e->p = e->p_next;
     e->p_next = NULL;
     /* p_start_ms 跟随新管线 cfg.start_offset（= (int64_t)base_ms，截断值，故用
@@ -1302,7 +1302,7 @@ static void handle_commit_source(ArchoeraMediaEngine *e)
 /* 播放器事件 → 事件 FIFO（player_event_fn 签名） */
 static void player_event_cb(const char *json, void *user_data)
 {
-    ev_enqueue((ArchoeraMediaEngine *)user_data, json);
+    ev_enqueue((NekoEraASyncEngine *)user_data, json);
 }
 
 /* 简易 JSON 字符串转义（事件里嵌 C 错误信息时防破 JSON） */
@@ -1336,7 +1336,7 @@ static void json_escape_str(const char *in, char *out, size_t cap)
 
 /* 播放中切 sink：先在“新设备上、暂停状态”建好播放器（带音量/续播位置、
    不重发 playing），成功后停旧播新。失败返回 -1 且旧播放器原样保留（回退）。 */
-static int mediaengine_switch_sink(ArchoeraMediaEngine *e,
+static int mediaengine_switch_sink(NekoEraASyncEngine *e,
                                    char *errbuf, size_t errcap)
 {
     double pos_ms = 0.0;
@@ -1401,7 +1401,7 @@ static int mediaengine_switch_sink(ArchoeraMediaEngine *e,
 
 /* set_sink 处理：存引擎选择 →（播放中）平滑重启播放器 → 事件回报。
    id 为空串 = 回系统默认。 */
-static void handle_set_sink(ArchoeraMediaEngine *e, const char *id)
+static void handle_set_sink(NekoEraASyncEngine *e, const char *id)
 {
     char err[256];
     int ok = 1;
@@ -1440,11 +1440,11 @@ static void handle_set_sink(ArchoeraMediaEngine *e, const char *id)
 /* ── 控制命令处理（对应 main.c handle_command；事件改入 FIFO） ──── */
 
 /* 前向声明（定义在引擎线程节；handle_command 在此引用） */
-static int mediaengine_stream_rebuild(ArchoeraMediaEngine *e, int64_t abs_start_ms,
+static int mediaengine_stream_rebuild(NekoEraASyncEngine *e, int64_t abs_start_ms,
                                       double pos_base);
-static void mediaengine_stream_seek(ArchoeraMediaEngine *e, double rel_ms);
+static void mediaengine_stream_seek(NekoEraASyncEngine *e, double rel_ms);
 
-static void handle_command(ArchoeraMediaEngine *e, const char *line)
+static void handle_command(NekoEraASyncEngine *e, const char *line)
 {
     char type[64] = {0};
     if (json_get_string(line, "type", type, sizeof(type)) < 0) return;
@@ -1452,10 +1452,10 @@ static void handle_command(ArchoeraMediaEngine *e, const char *line)
     if (strcmp(type, "set_eq") == 0) {
         float gains[EQ_BANDS] = {0};
         int n = json_get_float_array(line, "gains", gains, EQ_BANDS);
-        if (n > 0) pipeline_set_eq_gains(e->p, gains);
+        if (n > 0) neko_eraasync_pipeline_set_eq_gains(e->p, gains);
         double preamp = 0;
         if (json_get_number(line, "preamp", &preamp) == 0) {
-            pipeline_set_preamp(e->p, (float)preamp);
+            neko_eraasync_pipeline_set_preamp(e->p, (float)preamp);
         }
     } else if (strcmp(type, "set_peq") == 0) {
         /* 方向① D1：参数化 EQ（扁平 [kind,freq,q,gain,...]，长度须 % 4 == 0） */
@@ -1463,31 +1463,31 @@ static void handle_command(ArchoeraMediaEngine *e, const char *line)
         int n = json_get_float_array(line, "bands", bands,
                                      PARAMETRIC_EQ_MAX_BANDS * 4);
         if (n > 0 && n % 4 == 0) {
-            pipeline_set_peq_bands(e->p, bands, n / 4);
+            neko_eraasync_pipeline_set_peq_bands(e->p, bands, n / 4);
         }
         bool peq_enabled = true;
         if (json_get_bool(line, "enabled", &peq_enabled) == 0) {
-            pipeline_set_peq_enabled(e->p, peq_enabled);
+            neko_eraasync_pipeline_set_peq_enabled(e->p, peq_enabled);
         }
         double peq_preamp = 0;
         if (json_get_number(line, "preamp", &peq_preamp) == 0) {
-            pipeline_set_peq_preamp(e->p, (float)peq_preamp);
+            neko_eraasync_pipeline_set_peq_preamp(e->p, (float)peq_preamp);
         }
     } else if (strcmp(type, "set_lowfreq") == 0) {
         /* 方向① D2：次声/低频管理 */
         bool lf_enabled = true;
         if (json_get_bool(line, "enabled", &lf_enabled) == 0) {
-            pipeline_set_lowfreq_enabled(e->p, lf_enabled);
+            neko_eraasync_pipeline_set_lowfreq_enabled(e->p, lf_enabled);
         }
         double hpf_freq = -1.0, hpf_order = 2.0;
         if (json_get_number(line, "hpf_freq", &hpf_freq) == 0) {
             if (json_get_number(line, "hpf_order", &hpf_order) != 0) hpf_order = 2.0;
-            pipeline_set_lowfreq_hpf(e->p, (float)hpf_freq, (int)hpf_order);
+            neko_eraasync_pipeline_set_lowfreq_hpf(e->p, (float)hpf_freq, (int)hpf_order);
         }
         double bass_gain = 0.0, bass_freq = 100.0;
         if (json_get_number(line, "bass_gain", &bass_gain) == 0) {
             if (json_get_number(line, "bass_freq", &bass_freq) != 0) bass_freq = 100.0;
-            pipeline_set_lowfreq_bass(e->p, (float)bass_gain, (float)bass_freq);
+            neko_eraasync_pipeline_set_lowfreq_bass(e->p, (float)bass_gain, (float)bass_freq);
         }
     } else if (strcmp(type, "set_volume") == 0) {
         double vol = 1.0;
@@ -1496,7 +1496,7 @@ static void handle_command(ArchoeraMediaEngine *e, const char *line)
             if (e->player) {
                 player_command(e->player, "set_volume", NULL, &vol);
             } else {
-                pipeline_set_volume(e->p, (float)vol);
+                neko_eraasync_pipeline_set_volume(e->p, (float)vol);
             }
         }
     } else if (strcmp(type, "set_sink") == 0) {
@@ -1514,41 +1514,41 @@ static void handle_command(ArchoeraMediaEngine *e, const char *line)
         json_get_number(line, "gain_db", &gain_db);
         json_get_bool(line, "album", &album);
         /* 先设兜底增益与取用口径，再设开关：最后一次 apply 用最终状态。 */
-        pipeline_set_normalization_gain(e->p, (float)gain_db);
-        pipeline_set_normalization_album(e->p, album ? 1 : 0);
-        pipeline_set_normalization_enabled(e->p, enabled);
+        neko_eraasync_pipeline_set_normalization_gain(e->p, (float)gain_db);
+        neko_eraasync_pipeline_set_normalization_album(e->p, album ? 1 : 0);
+        neko_eraasync_pipeline_set_normalization_enabled(e->p, enabled);
     } else if (strcmp(type, "set_limiter") == 0) {
         bool enabled = true;
         if (json_get_bool(line, "enabled", &enabled) == 0) {
-            pipeline_set_limiter_enabled(e->p, enabled);
+            neko_eraasync_pipeline_set_limiter_enabled(e->p, enabled);
         }
     } else if (strcmp(type, "set_fft") == 0) {
         bool enabled = true;
         if (json_get_bool(line, "enabled", &enabled) == 0) {
-            pipeline_set_fft_enabled(e->p, enabled);
+            neko_eraasync_pipeline_set_fft_enabled(e->p, enabled);
         }
     } else if (strcmp(type, "set_tempo_speed") == 0) {
         double speed = 1.0;
         if (json_get_number(line, "speed", &speed) == 0) {
-            pipeline_set_tempo_speed(e->p, (float)speed);
+            neko_eraasync_pipeline_set_tempo_speed(e->p, (float)speed);
         }
     } else if (strcmp(type, "set_tempo_pitch") == 0) {
         double semitones = 0.0;
         if (json_get_number(line, "semitones", &semitones) == 0) {
-            pipeline_set_tempo_pitch(e->p, (float)semitones);
+            neko_eraasync_pipeline_set_tempo_pitch(e->p, (float)semitones);
         }
     } else if (strcmp(type, "set_tempo") == 0) {
         bool enabled = true;
         if (json_get_bool(line, "enabled", &enabled) == 0) {
-            pipeline_set_tempo_enabled(e->p, enabled);
+            neko_eraasync_pipeline_set_tempo_enabled(e->p, enabled);
         }
     } else if (strcmp(type, "get_status") == 0) {
         if (e->player) {
             player_command(e->player, "get_status", NULL, NULL);
         } else {
             char buf[256];
-            double pos = pipeline_get_position(e->p);
-            double dur = pipeline_get_duration(e->p);
+            double pos = neko_eraasync_pipeline_get_position(e->p);
+            double dur = neko_eraasync_pipeline_get_duration(e->p);
             snprintf(buf, sizeof(buf),
                 "{\"type\":\"status\",\"position_ms\":%.0f,\"duration_ms\":%.0f}",
                 pos * 1000.0, dur * 1000.0);
@@ -1615,30 +1615,30 @@ static void handle_command(ArchoeraMediaEngine *e, const char *line)
  * 文件；流播放器对象保留（设备不重建），游标基置 pos_base（事件 rel 基准）。
  * 事务式：先建好新管线/输出再停旧（失败返回 -1 且旧会话原样保留——seek 永不
  * 因重建失败把引擎拖停；调用方只回执错误，主循环继续旧流）。返回 0 成功。 */
-static int mediaengine_stream_rebuild(ArchoeraMediaEngine *e, int64_t abs_start_ms,
+static int mediaengine_stream_rebuild(NekoEraASyncEngine *e, int64_t abs_start_ms,
                                       double pos_base)
 {
     EngineConfig cfg2 = e->cfg;
-    AudioPipeline *np;
+    NekoEraASyncPipeline *np;
 
     /* seek/重建会使暂存新源的解码起点失效：先整体丢弃，避免悬垂/错位续喂。 */
     mediaengine_discard_next(e);
 
     cfg2.start_offset_ms = abs_start_ms;
     /* 1) 先建新管线（含解码 seek；native 失败内部已回退 FFmpeg）——旧会话不动。
-       磁盘源走 pipeline_create；store 会话（整曲驻留可 seek）经 AVIO-mem 重建，
+       磁盘源走 neko_eraasync_pipeline_create；store 会话（整曲驻留可 seek）经 AVIO-mem 重建，
        游标从目标偏移继续从同一 store 解码。 */
     np = e->store
-        ? pipeline_create_store(e->store, &cfg2, dummy_output, NULL)
-        : pipeline_create_with_headers(e->source, e->headers, &cfg2, dummy_output, NULL);
+        ? neko_eraasync_pipeline_create_store(e->store, &cfg2, dummy_output, NULL)
+        : neko_eraasync_pipeline_create_with_headers(e->source, e->headers, &cfg2, dummy_output, NULL);
     if (!np) return -1;
-    pipeline_set_playback_streaming(np, true);
+    neko_eraasync_pipeline_set_playback_streaming(np, true);
 
     /* 2) 新管线就绪 → 停旧设备/缓冲、销毁旧管线与输出文件 */
     if (e->player && e->player_stream_mode) {
         player_stream_seek_reset(e->player); /* 停设备、清缓冲、游标归零 */
     }
-    if (e->p) { pipeline_destroy(e->p); e->p = NULL; }
+    if (e->p) { neko_eraasync_pipeline_destroy(e->p); e->p = NULL; }
     if (e->wav) { fclose(e->wav); e->wav = NULL; }
     if (e->pcm) { fclose(e->pcm); e->pcm = NULL; }
     if (e->mem_mode) mem_reset(e); /* 内存模式：清块列表 + epoch++（对齐文件截断） */
@@ -1646,15 +1646,15 @@ static int mediaengine_stream_rebuild(ArchoeraMediaEngine *e, int64_t abs_start_
     e->p = np;
     e->p_start_ms = abs_start_ms; /* 新管线起点绝对 ms（prepare 的绝对 cursor 基准） */
     if (e->mem_mode) {
-        pipeline_set_pcm_out_cb(e->p, on_pcm_out, e);
+        neko_eraasync_pipeline_set_pcm_out_cb(e->p, on_pcm_out, e);
     } else {
         if (e->player_file) {
             wav_begin(e); /* 截断重建 stream.wav */
-            pipeline_set_playback_streaming(e->p, true);
+            neko_eraasync_pipeline_set_playback_streaming(e->p, true);
         }
         e->pcm = fopen_utf8(e->pcm_file, "wb"); /* 截断重建 stream.pcm */
         if (e->wav || e->pcm) {
-            pipeline_set_pcm_out_cb(e->p, on_pcm_out, e);
+            neko_eraasync_pipeline_set_pcm_out_cb(e->p, on_pcm_out, e);
         }
     }
     if (e->player && e->player_stream_mode) {
@@ -1669,12 +1669,12 @@ static int mediaengine_stream_rebuild(ArchoeraMediaEngine *e, int64_t abs_start_
 }
 
 /* 会话开始时（已有管线/输出文件）尝试启动流式播放器。返回 1=流式已启动。 */
-static int mediaengine_stream_begin(ArchoeraMediaEngine *e)
+static int mediaengine_stream_begin(NekoEraASyncEngine *e)
 {
     int rate, ch;
     player_start_options popts = PLAYER_START_OPTIONS_DEFAULT;
     if (!e->player_file || !e->p) return 0;
-    rate = pipeline_get_output_sample_rate(e->p);
+    rate = neko_eraasync_pipeline_get_output_sample_rate(e->p);
     ch = e->cfg.output_channels;
     if (rate <= 0) rate = 48000;
     if (ch <= 0) ch = 2;
@@ -1685,7 +1685,7 @@ static int mediaengine_stream_begin(ArchoeraMediaEngine *e)
         return 0; /* 无声/设备不可用：回退旧路径（全速解码 → 文件播放器） */
     }
     e->player_stream_mode = 1;
-    pipeline_set_playback_streaming(e->p, true);
+    neko_eraasync_pipeline_set_playback_streaming(e->p, true);
     player_stream_set_pos_base(e->player,
         (double)(e->cfg.start_offset_ms - e->session_offset_ms));
     if (e->pos_interval_ms > 0) {
@@ -1701,9 +1701,9 @@ static int mediaengine_stream_begin(ArchoeraMediaEngine *e)
 /* 流式播放中 seek（rel 相对 session offset）→ 重建管线 + 播放器归位。
  * 重建失败（解码器开不了目标段/设备不可用）不拖停引擎：回执错误，主循环沿用
  * 旧流继续（旧会话未被销毁），用户可再次 seek/暂停，绝不「卡死/静音挂起」。 */
-static void mediaengine_stream_seek(ArchoeraMediaEngine *e, double rel_ms)
+static void mediaengine_stream_seek(NekoEraASyncEngine *e, double rel_ms)
 {
-    double dur_ms = pipeline_get_duration(e->p) * 1000.0;
+    double dur_ms = neko_eraasync_pipeline_get_duration(e->p) * 1000.0;
     double abs_ms;
     if (rel_ms < 0) rel_ms = 0;
     abs_ms = (double)e->session_offset_ms + rel_ms;
@@ -1725,7 +1725,7 @@ static void mediaengine_stream_seek(ArchoeraMediaEngine *e, double rel_ms)
  * EOF+flush 后喂完剩余即自然结束；缓冲排空期间若收到 seek（重建出新管线），
  * 回到解码循环续播新段（seek 永不因「已在曲尾排空」而静默失效/挂死）。
  * 返回 0 正常 / <0 错误码。 */
-static int mediaengine_stream_run(ArchoeraMediaEngine *e)
+static int mediaengine_stream_run(NekoEraASyncEngine *e)
 {
     int code = 0;
 
@@ -1768,7 +1768,7 @@ static int mediaengine_stream_run(ArchoeraMediaEngine *e)
 
         if (!e->p) break; /* 防御：无管线不进入解码 */
 
-        ssize_t n = pipeline_process(e->p);
+        ssize_t n = neko_eraasync_pipeline_process(e->p);
         if (n < 0) {
             char err[160];
             snprintf(err, sizeof(err),
@@ -1787,7 +1787,7 @@ static int mediaengine_stream_run(ArchoeraMediaEngine *e)
         /* n == 0（本段 EOF）或解码错误：flush 残留 → 标记解码流结束 → 缓冲尾段播完自然结束 */
         if (QA_LOAD_ACQ(&e->stop_requested)) break;
         {
-            int ret = pipeline_run(e->p); /* flush 残留（最后喂入缓冲） */
+            int ret = neko_eraasync_pipeline_run(e->p); /* flush 残留（最后喂入缓冲） */
             if (ret < 0) {
                 char err[160];
                 snprintf(err, sizeof(err), "{\"type\":\"error\",\"message\":\"flush %d\"}", ret);
@@ -1798,7 +1798,7 @@ static int mediaengine_stream_run(ArchoeraMediaEngine *e)
             ev_enqueue(e, "{\"type\":\"done\"}");
             if (e->wav) wav_finalize(e);
             if (e->player && e->player_stream_mode) {
-                AudioPipeline *eof_pipe = e->p;
+                NekoEraASyncPipeline *eof_pipe = e->p;
                 player_stream_end(e->player);
                 /* 排空期间持续响应命令：seek（重建出新管线）→ 回到解码循环续播 */
                 for (;;) {
@@ -1834,34 +1834,34 @@ static int mediaengine_stream_run(ArchoeraMediaEngine *e)
 
 static void *engine_thread(void *arg)
 {
-    ArchoeraMediaEngine *e = (ArchoeraMediaEngine *)arg;
+    NekoEraASyncEngine *e = (NekoEraASyncEngine *)arg;
     int pool_on = 0;
 
     /* S1 常驻内核池（默认开启）：EraAudio 原生（engine_mode==1）时，本地路径 /
-     * 在线回调（source）与 SegStore 内存源（store）均走 zk_engine 流式 seam；
-     * ARCHOERA_ERA_POOL=0 可关闭（A/B 回退）；失败（含内核未链接）继续旧
-     * zk_decoder 路径，回退语义完全不变。 */
+     * 在线回调（source）与 SegStore 内存源（store）均走 neko_eraasync_zk_engine 流式 seam；
+     * NEKO_ERAASYNC_POOL=0 可关闭（A/B 回退）；失败（含内核未链接）继续旧
+     * neko_eraasync_zk_decoder 路径，回退语义完全不变。 */
     if (e->cfg.engine_mode == 1 && (e->source || e->store)) {
-        const char *pool_env = getenv("ARCHOERA_ERA_POOL");
+        const char *pool_env = getenv("NEKO_ERAASYNC_POOL");
         if (pool_env == NULL || pool_env[0] != '0') {
             if (native_decoder_pool_begin(1, 2, 16) == 0) {
                 pool_on = 1;
                 ERA_LOGI(NULL,
-                    "[mediaengine] EraAudio 常驻内核池已启用 (ARCHOERA_ERA_POOL)\n");
+                    "[mediaengine] EraAudio 常驻内核池已启用 (NEKO_ERAASYNC_POOL)\n");
             } else {
                 ERA_LOGE(NULL,
-                    "[mediaengine] EraAudio 常驻内核池启用失败 → 沿用旧 zk_decoder 路径\n");
+                    "[mediaengine] EraAudio 常驻内核池启用失败 → 沿用旧 neko_eraasync_zk_decoder 路径\n");
             }
         }
     }
 
-    /* pipeline_create / pipeline_create_store 在引擎线程执行：avformat_open_input
+    /* neko_eraasync_pipeline_create / neko_eraasync_pipeline_create_store 在引擎线程执行：avformat_open_input
        对网络源是阻塞 IO，在 Dart isolate 线程执行会被 VM 中断信号打断（poll/recv
        返回 EINTR，FFmpeg 网络层直接失败）。pthread 线程不接收 Dart VM 信号，安全。
-       store 会话（整曲已驻留内存）经 pipeline_create_store → AVIO-mem 解码。 */
+       store 会话（整曲已驻留内存）经 neko_eraasync_pipeline_create_store → AVIO-mem 解码。 */
     e->p = e->store
-        ? pipeline_create_store(e->store, &e->cfg, dummy_output, NULL)
-        : pipeline_create_with_headers(e->source, e->headers, &e->cfg, dummy_output, NULL);
+        ? neko_eraasync_pipeline_create_store(e->store, &e->cfg, dummy_output, NULL)
+        : neko_eraasync_pipeline_create_with_headers(e->source, e->headers, &e->cfg, dummy_output, NULL);
     if (!e->p) {
         char err[320];
         if (e->store) {
@@ -1882,19 +1882,19 @@ static void *engine_thread(void *arg)
     if (e->mem_mode) {
         /* 内存播放模式：不开 stream.wav / stream.pcm（PCM 入内存块列表）。
            mem_sr 供 Dart 线程 pcm_window 换算，写入持 mem_lock。 */
-        int sr = pipeline_get_output_sample_rate(e->p);
-        if (sr <= 0) sr = pipeline_get_source_sample_rate(e->p);
+        int sr = neko_eraasync_pipeline_get_output_sample_rate(e->p);
+        if (sr <= 0) sr = neko_eraasync_pipeline_get_source_sample_rate(e->p);
         pthread_mutex_lock(&e->mem_lock);
         e->mem_sr = sr;
         pthread_mutex_unlock(&e->mem_lock);
-        pipeline_set_pcm_out_cb(e->p, on_pcm_out, e);
+        neko_eraasync_pipeline_set_pcm_out_cb(e->p, on_pcm_out, e);
     } else {
         if (e->player_file) {
             wav_begin(e);
         }
         e->pcm = fopen_utf8(e->pcm_file, "wb");
         if (e->wav || e->pcm) {
-            pipeline_set_pcm_out_cb(e->p, on_pcm_out, e);
+            neko_eraasync_pipeline_set_pcm_out_cb(e->p, on_pcm_out, e);
         }
     }
 
@@ -1905,11 +1905,11 @@ static void *engine_thread(void *arg)
         "\"sample_rate\":%d,\"channels\":%d,\"out_sample_rate\":%d,"
         "\"backend\":\"%s\"}",
         audio_engine_version(),
-        pipeline_get_duration(e->p) * 1000.0,
-        pipeline_get_source_sample_rate(e->p),
-        pipeline_get_source_channels(e->p),
-        pipeline_get_output_sample_rate(e->p),
-        pipeline_backend(e->p));
+        neko_eraasync_pipeline_get_duration(e->p) * 1000.0,
+        neko_eraasync_pipeline_get_source_sample_rate(e->p),
+        neko_eraasync_pipeline_get_source_channels(e->p),
+        neko_eraasync_pipeline_get_output_sample_rate(e->p),
+        neko_eraasync_pipeline_backend(e->p));
     ev_enqueue(e, ready);
 
     int code = 0;
@@ -1917,16 +1917,16 @@ static void *engine_thread(void *arg)
 
     if (e->mem_mode) {
         /* 内存播放模式（不落盘）：无设备不可回退（不写 stream.wav，无文件播放器可用）。
-           - ARCHOERA_MEMORY_HEADLESS=1：测试/无声环境专用——不触碰设备，全速解码至
+           - NEKO_ERAASYNC_MEMORY_HEADLESS=1：测试/无声环境专用——不触碰设备，全速解码至
              EOF，PCM 仅入内存块列表（pcm_window 可验证内容），不落盘、不播放；
            - 否则先尝试 raw 设备流；失败直接 error（不做文件回退）。 */
-        if (getenv("ARCHOERA_MEMORY_HEADLESS")) {
+        if (getenv("NEKO_ERAASYNC_MEMORY_HEADLESS")) {
             ERA_LOGI(NULL,
                 "[mediaengine] 内存播放模式 headless（无设备，解码入内存块列表）\n");
             for (;;) {
                 if (QA_LOAD_ACQ(&e->stop_requested)) break;
                 if (e->carry_pending) mediaengine_flush_carry(e);
-                ssize_t n = pipeline_process(e->p);
+                ssize_t n = neko_eraasync_pipeline_process(e->p);
                 if (n < 0) {
                     char err[160];
                     snprintf(err, sizeof(err),
@@ -1942,7 +1942,7 @@ static void *engine_thread(void *arg)
                 }
             }
             if (!QA_LOAD_ACQ(&e->stop_requested)) {
-                int ret = pipeline_run(e->p); /* flush 残留 */
+                int ret = neko_eraasync_pipeline_run(e->p); /* flush 残留 */
                 if (ret < 0) {
                     char err[160];
                     snprintf(err, sizeof(err),
@@ -1967,8 +1967,8 @@ static void *engine_thread(void *arg)
     }
 
     /* 流式优先：player 模式先尝试 raw 设备流（首块 PCM 即出声）；失败回退旧路径。
-     * ARCHOERA_STREAM_DISABLE=1：调试/对拍用，强制走旧路径（全速解码→文件播放）。 */
-    if (e->player_file && !getenv("ARCHOERA_STREAM_DISABLE")) {
+     * NEKO_ERAASYNC_STREAM_DISABLE=1：调试/对拍用，强制走旧路径（全速解码→文件播放）。 */
+    if (e->player_file && !getenv("NEKO_ERAASYNC_STREAM_DISABLE")) {
         streaming = mediaengine_stream_begin(e);
     }
 
@@ -1980,7 +1980,7 @@ static void *engine_thread(void *arg)
         for (;;) {
             if (QA_LOAD_ACQ(&e->stop_requested)) break;
             if (e->carry_pending) mediaengine_flush_carry(e);
-            ssize_t n = pipeline_process(e->p);
+            ssize_t n = neko_eraasync_pipeline_process(e->p);
             if (n < 0) {
                 char err[160];
                 snprintf(err, sizeof(err),
@@ -1998,7 +1998,7 @@ static void *engine_thread(void *arg)
         }
 
         if (!QA_LOAD_ACQ(&e->stop_requested)) {
-            int ret = pipeline_run(e->p); /* flush 残留 */
+            int ret = neko_eraasync_pipeline_run(e->p); /* flush 残留 */
             if (ret < 0) {
                 char err[160];
                 snprintf(err, sizeof(err), "{\"type\":\"error\",\"message\":\"flush %d\"}", ret);
@@ -2052,15 +2052,15 @@ static void *engine_thread(void *arg)
     if (e->wav) { fclose(e->wav); e->wav = NULL; }
     if (e->pcm) { fclose(e->pcm); e->pcm = NULL; }
     mediaengine_discard_next(e); /* 丢弃未提交的暂存源（管线/缓冲） */
-    if (e->p) { pipeline_destroy(e->p); e->p = NULL; }
+    if (e->p) { neko_eraasync_pipeline_destroy(e->p); e->p = NULL; }
 
 mem_exit:
     /* 汇合点统一收尾。S1 池会话须先关流再停池：内存播放模式路径以 goto 直达此
      * 处、其上未销毁管线（非池会话保持既有行为不动），池会话在此补销毁，保证
-     * native_decoder_close（→zk_engine_close）先于 native_decoder_pool_end
-     * （→zk_engine_shutdown）。非池会话此处 e->p 已在上方销毁，恒为空操作。 */
+     * native_decoder_close（→neko_eraasync_zk_engine_close）先于 native_decoder_pool_end
+     * （→neko_eraasync_zk_engine_shutdown）。非池会话此处 e->p 已在上方销毁，恒为空操作。 */
     mediaengine_discard_next(e); /* 暂存源（若仍未提交）同样先于 pool_end 关闭 */
-    if (pool_on && e->p) { pipeline_destroy(e->p); e->p = NULL; }
+    if (pool_on && e->p) { neko_eraasync_pipeline_destroy(e->p); e->p = NULL; }
     char exited[64];
     snprintf(exited, sizeof(exited), "{\"type\":\"exited\",\"code\":%d}", code);
     ev_enqueue(e, exited);
@@ -2073,8 +2073,8 @@ mem_exit:
 /* ── 公开 API ────────────────────────────────────────────────── */
 
 /* create / create_store 共用实现：store 非空 → 内存源会话（source 置空，引擎
- * 线程 pipeline_create_store 解码）；store 空 → 磁盘/URL 源会话（create）。 */
-static ArchoeraMediaEngine *mediaengine_create_impl(const char *source,
+ * 线程 neko_eraasync_pipeline_create_store 解码）；store 空 → 磁盘/URL 源会话（create）。 */
+static NekoEraASyncEngine *mediaengine_create_impl(const char *source,
                                      const char *headers,
                                      SegStore *store,
                                      const EngineConfig *cfg,
@@ -2084,7 +2084,7 @@ static ArchoeraMediaEngine *mediaengine_create_impl(const char *source,
 {
     if ((!source && !store) || !session_dir) return NULL;
 
-    ArchoeraMediaEngine *e = (ArchoeraMediaEngine *)calloc(1, sizeof(ArchoeraMediaEngine));
+    NekoEraASyncEngine *e = (NekoEraASyncEngine *)calloc(1, sizeof(NekoEraASyncEngine));
     if (!e) return NULL;
 
     e->store = store; /* 非空 = store 内存源会话；生命周期归调用方，destroy 不释放 */
@@ -2126,10 +2126,10 @@ static ArchoeraMediaEngine *mediaengine_create_impl(const char *source,
     pthread_cond_init(&e->ev_drain_cond, NULL);
     pthread_cond_init(&e->stage_cv, NULL);
 
-    /* 播放输出 sink 初始选择：env ARCHOERA_AUDIO_SINK 显式覆盖 → 否则系统默认。
+    /* 播放输出 sink 初始选择：env NEKO_ERAASYNC_AUDIO_SINK 显式覆盖 → 否则系统默认。
        仅播放模式有意义；后续 set_sink 命令会覆盖此值。 */
     {
-        const char *env = getenv("ARCHOERA_AUDIO_SINK");
+        const char *env = getenv("NEKO_ERAASYNC_AUDIO_SINK");
         e->sink_id = strdup((env && env[0]) ? env : "");
         e->sink_user_set = (env && env[0]) ? 1 : 0;
         e->last_volume = 1.0f;
@@ -2138,7 +2138,7 @@ static ArchoeraMediaEngine *mediaengine_create_impl(const char *source,
                 e->sink_user_set ? "env 显式指定" : "系统默认");
     }
 
-    /* pipeline_create（avformat_open_input 网络 IO）移到引擎线程执行：
+    /* neko_eraasync_pipeline_create（avformat_open_input 网络 IO）移到引擎线程执行：
        create 立即返回，不占用 Dart isolate 线程（避免 VM 中断信号打断
        阻塞系统调用；详见 engine_thread 注释）。错误经 error 事件上报。 */
     if (pthread_create(&e->thread, NULL, engine_thread, e) != 0) {
@@ -2167,7 +2167,7 @@ static ArchoeraMediaEngine *mediaengine_create_impl(const char *source,
     return e;
 }
 
-ArchoeraMediaEngine *archoera_mediaengine_create(const char *source,
+NekoEraASyncEngine *neko_eraasync_create(const char *source,
                                      const EngineConfig *cfg,
                                      const char *player_file,
                                      const char *session_dir,
@@ -2177,7 +2177,7 @@ ArchoeraMediaEngine *archoera_mediaengine_create(const char *source,
                                    errbuf, errbuf_size);
 }
 
-ArchoeraMediaEngine *archoera_mediaengine_create_with_headers(const char *source,
+NekoEraASyncEngine *neko_eraasync_create_with_headers(const char *source,
                                      const char *headers,
                                      const EngineConfig *cfg,
                                      const char *player_file,
@@ -2188,7 +2188,7 @@ ArchoeraMediaEngine *archoera_mediaengine_create_with_headers(const char *source
                                    errbuf, errbuf_size);
 }
 
-ArchoeraMediaEngine *archoera_mediaengine_create_store(SegStore *store,
+NekoEraASyncEngine *neko_eraasync_create_store(SegStore *store,
                                      const EngineConfig *cfg,
                                      const char *player_file,
                                      const char *session_dir,
@@ -2198,13 +2198,13 @@ ArchoeraMediaEngine *archoera_mediaengine_create_store(SegStore *store,
                                    errbuf, errbuf_size);
 }
 
-int archoera_mediaengine_command(ArchoeraMediaEngine *e, const char *json_line)
+int neko_eraasync_command(NekoEraASyncEngine *e, const char *json_line)
 {
     if (!e || !json_line) return -1;
     return cmd_enqueue(e, json_line);
 }
 
-int archoera_mediaengine_poll_event(ArchoeraMediaEngine *e, char *buf, int cap)
+int neko_eraasync_poll_event(NekoEraASyncEngine *e, char *buf, int cap)
 {
     if (!e || !buf || cap <= 0) return 0;
     int r = 0;
@@ -2239,7 +2239,7 @@ int archoera_mediaengine_poll_event(ArchoeraMediaEngine *e, char *buf, int cap)
      - wait_event 与 poll_event/ev_enqueue 共用 ev_mutex，互斥安全；
      - 同一 handle 建议单线程阻塞等待（Dart 事件泵即单接收 isolate），
        destroy 与 wait_event 可在不同线程并发调用。 */
-int archoera_mediaengine_wait_event(ArchoeraMediaEngine *e, char *buf, int cap,
+int neko_eraasync_wait_event(NekoEraASyncEngine *e, char *buf, int cap,
                                     int timeout_ms)
 {
     if (!e || !buf || cap <= 0) return 0;
@@ -2296,7 +2296,7 @@ int archoera_mediaengine_wait_event(ArchoeraMediaEngine *e, char *buf, int cap,
     return r;
 }
 
-int archoera_mediaengine_is_done(ArchoeraMediaEngine *e)
+int neko_eraasync_is_done(NekoEraASyncEngine *e)
 {
     return e ? (int)QA_LOAD_ACQ(&e->done) : 1;
 }
@@ -2304,7 +2304,7 @@ int archoera_mediaengine_is_done(ArchoeraMediaEngine *e)
 /* 内存播放模式：以 end_pos_ms 为终点取最近 frames 样本（L/R）写 out_l/out_r。
  * 返回 0 命中；-1 越出保留窗 / 尚未解码；-2 参数错或非内存模式会话。
  * 语义对齐 PcmAnalyzer.frameAt（前缀补零仅在头部仍在时；被淘汰返回 -1）。 */
-int archoera_mediaengine_pcm_window(ArchoeraMediaEngine *e, int end_pos_ms,
+int neko_eraasync_pcm_window(NekoEraASyncEngine *e, int end_pos_ms,
                                     int frames, float *out_l, float *out_r)
 {
     int r;
@@ -2318,7 +2318,7 @@ int archoera_mediaengine_pcm_window(ArchoeraMediaEngine *e, int end_pos_ms,
 }
 
 /* 会话重建计数（seek 重建即 +1）：Dart 凭此丢弃旧帧索引（对齐文件截断语义）。 */
-int archoera_mediaengine_pcm_epoch(ArchoeraMediaEngine *e)
+int neko_eraasync_pcm_epoch(NekoEraASyncEngine *e)
 {
     int epoch;
     if (!e) return -1;
@@ -2330,12 +2330,12 @@ int archoera_mediaengine_pcm_epoch(ArchoeraMediaEngine *e)
 
 /* M3（§6.2/§6.1）：当前可用内存（MB），供 Dart 预算管理器算 auto ceiling/
  * requiredCeiling。失败返回 -1（调用方回落保守下限）。 */
-long long archoera_mediaengine_mem_available_mb(void)
+long long neko_eraasync_mem_available_mb(void)
 {
     return mem_avail_mb();
 }
 
-void archoera_mediaengine_destroy(ArchoeraMediaEngine *e)
+void neko_eraasync_destroy(NekoEraASyncEngine *e)
 {
     if (!e) return;
 
@@ -2343,7 +2343,7 @@ void archoera_mediaengine_destroy(ArchoeraMediaEngine *e)
         先于 join：阻塞的接收线程尽快退场，不被慢 join（网络 IO 中断）拖住。 */
     QA_STORE_REL(&e->stop_requested, 1);
     if (e->p) {
-        pipeline_signal_shutdown(e->p); /* 转码中 → 优雅中断退出 */
+        neko_eraasync_pipeline_signal_shutdown(e->p); /* 转码中 → 优雅中断退出 */
     }
     pthread_mutex_lock(&e->ev_mutex);
     e->destroyed = 1;
@@ -2404,7 +2404,7 @@ void archoera_mediaengine_destroy(ArchoeraMediaEngine *e)
 /* sink 分类由 audio_output 模块的平台 provider 给出（player_sink_info.cls），
    经 player_sink_class_str 转稳定字符串；旧名称启发式已迁入 audio_output_platform.c。 */
 
-int archoera_mediaengine_list_sinks(char *buf, int cap)
+int neko_eraasync_list_sinks(char *buf, int cap)
 {
     player_sink_info *infos;
     char *jbuf;

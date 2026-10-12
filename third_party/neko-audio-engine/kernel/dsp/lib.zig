@@ -1,7 +1,7 @@
-// ArchoeraMusic Audio Framework
-// Copyright (C) 2026 Archoera && BetaStudio2
+// NekoMusic-EraASync
+// Copyright (C) 2026 NekoEraASync && BetaStudio2
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// EraSync — ArchoeraMusic 自研音频内核
+// NekoMusic-EraASync — 自研音频内核
 
 //! DSP 地基（docs/audio-kernel-zig.md §14；`audio-kernel-expansion-plan.md`
 //! 方向①「可听频段 DSP」地基：DSP 下沉 Zig）
@@ -17,7 +17,7 @@
 //!   - `lowfreq.zig`  次声/低频管理（`era_lowfreq_*`；方向① D2）
 //!   - `fft.zig` / `resampler.zig` / `tempo.zig`  移植计划占位（未导出）
 //!
-//! 已移植块经 `kernel/kernel.zig` 的 `zk_dsp_*` C ABI 暴露给 C 壳；
+//! 已移植块经 `kernel/kernel.zig` 的 `neko_eraasync_zk_dsp_*` C ABI 暴露给 C 壳；
 //! 命名自有（`era_` 前缀），不照搬 FFmpeg / SoX / 上游标识符。
 
 const std = @import("std");

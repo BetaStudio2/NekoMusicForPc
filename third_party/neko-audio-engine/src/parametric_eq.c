@@ -1,5 +1,5 @@
-// ArchoeraMusic Audio Framework
-// Copyright (C) 2026 Archoera && BetaStudio2
+// NekoMusic-EraASync
+// Copyright (C) 2026 NekoEraASync && BetaStudio2
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 /**
@@ -9,7 +9,7 @@
  * Biquad 串联；系数公式与内核 `kernel/dsp/biquad.zig` 同式（Audio EQ Cookbook），
  * `w0` 同样以 double 计算后落回 float，保证与内核实现逐块可对照。
  *
- * 内核路由（对齐 equalizer.c）：HAS_ARCHOERA_KERNEL 时优先经 zk_dsp_peq_*，
+ * 内核路由（对齐 equalizer.c）：HAS_NEKO_ERAASYNC_KERNEL 时优先经 neko_eraasync_zk_dsp_peq_*，
  * create 失败回退下方纯 C 实现；内核库缺失则纯 C。
  */
 #include "parametric_eq.h"
@@ -18,7 +18,7 @@
 #include <string.h>
 #include <math.h>
 
-#if defined(HAS_ARCHOERA_KERNEL)
+#if defined(HAS_NEKO_ERAASYNC_KERNEL)
 #include "../include/kernel_bridge.h"
 #endif
 
@@ -59,8 +59,8 @@ struct ParametricEq {
     bool enabled;
     bool passthrough;
     PeqBiquad *filters; /* [max_bands * channels]；内核路径下为 NULL */
-#if defined(HAS_ARCHOERA_KERNEL)
-    ZkDspPeq *zk;       /* 非 NULL → 内核实现（优先） */
+#if defined(HAS_NEKO_ERAASYNC_KERNEL)
+    NekoEraASyncZkDspPeq *zk;       /* 非 NULL → 内核实现（优先） */
 #endif
 };
 
@@ -216,8 +216,8 @@ ParametricEq* parametric_eq_create(int sample_rate, int channels, int max_bands)
         eq->bands[i].enabled = false;
     }
 
-#if defined(HAS_ARCHOERA_KERNEL)
-    eq->zk = zk_dsp_peq_create(sample_rate, channels, max_bands);
+#if defined(HAS_NEKO_ERAASYNC_KERNEL)
+    eq->zk = neko_eraasync_zk_dsp_peq_create(sample_rate, channels, max_bands);
     if (!eq->zk) {
         eq->filters = calloc((size_t)max_bands * channels, sizeof(PeqBiquad));
         if (!eq->filters) { free(eq); return NULL; }
@@ -238,11 +238,11 @@ void parametric_eq_set_bands(ParametricEq *eq, const float *flat, int band_count
     if (band_count > eq->max_bands) band_count = eq->max_bands;
     eq->band_count = band_count;
 
-#if defined(HAS_ARCHOERA_KERNEL)
+#if defined(HAS_NEKO_ERAASYNC_KERNEL)
     if (eq->zk) {
-        zk_dsp_peq_clear(eq->zk);
+        neko_eraasync_zk_dsp_peq_clear(eq->zk);
         for (int i = 0; i < band_count; i++) {
-            zk_dsp_peq_set_band(eq->zk, i,
+            neko_eraasync_zk_dsp_peq_set_band(eq->zk, i,
                                 (int)flat[i * 4 + 0],
                                 flat[i * 4 + 1],
                                 flat[i * 4 + 2],
@@ -280,9 +280,9 @@ void parametric_eq_set_enabled(ParametricEq *eq, bool enabled)
 {
     if (!eq) return;
     eq->enabled = enabled;
-#if defined(HAS_ARCHOERA_KERNEL)
+#if defined(HAS_NEKO_ERAASYNC_KERNEL)
     if (eq->zk) {
-        zk_dsp_peq_set_enabled(eq->zk, enabled ? 1 : 0);
+        neko_eraasync_zk_dsp_peq_set_enabled(eq->zk, enabled ? 1 : 0);
         return;
     }
 #endif
@@ -292,9 +292,9 @@ void parametric_eq_set_preamp(ParametricEq *eq, float preamp_db)
 {
     if (!eq) return;
     eq->preamp_db = peq_sanitize_gain(preamp_db);
-#if defined(HAS_ARCHOERA_KERNEL)
+#if defined(HAS_NEKO_ERAASYNC_KERNEL)
     if (eq->zk) {
-        zk_dsp_peq_set_preamp(eq->zk, preamp_db);
+        neko_eraasync_zk_dsp_peq_set_preamp(eq->zk, preamp_db);
         return;
     }
 #endif
@@ -305,9 +305,9 @@ void parametric_eq_process(ParametricEq *eq, float *pcm, int samples)
 {
     if (!eq || !pcm || samples <= 0) return;
 
-#if defined(HAS_ARCHOERA_KERNEL)
+#if defined(HAS_NEKO_ERAASYNC_KERNEL)
     if (eq->zk) {
-        zk_dsp_peq_process(eq->zk, pcm, samples);
+        neko_eraasync_zk_dsp_peq_process(eq->zk, pcm, samples);
         return;
     }
 #endif
@@ -344,8 +344,8 @@ void parametric_eq_process(ParametricEq *eq, float *pcm, int samples)
 void parametric_eq_destroy(ParametricEq *eq)
 {
     if (!eq) return;
-#if defined(HAS_ARCHOERA_KERNEL)
-    if (eq->zk) zk_dsp_peq_destroy(eq->zk);
+#if defined(HAS_NEKO_ERAASYNC_KERNEL)
+    if (eq->zk) neko_eraasync_zk_dsp_peq_destroy(eq->zk);
 #endif
     if (eq->filters) free(eq->filters);
     free(eq);

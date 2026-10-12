@@ -1,13 +1,13 @@
-// ArchoeraMusic Audio Framework
-// Copyright (C) 2026 Archoera && BetaStudio2
+// NekoMusic-EraASync
+// Copyright (C) 2026 NekoEraASync && BetaStudio2
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// EraSync — ArchoeraMusic 自研音频内核
+// NekoMusic-EraASync — 自研音频内核
 
 //! 统一错误模型（docs/audio-kernel-zig.md §13.2）
 //!
 //! 设计要点：
 //!   - `Error` 错误集合与设计稿逐字对齐，所有内核模块（io/probe/decoder/fmt/*）
-//!     统一使用，保证 FFI 边界（zk_* C ABI，§16）错误映射单一来源；
+//!     统一使用，保证 FFI 边界（neko_eraasync_zk_* C ABI，§16）错误映射单一来源；
 //!   - `Status` 是稳定数值码（C ABI 返回值），与 `Error` 一一对应，
 //!     由 `statusOf` / `errorOf` 双向映射——错误码是跨语言契约，禁止随意改号。
 
@@ -33,7 +33,7 @@ pub const Error = error{
     IoError,
 };
 
-/// 稳定状态码（跨语言契约：`include/kernel_bridge.h` 的 zk_* 返回值，
+/// 稳定状态码（跨语言契约：`include/kernel_bridge.h` 的 neko_eraasync_zk_* 返回值，
 /// 以及 FFI 层错误上报共用此数值表，禁止随意重排）。
 pub const Status = enum(c_int) {
     ok = 0,
@@ -79,7 +79,7 @@ pub fn errorOf(status: Status) Error {
     };
 }
 
-/// 人类可读错误消息（供 zk_decoder_open 的 errbuf 诊断，§16.1）
+/// 人类可读错误消息（供 neko_eraasync_zk_decoder_open 的 errbuf 诊断，§16.1）
 pub fn messageOf(e: anyerror) []const u8 {
     return switch (e) {
         error.UnsupportedFormat => "unsupported or disabled format",

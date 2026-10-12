@@ -1,5 +1,5 @@
-// ArchoeraMusic Audio Framework
-// Copyright (C) 2026 Archoera && BetaStudio2
+// NekoMusic-EraASync
+// Copyright (C) 2026 NekoEraASync && BetaStudio2
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 /**
@@ -102,7 +102,7 @@ typedef struct {
 })
 
 /** 管线实例（不透明指针） */
-typedef struct AudioPipeline AudioPipeline;
+typedef struct NekoEraASyncPipeline NekoEraASyncPipeline;
 
 /** 内存源句柄（与 segstore.h 的 SegStore 为同一不透明类型） */
 typedef struct SegStore SegStore;
@@ -134,17 +134,17 @@ typedef void (*PcmOutCallback)(const float *pcm, int samples, int channels,
  * @param user    传给 output 的 user_data
  * @return 管线实例指针，失败返回 NULL
  */
-AudioPipeline* pipeline_create(const char *source,
+NekoEraASyncPipeline* neko_eraasync_pipeline_create(const char *source,
                                 const EngineConfig *cfg,
                                 OutputCallback output,
                                 void *user);
 
 /**
- * 同 [pipeline_create]，另按源注入在线 URL 的额外请求头 [headers]
+ * 同 [neko_eraasync_pipeline_create]，另按源注入在线 URL 的额外请求头 [headers]
  * （`\n`/`\r\n` 分行的 `Name: value`；NULL = 无）。原生 HTTP(S) 与 FFmpeg
  * http/tls 路径均会带上，用于携带客户端标识（如 NekoMusic 的 `X-Neko-Client`）。
  */
-AudioPipeline* pipeline_create_with_headers(const char *source,
+NekoEraASyncPipeline* neko_eraasync_pipeline_create_with_headers(const char *source,
                                             const char *headers,
                                             const EngineConfig *cfg,
                                             OutputCallback output,
@@ -153,20 +153,20 @@ AudioPipeline* pipeline_create_with_headers(const char *source,
 /**
  * 从 SegStore 内存源（整首已在 store，可 seek）创建管线实例
  *
- * 语义对齐 pipeline_create，仅解码源不同：store 非空时为其构造一个
+ * 语义对齐 neko_eraasync_pipeline_create，仅解码源不同：store 非空时为其构造一个
  * AVIOContext（read/seek 回调语义复刻 tests/test_store_decode.c：EOF 返回
  * AVERROR_EOF、AVSEEK_SIZE 返 total、seek SET/CUR/END；av_malloc 读缓冲），
  * 经 decoder_open_mem 解码（docs/audio-memory-source.md §7）。engine_mode
  * 任意：store 模式始终走 FFmpeg-mem，跳过自研内核。
  *
  * @param store  内存源句柄（整曲已预填、可 seek；生命周期由调用方持有，
- *               pipeline_destroy 不释放 store，也不释放其段缓冲）
+ *               neko_eraasync_pipeline_destroy 不释放 store，也不释放其段缓冲）
  * @param cfg    引擎配置
  * @param output 输出回调（封装后的 OGG 数据写入此处）
  * @param user   传给 output 的 user_data
  * @return 管线实例指针，失败返回 NULL
  */
-AudioPipeline* pipeline_create_store(SegStore *store,
+NekoEraASyncPipeline* neko_eraasync_pipeline_create_store(SegStore *store,
                                       const EngineConfig *cfg,
                                       OutputCallback output,
                                       void *user);
@@ -179,10 +179,10 @@ AudioPipeline* pipeline_create_store(SegStore *store,
  *
  * @return >0 表示本次处理的帧数，0 表示 EOF，<0 表示错误
  */
-ssize_t pipeline_process(AudioPipeline *p);
+ssize_t neko_eraasync_pipeline_process(NekoEraASyncPipeline *p);
 
 /** 一次性处理完整个输入（阻塞直到 EOF） */
-int pipeline_run(AudioPipeline *p);
+int neko_eraasync_pipeline_run(NekoEraASyncPipeline *p);
 
 /**
  * 注册 PCM 流出回调（FFT 阶段编码前 PCM；cb 为 NULL 取消）
@@ -190,55 +190,55 @@ int pipeline_run(AudioPipeline *p);
  * 桌面端 Flutter 直连引擎后经 UDS 收取原始 PCM，自行完成频谱分析
  * （FFT 客户端化），引擎只负责解码/处理/转码。
  */
-void pipeline_set_pcm_out_cb(AudioPipeline *p, PcmOutCallback cb, void *user_data);
+void neko_eraasync_pipeline_set_pcm_out_cb(NekoEraASyncPipeline *p, PcmOutCallback cb, void *user_data);
 
 /**
  * 获取源文件时长（秒） */
-double pipeline_get_duration(const AudioPipeline *p);
+double neko_eraasync_pipeline_get_duration(const NekoEraASyncPipeline *p);
 
 /** 获取源文件采样率 */
-int pipeline_get_source_sample_rate(const AudioPipeline *p);
+int neko_eraasync_pipeline_get_source_sample_rate(const NekoEraASyncPipeline *p);
 
 /** 获取管线实际输出采样率（跟随源或用户指定；0 = 未知） */
-int pipeline_get_output_sample_rate(const AudioPipeline *p);
+int neko_eraasync_pipeline_get_output_sample_rate(const NekoEraASyncPipeline *p);
 
 /**
  * 获取管线实际解码后端（方向③ F5）："zig" = 自研内核接管，"ffmpeg" = FFmpeg 兜底；
  * 管线为空/未定 → "unknown"。生命周期与管线一致，调用方只读。
  */
-const char *pipeline_backend(const AudioPipeline *p);
+const char *neko_eraasync_pipeline_backend(const NekoEraASyncPipeline *p);
 
 /** 获取管线实际输出声道数（cfg.output_channels） */
-int pipeline_get_output_channels(const AudioPipeline *p);
+int neko_eraasync_pipeline_get_output_channels(const NekoEraASyncPipeline *p);
 
 /** 获取源文件声道数 */
-int pipeline_get_source_channels(const AudioPipeline *p);
+int neko_eraasync_pipeline_get_source_channels(const NekoEraASyncPipeline *p);
 
 /**
- * 播放流式模式开关（§B 边解码边出声）：把单次 pipeline_process 的帧数上限
+ * 播放流式模式开关（§B 边解码边出声）：把单次 neko_eraasync_pipeline_process 的帧数上限
  * 调小，使阻塞喂设备（pcm_out 环形缓冲背压）时每次调用耗时 ≈ 一块音频，
  * 主循环可在调用间隙及时处理 play/pause/seek 命令（默认 batch 64 帧/次）。
  */
-void pipeline_set_playback_streaming(AudioPipeline *p, bool streaming);
+void neko_eraasync_pipeline_set_playback_streaming(NekoEraASyncPipeline *p, bool streaming);
 
 /**
  * Phase 3: 运行时交互控制
  */
 
 /** 获取当前播放位置（已处理的秒数） */
-double pipeline_get_position(const AudioPipeline *p);
+double neko_eraasync_pipeline_get_position(const NekoEraASyncPipeline *p);
 
 /** 运行时设置 EQ 增益（10 段，dB） */
-void pipeline_set_eq_gains(AudioPipeline *p, const float gains[EQ_BANDS]);
+void neko_eraasync_pipeline_set_eq_gains(NekoEraASyncPipeline *p, const float gains[EQ_BANDS]);
 
 /** 运行时设置前级增益（dB） */
-void pipeline_set_preamp(AudioPipeline *p, float preamp_db);
+void neko_eraasync_pipeline_set_preamp(NekoEraASyncPipeline *p, float preamp_db);
 
 /** 运行时设置音量增益（0~1.5，1.0 为原音量） */
-void pipeline_set_volume(AudioPipeline *p, float volume);
+void neko_eraasync_pipeline_set_volume(NekoEraASyncPipeline *p, float volume);
 
 /** 运行时启用/禁用响度归一化（保留文件内 ReplayGain 标签的当前取值）。 */
-void pipeline_set_normalization_enabled(AudioPipeline *p, bool enabled);
+void neko_eraasync_pipeline_set_normalization_enabled(NekoEraASyncPipeline *p, bool enabled);
 
 /**
  * 运行时设置响度归一化的兜底增益（dB）。
@@ -246,13 +246,13 @@ void pipeline_set_normalization_enabled(AudioPipeline *p, bool enabled);
  * 仅当文件**不含** ReplayGain 标签时使用；调用方（Dart / 扫描器）应已
  * 按峰值做好削波保护。文件含标签时标签优先。
  */
-void pipeline_set_normalization_gain(AudioPipeline *p, float gain_db);
+void neko_eraasync_pipeline_set_normalization_gain(NekoEraASyncPipeline *p, float gain_db);
 
 /** 运行时切换 ReplayGain 取用口径（0=track / 1=album）。 */
-void pipeline_set_normalization_album(AudioPipeline *p, int album);
+void neko_eraasync_pipeline_set_normalization_album(NekoEraASyncPipeline *p, int album);
 
 /** 运行时启用/禁用限幅器 */
-void pipeline_set_limiter_enabled(AudioPipeline *p, bool enabled);
+void neko_eraasync_pipeline_set_limiter_enabled(NekoEraASyncPipeline *p, bool enabled);
 
 /* ---- 方向① D1/D2：参数化 EQ + 次声/低频管理（运行时命令；默认旁通）---- */
 
@@ -264,28 +264,28 @@ void pipeline_set_limiter_enabled(AudioPipeline *p, bool enabled);
  * @param bands 扁平数组 [kind, freq, q, gain, ...]（kind 0=peak / 1=low-shelf / 2=high-shelf）
  * @param count 段数（bands 长度 = count × 4）
  */
-void pipeline_set_peq_bands(AudioPipeline *p, const float *bands, int count);
+void neko_eraasync_pipeline_set_peq_bands(NekoEraASyncPipeline *p, const float *bands, int count);
 
 /** 运行时启用/禁用参数化 EQ（禁用 = 逐位旁通）。 */
-void pipeline_set_peq_enabled(AudioPipeline *p, bool enabled);
+void neko_eraasync_pipeline_set_peq_enabled(NekoEraASyncPipeline *p, bool enabled);
 
 /** 运行时设置参数化 EQ 前级增益（dB）。 */
-void pipeline_set_peq_preamp(AudioPipeline *p, float preamp_db);
+void neko_eraasync_pipeline_set_peq_preamp(NekoEraASyncPipeline *p, float preamp_db);
 
 /** 运行时启用/禁用次声/低频管理（默认禁用 = 逐位旁通）。 */
-void pipeline_set_lowfreq_enabled(AudioPipeline *p, bool enabled);
+void neko_eraasync_pipeline_set_lowfreq_enabled(NekoEraASyncPipeline *p, bool enabled);
 
 /** 运行时设置 HPF（freq<=0 / 非有限 → 关闭）；order 1 或 2。 */
-void pipeline_set_lowfreq_hpf(AudioPipeline *p, float freq, int order);
+void neko_eraasync_pipeline_set_lowfreq_hpf(NekoEraASyncPipeline *p, float freq, int order);
 
 /** 运行时设置 bass shelf（gain_db / freq）。 */
-void pipeline_set_lowfreq_bass(AudioPipeline *p, float gain_db, float freq);
+void neko_eraasync_pipeline_set_lowfreq_bass(NekoEraASyncPipeline *p, float gain_db, float freq);
 
 /** 运行时启用/禁用 FFT */
-void pipeline_set_fft_enabled(AudioPipeline *p, bool enabled);
+void neko_eraasync_pipeline_set_fft_enabled(NekoEraASyncPipeline *p, bool enabled);
 
 /** 获取 FFT 频谱数据（dB 值，输出到 out_db 缓冲区） */
-int pipeline_get_fft_spectrum(AudioPipeline *p, float *out_db, int bins, float min_db);
+int neko_eraasync_pipeline_get_fft_spectrum(NekoEraASyncPipeline *p, float *out_db, int bins, float min_db);
 
 /**
  * 获取立体声 FFT 频谱数据（dB，左右声道独立）
@@ -297,7 +297,7 @@ int pipeline_get_fft_spectrum(AudioPipeline *p, float *out_db, int bins, float m
  * @param min_db    最小 dB 值
  * @return 0 成功，-1 参数错误
  */
-int pipeline_get_fft_spectrum_stereo(AudioPipeline *p,
+int neko_eraasync_pipeline_get_fft_spectrum_stereo(NekoEraASyncPipeline *p,
                                      float *out_db_l, float *out_db_r,
                                      int bins, float min_db);
 
@@ -310,12 +310,12 @@ int pipeline_get_fft_spectrum_stereo(AudioPipeline *p,
  * @param bins       频段数（前端固定 128）
  * @return 0 成功，-1 参数错误
  */
-int pipeline_get_fft_spectrum_norm_stereo(AudioPipeline *p,
+int neko_eraasync_pipeline_get_fft_spectrum_norm_stereo(NekoEraASyncPipeline *p,
                                           float *out_l, float *out_r,
                                           int bins);
 
 /** 获取 FFT 点数 */
-int pipeline_get_fft_size(const AudioPipeline *p);
+int neko_eraasync_pipeline_get_fft_size(const NekoEraASyncPipeline *p);
 
 /**
  * FFT 帧回调：每完成一次频谱计算后同步调用（新频谱已就绪）
@@ -323,44 +323,44 @@ int pipeline_get_fft_size(const AudioPipeline *p);
  * 触发于 fft_process 系列内部，转码线程内同步执行；
  * 用于按已处理音频位置推送频谱（转码可快于实时，墙钟驱动不可靠）。
  *
- * @param user_data 注册时传入的用户数据（通常为 AudioPipeline*）
+ * @param user_data 注册时传入的用户数据（通常为 NekoEraASyncPipeline*）
  * @param fft_size  本次 FFT 点数
  */
 typedef void (*AudioFftFrameCb)(void *user_data, int fft_size);
 
 /** 注册 FFT 帧回调（转发到 fft_set_frame_cb；cb 为 NULL 取消） */
-void pipeline_set_fft_frame_cb(AudioPipeline *p, AudioFftFrameCb cb, void *user_data);
+void neko_eraasync_pipeline_set_fft_frame_cb(NekoEraASyncPipeline *p, AudioFftFrameCb cb, void *user_data);
 
 /** FFT 已处理音频时间（秒，样本级粒度，供频谱推送驱动） */
-double pipeline_get_fft_processed_seconds(const AudioPipeline *p);
+double neko_eraasync_pipeline_get_fft_processed_seconds(const NekoEraASyncPipeline *p);
 
 /**
  * Phase 4: 变速变调
  */
 
 /** 运行时设置播放速度 */
-void pipeline_set_tempo_speed(AudioPipeline *p, float speed);
+void neko_eraasync_pipeline_set_tempo_speed(NekoEraASyncPipeline *p, float speed);
 
 /** 运行时设置音调偏移（半音） */
-void pipeline_set_tempo_pitch(AudioPipeline *p, float semitones);
+void neko_eraasync_pipeline_set_tempo_pitch(NekoEraASyncPipeline *p, float semitones);
 
 /** 运行时切换保音调模式 */
-void pipeline_set_tempo_pitch_sync(AudioPipeline *p, bool sync);
+void neko_eraasync_pipeline_set_tempo_pitch_sync(NekoEraASyncPipeline *p, bool sync);
 
 /** 运行时启用/禁用变速变调 */
-void pipeline_set_tempo_enabled(AudioPipeline *p, bool enabled);
+void neko_eraasync_pipeline_set_tempo_enabled(NekoEraASyncPipeline *p, bool enabled);
 
 /** 销毁管线并释放资源 */
-void pipeline_destroy(AudioPipeline *p);
+void neko_eraasync_pipeline_destroy(NekoEraASyncPipeline *p);
 
 /** 获取引擎版本字符串 */
 const char* audio_engine_version(void);
 
 /**
  * 请求管线优雅关闭（SIGTERM 信号处理器调用）
- * 设置内部 EOF 标志，正在运行的 pipeline_process/pipeline_run 将在框架边界处退出
+ * 设置内部 EOF 标志，正在运行的 neko_eraasync_pipeline_process/neko_eraasync_pipeline_run 将在框架边界处退出
  */
-void pipeline_signal_shutdown(AudioPipeline *p);
+void neko_eraasync_pipeline_signal_shutdown(NekoEraASyncPipeline *p);
 
 #ifdef __cplusplus
 }

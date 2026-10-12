@@ -1,7 +1,7 @@
-// ArchoeraMusic Audio Framework
-// Copyright (C) 2026 Archoera && BetaStudio2
+// NekoMusic-EraASync
+// Copyright (C) 2026 NekoEraASync && BetaStudio2
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// EraSync — ArchoeraMusic 自研音频内核
+// NekoMusic-EraASync — 自研音频内核
 
 //! 10 段 Biquad 均衡器（docs/audio-kernel-zig.md §14；方向① 地基）
 //!
@@ -9,7 +9,7 @@
 //!   - 固定 10 段 ISO 频点 31.25…16k Hz，Q = 1.414（√2），±12 dB；
 //!   - 前级增益（preamp，dB，20·log10 线性换算）；
 //!   - Direct Form I 状态机，逐段就地串联；全零直通短路。
-//! 对外等价 `equalizer_*`，经 `zk_dsp_eq_*` C ABI 暴露；C 壳优先路由内核、
+//! 对外等价 `equalizer_*`，经 `neko_eraasync_zk_dsp_eq_*` C ABI 暴露；C 壳优先路由内核、
 //! 失败回退 C 实现。
 //!
 //! 命名自有（era_ 前缀），不照搬 FFmpeg / SoX / Audio EQ Cookbook 等上游标识符。
@@ -43,7 +43,7 @@ pub const EraBiquad = struct {
     y2: f32 = 0.0,
 };
 
-/// 均衡器实例（不透明于 C 侧 `ZkDspEq`）。
+/// 均衡器实例（不透明于 C 侧 `NekoEraASyncZkDspEq`）。
 pub const EraEq = struct {
     allocator: std.mem.Allocator,
     sample_rate: u32,

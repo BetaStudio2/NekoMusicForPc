@@ -1,5 +1,5 @@
-// ArchoeraMusic Audio Framework
-// Copyright (C) 2026 Archoera && BetaStudio2
+// NekoMusic-EraASync
+// Copyright (C) 2026 NekoEraASync && BetaStudio2
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 /**
@@ -7,7 +7,7 @@
  *
  * 使用 soft-knee 压缩防止削波
  *
- * 内核路由（方向① 地基）：HAS_ARCHOERA_KERNEL 时优先 zk_dsp_limiter_*，
+ * 内核路由（方向① 地基）：HAS_NEKO_ERAASYNC_KERNEL 时优先 neko_eraasync_zk_dsp_limiter_*，
  * create 失败回退下方纯 C 实现；对外 API/行为不变。
  */
 #include "limiter.h"
@@ -15,7 +15,7 @@
 #include <stdlib.h>
 #include <math.h>
 
-#if defined(HAS_ARCHOERA_KERNEL)
+#if defined(HAS_NEKO_ERAASYNC_KERNEL)
 #include "../include/kernel_bridge.h"
 #endif
 
@@ -28,8 +28,8 @@ struct Limiter {
     bool enabled;
     float threshold_db;
     float threshold_linear;
-#if defined(HAS_ARCHOERA_KERNEL)
-    ZkDspLimiter *zk;  /* 非 NULL → 内核实现（优先） */
+#if defined(HAS_NEKO_ERAASYNC_KERNEL)
+    NekoEraASyncZkDspLimiter *zk;  /* 非 NULL → 内核实现（优先） */
 #endif
 };
 
@@ -44,11 +44,11 @@ Limiter* limiter_create(int sample_rate, int channels)
     lim->threshold_db = -1.0f;  /* 默认 -1dB，留一点余量 */
     lim->threshold_linear = powf(10.0f, lim->threshold_db / 20.0f);
 
-#if defined(HAS_ARCHOERA_KERNEL)
-    lim->zk = zk_dsp_limiter_create(sample_rate, channels);
+#if defined(HAS_NEKO_ERAASYNC_KERNEL)
+    lim->zk = neko_eraasync_zk_dsp_limiter_create(sample_rate, channels);
     if (lim->zk) {
-        zk_dsp_limiter_set_enabled(lim->zk, 1);
-        zk_dsp_limiter_set_threshold(lim->zk, lim->threshold_db);
+        neko_eraasync_zk_dsp_limiter_set_enabled(lim->zk, 1);
+        neko_eraasync_zk_dsp_limiter_set_threshold(lim->zk, lim->threshold_db);
     }
 #endif
 
@@ -61,8 +61,8 @@ void limiter_set_enabled(Limiter *lim, bool enabled)
 {
     if (!lim) return;
     lim->enabled = enabled;
-#if defined(HAS_ARCHOERA_KERNEL)
-    if (lim->zk) zk_dsp_limiter_set_enabled(lim->zk, enabled ? 1 : 0);
+#if defined(HAS_NEKO_ERAASYNC_KERNEL)
+    if (lim->zk) neko_eraasync_zk_dsp_limiter_set_enabled(lim->zk, enabled ? 1 : 0);
 #endif
 }
 
@@ -71,8 +71,8 @@ void limiter_set_threshold(Limiter *lim, float threshold_db)
     if (!lim) return;
     lim->threshold_db = threshold_db;
     lim->threshold_linear = powf(10.0f, threshold_db / 20.0f);
-#if defined(HAS_ARCHOERA_KERNEL)
-    if (lim->zk) zk_dsp_limiter_set_threshold(lim->zk, threshold_db);
+#if defined(HAS_NEKO_ERAASYNC_KERNEL)
+    if (lim->zk) neko_eraasync_zk_dsp_limiter_set_threshold(lim->zk, threshold_db);
 #endif
 }
 
@@ -81,9 +81,9 @@ void limiter_process(Limiter *lim, float *pcm, int samples)
     if (!lim || !pcm || samples <= 0) return;
     if (!lim->enabled) return;
 
-#if defined(HAS_ARCHOERA_KERNEL)
+#if defined(HAS_NEKO_ERAASYNC_KERNEL)
     if (lim->zk) {
-        zk_dsp_limiter_process(lim->zk, pcm, samples);
+        neko_eraasync_zk_dsp_limiter_process(lim->zk, pcm, samples);
         return;
     }
 #endif
@@ -111,8 +111,8 @@ void limiter_process(Limiter *lim, float *pcm, int samples)
 void limiter_destroy(Limiter *lim)
 {
     if (!lim) return;
-#if defined(HAS_ARCHOERA_KERNEL)
-    if (lim->zk) zk_dsp_limiter_destroy(lim->zk);
+#if defined(HAS_NEKO_ERAASYNC_KERNEL)
+    if (lim->zk) neko_eraasync_zk_dsp_limiter_destroy(lim->zk);
 #endif
     free(lim);
 }

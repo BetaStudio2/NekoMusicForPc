@@ -1,7 +1,7 @@
-// ArchoeraMusic Audio Framework
-// Copyright (C) 2026 Archoera && BetaStudio2
+// NekoMusic-EraASync
+// Copyright (C) 2026 NekoEraASync && BetaStudio2
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// EraSync — ArchoeraMusic 自研音频内核
+// NekoMusic-EraASync — 自研音频内核
 
 //! Musepack 解码器接入层（fmt/mpc）—— SV7/SV8 均已 bit-exact（对照 ffmpeg n9.0.1）。
 //!

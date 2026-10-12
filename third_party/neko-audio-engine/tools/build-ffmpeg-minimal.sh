@@ -14,7 +14,7 @@
 #   - bin/       Windows 运行时 DLL（其它平台为空）
 #
 # 用法：
-#   bash third_party/archoera-audio-engine/tools/build-ffmpeg-minimal.sh
+#   bash third_party/neko-audio-engine/tools/build-ffmpeg-minimal.sh
 #   FFMPEG_VERSION=7.1.1 JOBS=8 bash .../build-ffmpeg-minimal.sh
 #
 # 常用环境变量：
@@ -31,7 +31,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# tools/ -> archoera-audio-engine/ -> third_party/ -> repo root
+# tools/ -> neko-audio-engine/ -> third_party/ -> repo root
 REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 
 FFMPEG_VERSION="${FFMPEG_VERSION:-7.1.1}"

@@ -1,13 +1,13 @@
-// ArchoeraMusic Audio Framework
-// Copyright (C) 2026 Archoera && BetaStudio2
+// NekoMusic-EraASync
+// Copyright (C) 2026 NekoEraASync && BetaStudio2
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 /**
- * native_decoder.h — 自研 Zig 内核（archoera_kernel）解码器封装
+ * native_decoder.h — 自研 Zig 内核（neko_eraasync_kernel）解码器封装
  *
  * engine_mode == EraAudio 时 pipeline 优先尝试 native_decoder_open，
  * 失败（未接管 / 打开错误 / 内核未链接）由调用方回退 FFmpeg decoder_open。
- * 本模块仅封装 include/kernel_bridge.h 的 zk_* C ABI，对齐 decoder.h
+ * 本模块仅封装 include/kernel_bridge.h 的 neko_eraasync_zk_* C ABI，对齐 decoder.h
  * 的最小公共接口（采样率/声道/时长/codec_name + 读帧），输出 float32 交错。
  */
 #ifndef NATIVE_DECODER_H
@@ -34,11 +34,11 @@ typedef struct NativeInfo {
     const char  *format_name;    /**< 如 "wav" */
 } NativeInfo;
 
-/** 内核是否已在构建期链接可用（CMake HAS_ARCHOERA_KERNEL）。 */
+/** 内核是否已在构建期链接可用（CMake HAS_NEKO_ERAASYNC_KERNEL）。 */
 bool native_decoder_available(void);
 
 /**
- * 扩展名接管判定（方向③ F5 门控；内部走 zk_takeover_of_ext）。
+ * 扩展名接管判定（方向③ F5 门控；内部走 neko_eraasync_zk_takeover_of_ext）。
  *
  * @param path 文件路径或 URL（取最后一个 '.' 后的扩展名；路径/查询串中的点忽略）
  * @return 1 = 该扩展名明确已接管（优先 native）；
@@ -53,7 +53,7 @@ int native_decoder_taken_over_by_ext(const char *path);
  *
  * @param path          输入文件路径
  * @param info          成功时填充解码源信息（可传 NULL）
- * @param status_out    失败时输出稳定状态码（ZkStatus：1=unsupported→应回退
+ * @param status_out    失败时输出稳定状态码（NekoEraASyncZkStatus：1=unsupported→应回退
  *                      FFmpeg；2=open_failed 等），成功输出 0；可传 NULL
  * @param errbuf/errbuf_size 失败诊断缓冲（可传 NULL/0）
  * @return 成功返回解码器句柄；失败返回 NULL（未接管/打不开/内核未链接）
@@ -106,7 +106,7 @@ NativeDecoder *native_decoder_open_url(const char *url, const char *headers, Nat
 /**
  * 解码最多 max_frames 帧 float32 交错 PCM。
  * @return >=0：实际帧数（每声道）；0 = EOF（正常文件尾）；
- *         <0：错误——-1 参数错误，其余为负 ZkStatus 状态码
+ *         <0：错误——-1 参数错误，其余为负 NekoEraASyncZkStatus 状态码
  *             （如 -3=损坏 / -4=解码失败 / -8=IO 错误），调用方应报错，
  *             不得把 <0 当 EOF 静默截断。
  *         out_channels 输出本帧实际声道数（任何返回值下均有效）。
@@ -147,16 +147,16 @@ void native_decoder_close(NativeDecoder *d);
 void native_decoder_abort(NativeDecoder *d);
 
 /* ── 常驻内核池接入（S1，opt-in：mediaengine_lib 引擎线程在
- *   engine_mode==EraAudio 且 getenv("ARCHOERA_ERA_POOL") 时调用；池启用后
- *   native_decoder_open 改走 zk_engine_open 流式 seam，否则沿用 zk_decoder_*）── */
+ *   engine_mode==EraAudio 且 getenv("NEKO_ERAASYNC_POOL") 时调用；池启用后
+ *   native_decoder_open 改走 neko_eraasync_zk_engine_open 流式 seam，否则沿用 neko_eraasync_zk_decoder_*）── */
 
 /**
- * 启动常驻内核池（zk_engine_init；幂等：已启用直接返回 0）。
+ * 启动常驻内核池（neko_eraasync_zk_engine_init；幂等：已启用直接返回 0）。
  * @return 0 成功；-1 失败（调用方继续旧路径——g_pool 保持 NULL）。
  */
 int native_decoder_pool_begin(int min_workers, int max_workers, int cap_tasks);
 
-/** 停机并释放常驻内核池（zk_engine_shutdown + 置空；未启用时空操作）。
+/** 停机并释放常驻内核池（neko_eraasync_zk_engine_shutdown + 置空；未启用时空操作）。
  *  调用方须保证池上已无打开会话（open 的流经 native_decoder_close 已关闭）。 */
 void native_decoder_pool_end(void);
 
@@ -171,7 +171,7 @@ long long native_decoder_stream_opens(void);
  * 接管命中/未命中统计（方向③ F5 监控；进程级单调递增）。
  * @param attempts    可空；native_decoder_open 的累计尝试次数
  * @param hits        可空；返回成功接管的次数（status == 0）
- * @param unsupported 可空；返回明确未接管的次数（status == ZK_UNSUPPORTED == 1）
+ * @param unsupported 可空；返回明确未接管的次数（status == NEKO_ERAASYNC_ZK_UNSUPPORTED == 1）
  */
 void native_decoder_stats(long long *attempts, long long *hits,
                           long long *unsupported);

@@ -11,7 +11,7 @@ class AudioEngine;
 class QTimer;
 
 /**
- * PlayerEngine — 播放引擎门面（ArchoeraMusic 原生引擎 + 随包内嵌 FFmpeg）。
+ * PlayerEngine — 播放引擎门面（NekoMusic-EraASync 原生引擎 + 随包内嵌 FFmpeg）。
  *
  * 已移除 QMediaPlayer 回退实现：始终使用原生引擎，支持音质无缝切换与曲间无缝续播，
  * 实现见 playerengine_native.cpp。UI/系统媒体/麦克风同步无需感知底层差异。

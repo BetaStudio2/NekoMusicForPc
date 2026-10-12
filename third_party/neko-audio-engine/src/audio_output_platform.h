@@ -1,12 +1,12 @@
-// ArchoeraMusic Audio Framework
-// Copyright (C) 2026 Archoera && BetaStudio2
+// NekoMusic-EraASync
+// Copyright (C) 2026 NekoEraASync && BetaStudio2
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 /**
  * audio_output_platform.h — 平台 provider 内部共享（仅被 audio_output_*.c 使用）
  */
-#ifndef ARCHOERA_AUDIO_OUTPUT_PLATFORM_H
-#define ARCHOERA_AUDIO_OUTPUT_PLATFORM_H
+#ifndef NEKO_ERAASYNC_AUDIO_OUTPUT_PLATFORM_H
+#define NEKO_ERAASYNC_AUDIO_OUTPUT_PLATFORM_H
 
 #include "audio_output.h"
 
@@ -28,4 +28,4 @@ const audio_output_provider *audio_output_platform_provider(void);
 }
 #endif
 
-#endif /* ARCHOERA_AUDIO_OUTPUT_PLATFORM_H */
+#endif /* NEKO_ERAASYNC_AUDIO_OUTPUT_PLATFORM_H */

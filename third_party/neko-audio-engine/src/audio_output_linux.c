@@ -1,5 +1,5 @@
-// ArchoeraMusic Audio Framework
-// Copyright (C) 2026 Archoera && BetaStudio2
+// NekoMusic-EraASync
+// Copyright (C) 2026 NekoEraASync && BetaStudio2
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 /**
@@ -225,7 +225,7 @@ static void ao_pulse_refresh(void)
     }
 
     g_pa.ml_lock(ml);
-    c = g_pa.ctx_new(g_pa.ml_get_api(ml), "archoera-enum");
+    c = g_pa.ctx_new(g_pa.ml_get_api(ml), "neko-eraasync-enum");
     if (c) {
         pa_context_state_t st;
         g_pa.ctx_set_state_cb(c, ao_pa_state_cb, ml);

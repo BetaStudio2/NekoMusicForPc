@@ -1,19 +1,19 @@
-// ArchoeraMusic Audio Framework
-// Copyright (C) 2026 Archoera && BetaStudio2
+// NekoMusic-EraASync
+// Copyright (C) 2026 NekoEraASync && BetaStudio2
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// EraSync — ArchoeraMusic 自研音频内核
+// NekoMusic-EraASync — 自研音频内核
 
 //! 内核统一日志（与 C/C++/Rust/Dart 同一 `[HH:mm:ss LEVEL] msg` 契约）。
 //!
-//! 内核不直接落盘：宿主（C 壳）把 libarchoera_log 的 archoera_log_write 指针经
-//! `zk_set_log_sink` 注入，本模块把消息格式化后回调；未注入时回退
+//! 内核不直接落盘：宿主（C 壳）把 libneko_eraasync_log 的 neko_eraasync_log_write 指针经
+//! `neko_eraasync_zk_set_log_sink` 注入，本模块把消息格式化后回调；未注入时回退
 //! `std.debug.print`（stderr）。无内存驻留（单行栈缓冲）。
 //!
-//! 级别数值对齐 archoera_log.h：0=DEBUG 1=INFO 2=WARN 3=ERROR 4=FATAL。
+//! 级别数值对齐 neko_eraasync_log.h：0=DEBUG 1=INFO 2=WARN 3=ERROR 4=FATAL。
 
 const std = @import("std");
 
-/// 宿主日志函数指针（同 C `ArchoeraLogFn`）。
+/// 宿主日志函数指针（同 C `NekoEraASyncLogFn`）。
 pub const Sink = *const fn (c_int, [*:0]const u8, [*:0]const u8) callconv(.c) void;
 
 var sink_ptr: std.atomic.Value(usize) = std.atomic.Value(usize).init(0);

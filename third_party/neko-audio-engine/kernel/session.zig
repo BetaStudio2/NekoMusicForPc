@@ -1,7 +1,7 @@
-// ArchoeraMusic Audio Framework
-// Copyright (C) 2026 Archoera && BetaStudio2
+// NekoMusic-EraASync
+// Copyright (C) 2026 NekoEraASync && BetaStudio2
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// EraSync — ArchoeraMusic 自研音频内核
+// NekoMusic-EraASync — 自研音频内核
 
 //! 流式会话能力（docs/engine-master-pool-design.md §6.3 的池内内部形态，不接 C 壳）
 //!
@@ -65,7 +65,7 @@ pub const Session = struct {
     pinned_id: ?usize = null,
     /// 会话运行所在的 runtime（pinned close 步骤内释放专属 worker 用；start 时记录）。
     rt: ?*runtime.Runtime = null,
-    /// AS4：格式提示（C ABI ZkFormatHint 数值；0=auto → 常规 probe）。
+    /// AS4：格式提示（C ABI NekoEraASyncZkFormatHint 数值；0=auto → 常规 probe）。
     /// start 前设置；prepareStart 据此免 probe 直分派（失败回退 probe）。
     format_hint: u32 = 0,
     /// AS5：会话级取消请求（原子；read 步首观察到 → failed(error.Aborted)，不抢占运行中的块）。

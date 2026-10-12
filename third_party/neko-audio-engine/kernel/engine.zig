@@ -1,17 +1,17 @@
-// ArchoeraMusic Audio Framework
-// Copyright (C) 2026 Archoera && BetaStudio2
+// NekoMusic-EraASync
+// Copyright (C) 2026 NekoEraASync && BetaStudio2
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// EraSync — ArchoeraMusic 自研音频内核
+// NekoMusic-EraASync — 自研音频内核
 
 //! 解码会话编排 + C ABI 桥接逻辑（docs/audio-kernel-zig.md §16.1）
 //!
-//! 本模块承载 `zk_*` 的全部实现（`kernel.zig` 只做 `export fn` 薄包装），
+//! 本模块承载 `neko_eraasync_zk_*` 的全部实现（`kernel.zig` 只做 `export fn` 薄包装），
 //! 管线：`decoder.open`（probe → 工厂）→ `pcm/convert.zig`（原生 → float32 交错）。
 //!
-//! 线程模型（§16.1，修订 2026-09-09）：本模块承载 `zk_*` **sync 直通**——**本身不持线程**，
+//! 线程模型（§16.1，修订 2026-09-09）：本模块承载 `neko_eraasync_zk_*` **sync 直通**——**本身不持线程**，
 //! 纯 Sync 被调用线程驱动（C 壳 mediaengine_lib.c 引擎线程，作回归/调试基线，engine-master-
 //! pool-design.md §7）；内核整体的线程（Master 事件线程 + Pool worker）由 kernel_init 自持，
-//! 见 docs/engine-master-pool-design.md §2.1/§3.1。`Engine` 即 C 侧不透明指针 `ZkDecoder`。
+//! 见 docs/engine-master-pool-design.md §2.1/§3.1。`Engine` 即 C 侧不透明指针 `NekoEraASyncZkDecoder`。
 //!
 //! 内存：统一使用 `std.heap.c_allocator`（宿主 CRT 的 malloc/free），静态库
 //! 被 C 壳链接时符号由最终链接器解析，跨 CRT 安全（§16.2）。
@@ -26,10 +26,10 @@ const convert = @import("pcm/convert.zig");
 
 const Allocator = std.mem.Allocator;
 
-/// C ABI 解码信息（与 `include/kernel_bridge.h` 的 `ZkInfo` 逐字段对齐；
+/// C ABI 解码信息（与 `include/kernel_bridge.h` 的 `NekoEraASyncZkInfo` 逐字段对齐；
 /// `codec_name`/`format_name` 指向内核静态字面量，`title`…`comment` 指向解码器
 /// 上下文持有的分配，生命周期均与 Engine 一致，C 侧只读不释放）
-pub const ZkInfo = extern struct {
+pub const NekoEraASyncZkInfo = extern struct {
     sample_rate: c_int,
     channels: c_int,
     bits_per_sample: c_int,
@@ -46,7 +46,7 @@ pub const ZkInfo = extern struct {
 };
 
 /// C ABI 标签键值（指针 + 显式长度；生命周期与 metadata 句柄一致，只读不释放）
-pub const ZkTag = extern struct {
+pub const NekoEraASyncZkTag = extern struct {
     key: ?[*]const u8,
     key_len: c_int,
     value: ?[*]const u8,
@@ -55,7 +55,7 @@ pub const ZkTag = extern struct {
 
 /// C ABI 元数据信息（docs/audio-kernel-zig.md §8.4.2① metadata 快路径）。
 /// 标量 + 标准字段 + 全量 tags + 首张封面；所有指针生命周期与 metadata 句柄一致。
-pub const ZkMetaInfo = extern struct {
+pub const NekoEraASyncZkMetaInfo = extern struct {
     sample_rate: c_int,
     channels: c_int,
     bits_per_sample: c_int,
@@ -70,7 +70,7 @@ pub const ZkMetaInfo = extern struct {
     date: ?[*:0]const u8,
     genre: ?[*:0]const u8,
     comment: ?[*:0]const u8,
-    tags: ?[*]const ZkTag,
+    tags: ?[*]const NekoEraASyncZkTag,
     tags_count: c_int,
     cover_mime: ?[*]const u8,
     cover_mime_len: c_int,
@@ -78,7 +78,7 @@ pub const ZkMetaInfo = extern struct {
     cover_size: c_int,
 };
 
-/// 解码会话（`zk_decoder_open` 成功返回 `*Engine`，即 C 侧 `ZkDecoder`）
+/// 解码会话（`neko_eraasync_zk_decoder_open` 成功返回 `*Engine`，即 C 侧 `NekoEraASyncZkDecoder`）
 pub const Engine = struct {
     allocator: Allocator,
     dec: decoder.Decoder,
@@ -89,11 +89,11 @@ pub const Engine = struct {
     cb_buffer: []u8 = &.{},
     /// 回调流形态的 C 回调适配器（非回调打开时为 null；close 时释放）
     cb_adapter: ?*CbAdapter = null,
-    /// EraAudio 原生 HTTP(S) 源（zk_open_url；close 时释放并关闭连接）
+    /// EraAudio 原生 HTTP(S) 源（neko_eraasync_zk_open_url；close 时释放并关闭连接）
     http: ?*net.HttpStream = null,
 };
 
-/// C ABI 回调函数指针（与 `include/kernel_bridge.h` 的 zk_read_cb / zk_seek_cb 对齐）
+/// C ABI 回调函数指针（与 `include/kernel_bridge.h` 的 neko_eraasync_zk_read_cb / neko_eraasync_zk_seek_cb 对齐）
 pub const CReadFn = *const fn (ctx: ?*anyopaque, buf: [*]u8, len: usize) callconv(.c) usize;
 pub const CSeekFn = *const fn (ctx: ?*anyopaque, off: i64, whence: c_int, buffered: usize) callconv(.c) c_int;
 
@@ -137,10 +137,10 @@ pub fn cAdapterDestroy(ctx: *anyopaque, allocator: std.mem.Allocator) void {
 const errbuf_status_size = 4;
 
 // ---------------------------------------------------------------------------
-// zk_* 实现
+// neko_eraasync_zk_* 实现
 // ---------------------------------------------------------------------------
 
-pub fn zkOpen(path: [*:0]const u8, info: *ZkInfo, errbuf: [*]u8, errbuf_size: c_int) ?*Engine {
+pub fn zkOpen(path: [*:0]const u8, info: *NekoEraASyncZkInfo, errbuf: [*]u8, errbuf_size: c_int) ?*Engine {
     const gpa = std.heap.c_allocator;
     var zinfo: decoder.Info = undefined;
     var dec = decoder.open(gpa, std.mem.span(path), &zinfo) catch |e| {
@@ -180,9 +180,9 @@ pub fn zkOpen(path: [*:0]const u8, info: *ZkInfo, errbuf: [*]u8, errbuf_size: c_
     return eng;
 }
 
-/// 从**内存字节切片**打开解码器（纯内存源；对齐 [zkOpen] 契约与 ZkInfo 填充）。
+/// 从**内存字节切片**打开解码器（纯内存源；对齐 [zkOpen] 契约与 NekoEraASyncZkInfo 填充）。
 /// 字节所有权归调用方，解码器只读不释放，生命周期须覆盖返回的 Engine。
-pub fn zkOpenMem(data: [*]const u8, len: usize, info: *ZkInfo, errbuf: [*]u8, errbuf_size: c_int) ?*Engine {
+pub fn zkOpenMem(data: [*]const u8, len: usize, info: *NekoEraASyncZkInfo, errbuf: [*]u8, errbuf_size: c_int) ?*Engine {
     const gpa = std.heap.c_allocator;
     var zinfo: decoder.Info = undefined;
     var dec = decoder.openMem(gpa, data[0..len], &zinfo) catch |e| {
@@ -231,7 +231,7 @@ pub fn zkOpenCallback(
     on_read: CReadFn,
     on_seek: CSeekFn,
     size_hint: u64,
-    info: *ZkInfo,
+    info: *NekoEraASyncZkInfo,
     errbuf: [*]u8,
     errbuf_size: c_int,
 ) ?*Engine {
@@ -307,7 +307,7 @@ pub fn zkOpenCallback(
     return eng;
 }
 
-/// 元数据专用打开（probe-only 优先，§8.4.2①；供 `zk_metadata_open`）。
+/// 元数据专用打开（probe-only 优先，§8.4.2①；供 `neko_eraasync_zk_metadata_open`）。
 /// 返回会话/回退解码器句柄，调用方须 `deinit`。
 pub fn openMetadata(path: []const u8, info: *decoder.Info) !decoder.OpenedMeta {
     return decoder.openMeta(std.heap.c_allocator, path, info);
@@ -322,7 +322,7 @@ pub fn openMetadata(path: []const u8, info: *decoder.Info) !decoder.OpenedMeta {
 pub fn zkOpenUrl(
     url: []const u8,
     headers: ?[]const u8,
-    info: *ZkInfo,
+    info: *NekoEraASyncZkInfo,
     errbuf: [*]u8,
     errbuf_size: c_int,
 ) ?*Engine {
@@ -534,7 +534,7 @@ pub fn fillErrBuf(buf: [*]u8, buf_size: c_int, e: anyerror) void {
 const testing = std.testing;
 
 /// 在 tmpDir 写一个 16-bit 单声道 WAV 文件，返回 NUL 终止的绝对路径（黄金样本）。
-/// `pub` 供 kernel.zig 的 zk_* FFI 测试复用（单一测试样本来源）。
+/// `pub` 供 kernel.zig 的 neko_eraasync_zk_* FFI 测试复用（单一测试样本来源）。
 pub fn writeTestWav(tmp: *testing.TmpDir, io: std.Io, name: []const u8) ![:0]u8 {
     // 黄金样本：i16 序列 0..7（8 帧，8000Hz）
     var samples: [16]u8 = undefined;
@@ -560,14 +560,14 @@ pub fn writeTestWav(tmp: *testing.TmpDir, io: std.Io, name: []const u8) ![:0]u8 
     return testing.allocator.dupeZ(u8, rel);
 }
 
-test "zk: open 成功并填充 ZkInfo" {
+test "zk: open 成功并填充 NekoEraASyncZkInfo" {
     var tmp = testing.tmpDir(.{});
     defer tmp.cleanup();
     const io = std.Io.Threaded.global_single_threaded.io();
     const full = try writeTestWav(&tmp, io, "t.wav");
     defer testing.allocator.free(full);
 
-    var info: ZkInfo = undefined;
+    var info: NekoEraASyncZkInfo = undefined;
     var errbuf: [64]u8 = undefined;
     const eng = zkOpen(full.ptr, &info, &errbuf, errbuf.len);
     try testing.expect(eng != null);
@@ -622,7 +622,7 @@ test "zk: open 填充标签元数据（LIST-INFO）" {
     const full = try testing.allocator.dupeZ(u8, rel);
     defer testing.allocator.free(full);
 
-    var info: ZkInfo = undefined;
+    var info: NekoEraASyncZkInfo = undefined;
     var errbuf: [64]u8 = undefined;
     const eng = zkOpen(full.ptr, &info, &errbuf, errbuf.len);
     try testing.expect(eng != null);
@@ -641,7 +641,7 @@ test "zk: read 输出 float32 交错" {
     const full = try writeTestWav(&tmp, io, "t.wav");
     defer testing.allocator.free(full);
 
-    var info: ZkInfo = undefined;
+    var info: NekoEraASyncZkInfo = undefined;
     var errbuf: [64]u8 = undefined;
     const eng = zkOpen(full.ptr, &info, &errbuf, errbuf.len).?;
     defer zkClose(eng);
@@ -702,7 +702,7 @@ test "zk: openCallback（宿主回调流）read/seek 与文件路径一致" {
         }
     };
     var ctx = Ctx{ .data = data };
-    var info: ZkInfo = undefined;
+    var info: NekoEraASyncZkInfo = undefined;
     var errbuf: [64]u8 = undefined;
     const eng = zkOpenCallback(@ptrCast(&ctx), Ctx.read, Ctx.seek, data.len, &info, &errbuf, errbuf.len);
     try testing.expect(eng != null);
@@ -735,7 +735,7 @@ test "zk: seek/position 往返" {
     const full = try writeTestWav(&tmp, io, "t.wav");
     defer testing.allocator.free(full);
 
-    var info: ZkInfo = undefined;
+    var info: NekoEraASyncZkInfo = undefined;
     var errbuf: [64]u8 = undefined;
     const eng = zkOpen(full.ptr, &info, &errbuf, errbuf.len).?;
     defer zkClose(eng);
@@ -760,7 +760,7 @@ test "zk: seek/position 往返" {
 
 test "zk: 不存在的文件 → null + 状态码 open_failed(2)" {
     var errbuf: [64]u8 = undefined;
-    var info: ZkInfo = undefined;
+    var info: NekoEraASyncZkInfo = undefined;
     try testing.expect(zkOpen("/nonexistent/definitely-missing.wav", &info, &errbuf, errbuf.len) == null);
     const status = std.mem.readInt(c_int, @ptrCast(errbuf[0..4]), .little);
     try testing.expectEqual(@as(c_int, @intFromEnum(err.Status.open_failed)), status);
@@ -779,14 +779,14 @@ test "zk: 非 WAV 文件 → null + 状态码 unsupported(1)" {
     defer testing.allocator.free(full);
 
     var errbuf: [64]u8 = undefined;
-    var info: ZkInfo = undefined;
+    var info: NekoEraASyncZkInfo = undefined;
     try testing.expect(zkOpen(full.ptr, &info, &errbuf, errbuf.len) == null);
     const status = std.mem.readInt(c_int, @ptrCast(errbuf[0..4]), .little);
     try testing.expectEqual(@as(c_int, @intFromEnum(err.Status.unsupported_format)), status);
 }
 
 test "zk: errbuf 尺寸边界（0 / 2 / 4 / 5 字节）" {
-    var info: ZkInfo = undefined;
+    var info: NekoEraASyncZkInfo = undefined;
     var b0: [0]u8 = undefined;
     _ = zkOpen("/nonexistent/x.wav", &info, &b0, 0); // 不应崩溃
 

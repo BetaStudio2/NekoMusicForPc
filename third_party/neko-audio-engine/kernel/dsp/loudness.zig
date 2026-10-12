@@ -1,7 +1,7 @@
-// ArchoeraMusic Audio Framework
-// Copyright (C) 2026 Archoera && BetaStudio2
+// NekoMusic-EraASync
+// Copyright (C) 2026 NekoEraASync && BetaStudio2
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// EraSync — ArchoeraMusic 自研音频内核
+// NekoMusic-EraASync — 自研音频内核
 
 //! 响度归一化（docs/audio-kernel-zig.md §14；方向① 地基）
 //!
@@ -10,7 +10,7 @@
 //! 乘线性增益。本模块保持同语义（EBU R128 集成响度的真正测量属方向①
 //! D3/D6 扩张范围，见 `docs/audio-kernel-expansion-plan.md` §2.3）。
 //!
-//! 对外等价 `loudness_*`，经 `zk_dsp_loudness_*` C ABI 暴露；C 壳优先路由
+//! 对外等价 `loudness_*`，经 `neko_eraasync_zk_dsp_loudness_*` C ABI 暴露；C 壳优先路由
 //! 内核、失败回退 C 实现。命名自有（era_ 前缀）。
 
 const std = @import("std");
@@ -20,7 +20,7 @@ const Stage = @import("stage.zig").Stage;
 /// 默认目标响度（LUFS），与 C `-14.0f` 一致。
 pub const era_loudness_default_target_lufs: f32 = -14.0;
 
-/// 响度归一化实例（不透明于 C 侧 `ZkDspLoudness`）。
+/// 响度归一化实例（不透明于 C 侧 `NekoEraASyncZkDspLoudness`）。
 pub const EraLoudness = struct {
     allocator: std.mem.Allocator,
     sample_rate: u32,

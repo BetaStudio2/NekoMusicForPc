@@ -1,5 +1,5 @@
-// ArchoeraMusic Audio Framework
-// Copyright (C) 2026 Archoera && BetaStudio2
+// NekoMusic-EraASync
+// Copyright (C) 2026 NekoEraASync && BetaStudio2
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 /**
@@ -27,7 +27,7 @@
 
 /* ── 统一日志 sink（宿主注入；见 era_log.h）───────────────────────────
  * libfft 为独立共享库（Dart 频谱分析直连），Dart 载入后注入
- * libarchoera_log 的 archoera_log_write 指针，使本库日志并入统一 sink。 */
+ * libneko_eraasync_log 的 neko_eraasync_log_write 指针，使本库日志并入统一 sink。 */
 void fft_set_log_sink(EraLogSink fn, int min_level)
 {
     era_log_set_sink(fn, min_level);

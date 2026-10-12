@@ -1,10 +1,10 @@
 #pragma once
 
-// AudioEngine — ArchoeraMusic 原生音频引擎的 Qt 封装（移植自
-// app/lib/services/playback/audio_engine_process.dart + archoera_mediaengine.h）。
+// AudioEngine — NekoMusic-EraASync 原生音频引擎的 Qt 封装（移植自
+// app/lib/services/playback/audio_engine_process.dart + neko_eraasync.h）。
 //
 // 设计要点（对齐 Dart 侧 AudioEngineProcess）：
-//   - 引擎在**独立工作线程**创建（pipeline_create 打开文件/网络可能耗时），
+//   - 引擎在**独立工作线程**创建（neko_eraasync_pipeline_create 打开文件/网络可能耗时），
 //     并在同一线程阻塞 `wait_event` 排空事件 FIFO；
 //   - 事件经 QMetaObject::invokeMethod 回到主线程（QObject 亲和线程）解析；
 //   - 命令（play/pause/seek/.../prepare_source/commit_source）由主线程直接
@@ -21,7 +21,7 @@
 #include <atomic>
 #include <thread>
 
-struct ArchoeraMediaEngine;
+struct NekoEraASyncEngine;
 
 class AudioEngine : public QObject
 {
@@ -114,7 +114,7 @@ private:
     void cleanupSessionDir();
 
     std::thread m_thread;
-    std::atomic<ArchoeraMediaEngine *> m_handle{nullptr};
+    std::atomic<NekoEraASyncEngine *> m_handle{nullptr};
     std::atomic<bool> m_quit{false};
     std::atomic<bool> m_running{false};
 

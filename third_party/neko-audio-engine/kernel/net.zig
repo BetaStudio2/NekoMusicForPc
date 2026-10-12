@@ -1,13 +1,13 @@
-// ArchoeraMusic Audio Framework
-// Copyright (C) 2026 Archoera && BetaStudio2
+// NekoMusic-EraASync
+// Copyright (C) 2026 NekoEraASync && BetaStudio2
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// EraSync — ArchoeraMusic 自研音频内核
+// NekoMusic-EraASync — 自研音频内核
 
 //! EraAudio 原生网络传输（HTTP/1.1，docs/audio-kernel-zig.md §6.1/§7）
 //!
 //! 定位：让**内核自身**具备网络直链解析与拉流能力，取代此前「内核零网络栈、
 //! 传输全部交给宿主 C 壳经 FFmpeg AVIO 注入」的模式（对照
-//! `pipeline.c :: pipeline_era_url_open`）。本模块自带：
+//! `pipeline.c :: neko_eraasync_pipeline_era_url_open`）。本模块自带：
 //!   - URL 解析（scheme/host/port/path+query）；
 //!   - TCP 连接（`std.Io.net`）与 TLS 握手（`std.crypto.tls.Client`，仅密码学原语
 //!     复用标准库，**不使用** `std.http`，请求/响应解析完全自研）；
@@ -27,12 +27,12 @@
 //!     `shutdown(.both)` 解阻塞，读线程据 `wd_fired` 判为瞬时超时并重连；
 //!   - 低进展连击上限：一段连接交付量低于 `min_progress_bytes` 记为低进展，连续
 //!     `max_low_progress_streak` 次后停止重连（防逐字节滴流无限续传）；
-//!   - 配置：`ARCHOERA_ERA_HTTP_TIMEOUT_MS`（默认 15000；0 关闭 watchdog）、
-//!     `ARCHOERA_ERA_HTTP_RECONNECT`（默认开；0 关闭）、
-//!     `ARCHOERA_ERA_HTTP_RECONNECT_MAX`（默认 3）、
-//!     `ARCHOERA_ERA_HTTP_RECONNECT_DELAY_MS`（默认 500）、
-//!     `ARCHOERA_ERA_HTTP_MIN_PROGRESS_KB`（默认 64）、
-//!     `ARCHOERA_ERA_HTTP_RECONNECT_STREAK`（默认 8）。
+//!   - 配置：`NEKO_ERAASYNC_HTTP_TIMEOUT_MS`（默认 15000；0 关闭 watchdog）、
+//!     `NEKO_ERAASYNC_HTTP_RECONNECT`（默认开；0 关闭）、
+//!     `NEKO_ERAASYNC_HTTP_RECONNECT_MAX`（默认 3）、
+//!     `NEKO_ERAASYNC_HTTP_RECONNECT_DELAY_MS`（默认 500）、
+//!     `NEKO_ERAASYNC_HTTP_MIN_PROGRESS_KB`（默认 64）、
+//!     `NEKO_ERAASYNC_HTTP_RECONNECT_STREAK`（默认 8）。
 //!   落地路径保留宿主 AVIO 回退，异常源仍可回退既有传输。
 //!
 //! 命名：本文件符号为自有命名（`HttpStream` / `era_net_*`），不照搬上游标识符。
@@ -67,7 +67,7 @@ const watchdog_poll_ms: u32 = 50;
 /// 默认 User-Agent：**不带版本号**（版本由宿主经请求头注入，见宿主 pipeline/
 /// Dart `engineHeadersForTrack`，避免在原生内核里硬编码应用版本）。仅当调用方
 /// 未在额外请求头里提供 `User-Agent` 时使用。
-const user_agent = "ArchoeraMusic (EraAudio)";
+const user_agent = "NekoMusic-EraASync (EraAudio)";
 
 /// 读取宿主环境变量（内核经宿主 CRT getenv；缺失返回 null）。
 fn envStr(name: [*:0]const u8) ?[]const u8 {
@@ -400,28 +400,28 @@ pub const HttpStream = struct {
     }
 
     /// 读取断流重连 / 读超时配置：先取环境变量默认，再用 [opts] 覆盖。
-    ///   - `ARCHOERA_ERA_HTTP_TIMEOUT_MS`（默认 15000；0 = 关闭 watchdog）
-    ///   - `ARCHOERA_ERA_HTTP_RECONNECT`（默认开；`0` 关闭）
-    ///   - `ARCHOERA_ERA_HTTP_RECONNECT_MAX`（默认 3）
-    ///   - `ARCHOERA_ERA_HTTP_RECONNECT_DELAY_MS`（默认 500）
+    ///   - `NEKO_ERAASYNC_HTTP_TIMEOUT_MS`（默认 15000；0 = 关闭 watchdog）
+    ///   - `NEKO_ERAASYNC_HTTP_RECONNECT`（默认开；`0` 关闭）
+    ///   - `NEKO_ERAASYNC_HTTP_RECONNECT_MAX`（默认 3）
+    ///   - `NEKO_ERAASYNC_HTTP_RECONNECT_DELAY_MS`（默认 500）
     fn configureFromEnv(self: *HttpStream, opts: Options) void {
         self.timeout_ms = opts.timeout_ms orelse
-            envInt("ARCHOERA_ERA_HTTP_TIMEOUT_MS", default_timeout_ms);
+            envInt("NEKO_ERAASYNC_HTTP_TIMEOUT_MS", default_timeout_ms);
         if (opts.reconnect_enabled) |b| {
             self.reconnect_enabled = b;
-        } else if (envStr("ARCHOERA_ERA_HTTP_RECONNECT")) |s| {
+        } else if (envStr("NEKO_ERAASYNC_HTTP_RECONNECT")) |s| {
             self.reconnect_enabled = !(s.len == 1 and s[0] == '0');
         }
         self.reconnect_max = opts.reconnect_max orelse
-            envInt("ARCHOERA_ERA_HTTP_RECONNECT_MAX", default_reconnect_max);
+            envInt("NEKO_ERAASYNC_HTTP_RECONNECT_MAX", default_reconnect_max);
         self.reconnect_delay_ms = opts.reconnect_delay_ms orelse
-            envInt("ARCHOERA_ERA_HTTP_RECONNECT_DELAY_MS", default_reconnect_delay_ms);
+            envInt("NEKO_ERAASYNC_HTTP_RECONNECT_DELAY_MS", default_reconnect_delay_ms);
         if (self.reconnect_delay_ms == 0) self.reconnect_delay_ms = 1;
         const min_kb = opts.min_progress_kb orelse
-            envInt("ARCHOERA_ERA_HTTP_MIN_PROGRESS_KB", 64);
+            envInt("NEKO_ERAASYNC_HTTP_MIN_PROGRESS_KB", 64);
         self.min_progress_bytes = @as(u64, min_kb) << 10;
         self.max_low_progress_streak = opts.max_low_progress_streak orelse
-            envInt("ARCHOERA_ERA_HTTP_RECONNECT_STREAK", 8);
+            envInt("NEKO_ERAASYNC_HTTP_RECONNECT_STREAK", 8);
         if (self.max_low_progress_streak == 0) self.max_low_progress_streak = 1;
     }
 
@@ -1329,7 +1329,7 @@ test "HttpStream: 自定义请求头随请求发送（X-Neko-Client）" {
     const url = try std.fmt.allocPrint(testing.allocator, "http://127.0.0.1:{d}/echoheader", .{ts.port});
     defer testing.allocator.free(url);
 
-    // 测试夹具仅需一个可辨识的值（真实版本由宿主按 ArchoeraMusic 版本注入）。
+    // 测试夹具仅需一个可辨识的值（真实版本由宿主按 NekoMusic-EraASync 版本注入）。
     const hs = try HttpStream.openWith(testing.allocator, url, .{
         .headers = "X-Neko-Client: test-client\r\nUser-Agent: test-agent",
     });

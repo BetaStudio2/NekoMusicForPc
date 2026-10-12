@@ -1,5 +1,5 @@
-// ArchoeraMusic Audio Framework
-// Copyright (C) 2026 Archoera && BetaStudio2
+// NekoMusic-EraASync
+// Copyright (C) 2026 NekoEraASync && BetaStudio2
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 /**
@@ -14,9 +14,9 @@
 #include <math.h>
 
 /* 内核 DSP 路由（方向① 地基，docs/audio-kernel-zig.md §14）：
- * HAS_ARCHOERA_KERNEL 时优先经 zk_dsp_eq_* 走 Zig 内核，create 失败回退下方
+ * HAS_NEKO_ERAASYNC_KERNEL 时优先经 neko_eraasync_zk_dsp_eq_* 走 Zig 内核，create 失败回退下方
  * 纯 C 实现；内核库缺失则纯 C。对外 API/行为不变。 */
-#if defined(HAS_ARCHOERA_KERNEL)
+#if defined(HAS_NEKO_ERAASYNC_KERNEL)
 #include "../include/kernel_bridge.h"
 #endif
 
@@ -45,8 +45,8 @@ struct Equalizer {
     float gains[EQ_BANDS];
     float preamp_db;
     BiquadFilter *filters;  /* [bands * channels]；内核路径下为 NULL */
-#if defined(HAS_ARCHOERA_KERNEL)
-    ZkDspEq *zk;            /* 非 NULL → 内核实现（优先） */
+#if defined(HAS_NEKO_ERAASYNC_KERNEL)
+    NekoEraASyncZkDspEq *zk;            /* 非 NULL → 内核实现（优先） */
 #endif
 };
 
@@ -87,12 +87,12 @@ Equalizer* equalizer_create(int sample_rate, int channels)
         eq->gains[i] = 0.0f;
     }
 
-#if defined(HAS_ARCHOERA_KERNEL)
+#if defined(HAS_NEKO_ERAASYNC_KERNEL)
     /* 优先内核实现；失败（非法参数/OOM）→ 下方 C 回退 */
-    eq->zk = zk_dsp_eq_create(sample_rate, channels);
+    eq->zk = neko_eraasync_zk_dsp_eq_create(sample_rate, channels);
     if (eq->zk) {
-        zk_dsp_eq_set_gains(eq->zk, eq->gains);
-        zk_dsp_eq_set_preamp(eq->zk, eq->preamp_db);
+        neko_eraasync_zk_dsp_eq_set_gains(eq->zk, eq->gains);
+        neko_eraasync_zk_dsp_eq_set_preamp(eq->zk, eq->preamp_db);
     } else {
         eq->filters = calloc(EQ_BANDS * channels, sizeof(BiquadFilter));
         if (!eq->filters) {
@@ -120,9 +120,9 @@ void equalizer_set_gains(Equalizer *eq, const float gains[EQ_BANDS])
 
     memcpy(eq->gains, gains, sizeof(eq->gains));
 
-#if defined(HAS_ARCHOERA_KERNEL)
+#if defined(HAS_NEKO_ERAASYNC_KERNEL)
     if (eq->zk) {
-        zk_dsp_eq_set_gains(eq->zk, eq->gains);
+        neko_eraasync_zk_dsp_eq_set_gains(eq->zk, eq->gains);
         return;
     }
 #endif
@@ -144,9 +144,9 @@ void equalizer_set_preamp(Equalizer *eq, float preamp_db)
 {
     if (!eq) return;
     eq->preamp_db = preamp_db;
-#if defined(HAS_ARCHOERA_KERNEL)
+#if defined(HAS_NEKO_ERAASYNC_KERNEL)
     if (eq->zk) {
-        zk_dsp_eq_set_preamp(eq->zk, preamp_db);
+        neko_eraasync_zk_dsp_eq_set_preamp(eq->zk, preamp_db);
         return;
     }
 #endif
@@ -156,9 +156,9 @@ void equalizer_process(Equalizer *eq, float *pcm, int samples)
 {
     if (!eq || !pcm || samples <= 0) return;
 
-#if defined(HAS_ARCHOERA_KERNEL)
+#if defined(HAS_NEKO_ERAASYNC_KERNEL)
     if (eq->zk) {
-        zk_dsp_eq_process(eq->zk, pcm, samples);
+        neko_eraasync_zk_dsp_eq_process(eq->zk, pcm, samples);
         return;
     }
 #endif
@@ -213,8 +213,8 @@ void equalizer_process(Equalizer *eq, float *pcm, int samples)
 void equalizer_destroy(Equalizer *eq)
 {
     if (!eq) return;
-#if defined(HAS_ARCHOERA_KERNEL)
-    if (eq->zk) zk_dsp_eq_destroy(eq->zk);
+#if defined(HAS_NEKO_ERAASYNC_KERNEL)
+    if (eq->zk) neko_eraasync_zk_dsp_eq_destroy(eq->zk);
 #endif
     if (eq->filters) free(eq->filters);
     free(eq);

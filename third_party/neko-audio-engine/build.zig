@@ -1,13 +1,13 @@
-// ArchoeraMusic Audio Framework
-// Copyright (C) 2026 Archoera && BetaStudio2
+// NekoMusic-EraASync
+// Copyright (C) 2026 NekoEraASync && BetaStudio2
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// EraSync — ArchoeraMusic 自研音频内核
+// NekoMusic-EraASync — 自研音频内核
 
-//! archoera_kernel 构建脚本（Zig 0.16.0 build API）
+//! neko_eraasync_kernel 构建脚本（Zig 0.16.0 build API）
 //!
 //! 目标产物：
-//!   - archoera_kernel：纯 Zig 音频解码内核（静态库）
-//!     —— 由 C 壳（audio-engine/src/*.c）经 kernel_bridge.h（zk_* C ABI）
+//!   - neko_eraasync_kernel：纯 Zig 音频解码内核（静态库）
+//!     —— 由 C 壳（audio-engine/src/*.c）经 kernel_bridge.h（neko_eraasync_zk_* C ABI）
 //!        链接调用，作为 FFmpeg 解码器的渐进替换后端（见 docs/audio-kernel-zig.md）。
 //!   - `zig build test`：内核单元测试（wav 黄金样本 / probe 魔数嗅探等）。
 
@@ -125,7 +125,7 @@ pub fn build(b: *std.Build) void {
 
     // ---- 内核静态库 ----
     const kernel = b.addLibrary(.{
-        .name = "archoera_kernel",
+        .name = "neko_eraasync_kernel",
         .linkage = .static,
         .root_module = b.createModule(.{
             .root_source_file = b.path("kernel/kernel.zig"),
@@ -165,16 +165,16 @@ pub fn build(b: *std.Build) void {
         .files = &amr_sources,
         .flags = &amr_flags,
     });
-    // 注意：Windows 下静态库与动态 import 库同名（均为 zig-out/lib/archoera_kernel.lib）。
+    // 注意：Windows 下静态库与动态 import 库同名（均为 zig-out/lib/neko_eraasync_kernel.lib）。
     // mediaengine 链接该文件，且必须是**静态库**（Zig 静态库带 .drectve，为 MSVC 链接
     // 补齐 UCRT/CRT 默认库）；若落到 import lib，链接会报 82 个 CRT 未解析符号。
     // 两个 installArtifact 写同一路径会**竞态**（实测约 6/8 次 import lib 覆盖静态库），
     // 故 Windows 上只 installArtifact 静态库，动态库仅安装 DLL（见下方 kernel_shared）。
     b.installArtifact(kernel);
-    // ---- 内核动态库（scanner NativeAOT P/Invoke：zk_metadata_* 结构化 ABI，无 JSON）----
-    // 与静态库同源同配置；scanner 侧 DllImport("archoera_kernel")，随包分发 .so。
+    // ---- 内核动态库（scanner NativeAOT P/Invoke：neko_eraasync_zk_metadata_* 结构化 ABI，无 JSON）----
+    // 与静态库同源同配置；scanner 侧 DllImport("neko_eraasync_kernel")，随包分发 .so。
     const kernel_shared = b.addLibrary(.{
-        .name = "archoera_kernel",
+        .name = "neko_eraasync_kernel",
         .linkage = .dynamic,
         .root_module = b.createModule(.{
             .root_source_file = b.path("kernel/kernel.zig"),
@@ -204,7 +204,7 @@ pub fn build(b: *std.Build) void {
         const install_kernel_dll = b.addInstallFileWithDir(
             kernel_shared.getEmittedBin(),
             .bin,
-            "archoera_kernel.dll",
+            "neko_eraasync_kernel.dll",
         );
         b.getInstallStep().dependOn(&install_kernel_dll.step);
     } else {
@@ -213,7 +213,7 @@ pub fn build(b: *std.Build) void {
 
     // ---- 内核单元测试 ----
     const kernel_tests = b.addTest(.{
-        .name = "archoera-kernel-tests",
+        .name = "neko-eraasync-kernel-tests",
         .root_module = b.createModule(.{
             .root_source_file = b.path("kernel/kernel.zig"),
             .target = target,

@@ -2,12 +2,33 @@
 
 > 分支：`qt-seamless-playback`　来源：ArchoeraMusic `app/core/audio-engine` @ `17f4e46`（v1.0.0）
 >
-> 目标：把 ArchoeraMusic 的「无缝播放」能力移植进 Qt 客户端——**音质无缝切换**与
+> 目标：把上游引擎的「无缝播放」能力移植进 Qt 客户端——**音质无缝切换**与
 > **曲间无缝（gapless）**——且**不改动项目既有的歌曲缓存/下载模式**。
+
+## 0. 命名与版本冻结（NekoMusic-EraASync）
+
+上层引擎为其 NekoMusic 定制分支，正式命名为 **NekoMusic-EraASync**
+（EraA = EraAudio，Sync = EraSync），并**固定在上述 v1.0.0 基准**：
+
+- **不再跟随上游更新**：上游修复/新特性不保证合并，本目录**可能不会受到后期
+  更新与维护**；如需同步请人工挑选并重测。详见
+  `third_party/neko-audio-engine/FORK-NOTICE.md`。
+- **命名映射**：对外品牌与 C ABI 统一 `NekoMusic-EraASync` / `neko_eraasync_*`：
+
+  | 旧（上游） | 新（NekoMusic-EraASync） |
+  |---|---|
+  | `archoera_mediaengine_*` | `neko_eraasync_*` |
+  | `ArchoeraMediaEngine` | `NekoEraASyncEngine` |
+  | `pipeline_*` | `neko_eraasync_pipeline_*` |
+  | `zk_*` | `neko_eraasync_zk_*` |
+  | `HAS_ARCHOERA_KERNEL` / `ARCHOERRA_*` | `HAS_NEKO_ERAASYNC_KERNEL` / `NEKO_ERAASYNC_*` |
+  | 库目标 `archoera_engine` / `archoera_kernel` | `neko_eraasync_engine` / `neko_eraasync_kernel` |
+
+  内部内核组件名 `EraAudio` 与 `era_*` 前缀**保留**。
 
 ## 1. 为什么不是简单照搬
 
-ArchoeraMusic 的无缝依赖自研音频引擎的**单会话暂存源**机制（`prepare_source` /
+NekoMusic-EraASync 的无缝依赖自研音频引擎的**单会话暂存源**机制（`prepare_source` /
 `commit_source`）：旧源照常出声，新源在独立预取线程预解码进内存 stage，切档时按
 「旧源解码游标」做**样本级裁剪**后把 PCM 续喂**同一个 ring buffer**，设备/会话不重建。
 `QMediaPlayer` 拿不到解码 PCM，无法做这种桥接，因此本移植**引入原生引擎**作为播放后端。
@@ -15,8 +36,8 @@ ArchoeraMusic 的无缝依赖自研音频引擎的**单会话暂存源**机制�
 按移植决策：
 
 - **移植 Zig 解码内核（EraAudio）**：vendored 于
-  `third_party/neko-audio-engine/kernel/`，由 `zig build` 产出 `libarchoera_kernel.a`
-  并定义 `HAS_ARCHOERA_KERNEL`；逐格式接管解码（不支持/失败自动回退 FFmpeg），
+  `third_party/neko-audio-engine/kernel/`，由 `zig build` 产出 `libneko_eraasync_kernel.a`
+  并定义 `HAS_NEKO_ERAASYNC_KERNEL`；逐格式接管解码（不支持/失败自动回退 FFmpeg），
   滤波/DSP 也优先走内核。可 `-DNEKO_ENABLE_ERAUDIO_KERNEL=OFF` 关闭；
   运行时 `NEKO_ERAUDIO=0` 强制回退 FFmpeg。
 - **不链接 Rust tempo**：`HAS_TEMPO` 未定义，`tempo.c` 走旁通 stub。
@@ -27,15 +48,15 @@ ArchoeraMusic 的无缝依赖自研音频引擎的**单会话暂存源**机制�
 
 | 文件 | 作用 |
 |---|---|
-| `third_party/neko-audio-engine/` | vendored 引擎（C 外壳 + Zig EraAudio 内核），静态库 `archoera_engine` |
-| `third_party/neko-audio-engine/kernel/` | EraAudio Zig 解码内核源码（`build.zig` → `libarchoera_kernel.a`） |
+| `third_party/neko-audio-engine/` | vendored 引擎（C 外壳 + Zig EraAudio 内核），静态库 `neko_eraasync_engine` |
+| `third_party/neko-audio-engine/kernel/` | EraAudio Zig 解码内核源码（`build.zig` → `libneko_eraasync_kernel.a`） |
 | `src/core/audioengine.{h,cpp}` | 引擎的 Qt 封装：工作线程 create + `wait_event` 事件泵 + 命令下发 |
 | `src/core/playerengine.h` | 播放门面（公共 API/信号不变），仅原生引擎实现 |
 | `src/core/playerengine_native.cpp` | 原生引擎实现（无缝切换 + 曲间无缝） |
 | `src/core/mediaprobe.{h,cpp}` | 本地文件标签/内嵌封面探测（直接用内嵌 FFmpeg，替代 QMediaPlayer） |
 
 构建门控：必须提供 FFmpeg（推荐自建最小 FFmpeg，见 §6），定义 `NEKO_HAS_AUDIO_ENGINE`
-并链接 `archoera_engine`；**QMediaPlayer 回退已移除**，未提供 FFmpeg 时配置直接失败。
+并链接 `neko_eraasync_engine`；**QMediaPlayer 回退已移除**，未提供 FFmpeg 时配置直接失败。
 EraAudio 内核需 Zig 0.16.0；未找到 `zig` 时仅内核不启用（解码/滤波回退 FFmpeg），
 可用 `-DNEKO_ENABLE_ERAUDIO_KERNEL=OFF` 显式关闭。
 
@@ -141,13 +162,13 @@ bash third_party/neko-audio-engine/tools/compile-check.sh all
 - **QMediaPlayer 已移除**：播放与本地标签/封面探测均走原生引擎 + 内嵌 FFmpeg
   （`src/core/mediaprobe.cpp`）；不再分发 Qt Multimedia 的媒体后端。Qt Multimedia
   仅保留 `QAudioDevice/QMediaDevices` 用于输出设备枚举（麦克风同步/设备选择）。
-- **EraAudio 解码内核**：已移植 Zig 内核并**静态链接**（`libarchoera_kernel`），逐格式
+- **EraAudio 解码内核**：已移植 Zig 内核并**静态链接**（`libneko_eraasync_kernel`），逐格式
   接管解码/滤波，未支持或失败自动回退 FFmpeg；需 Zig 0.16.0。可
   `-DNEKO_ENABLE_ERAUDIO_KERNEL=OFF` 构建期关闭，或运行时 `NEKO_ERAUDIO=0` 回退 FFmpeg。
 - **内核原生 HTTP(S)（已启用）**：在线 `http(s)://` 源优先走内核自研网络栈
   （`kernel/net.zig`：TCP + Zig std TLS、Range 随机访问、断流重连/读超时），
-  失败自动回退 FFmpeg AVIO；`ARCHOERA_ERA_NATIVE_HTTP=0` 可显式关闭。宿主经
-  `archoera_mediaengine_create_with_headers`（Qt 侧 `AudioEngine::Config::headers`，
+  失败自动回退 FFmpeg AVIO；`NEKO_ERAASYNC_NATIVE_HTTP=0` 可显式关闭。宿主经
+  `neko_eraasync_create_with_headers`（Qt 侧 `AudioEngine::Config::headers`，
   见 `src/core/clientidentity.h`）注入 `User-Agent` + `X-Neko-Client` 客户端标识，
   避免在线拉流被服务端降级。`net.zig` 不使用系统代理。
 - **Windows**：CI 用 Qt 自带 MinGW 构建最小 FFmpeg；Qt 升级后仅需重跑脚本（不再依赖 BtbN 下载）。

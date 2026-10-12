@@ -1,8 +1,8 @@
 .{
-    .name = .archoera_kernel,
+    .name = .neko_eraasync_kernel,
     .version = "0.1.0",
     .minimum_zig_version = "0.16.0",
-    .fingerprint = 0xb50b02889c9072f2,
+    .fingerprint = 0x1192d6e47ce1365,
     .paths = .{
         "build.zig",
         "build.zig.zon",

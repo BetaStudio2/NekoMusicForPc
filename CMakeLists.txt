@@ -316,13 +316,13 @@ else()
     list(APPEND SOURCES src/core/micsynccontroller_stub.cpp)
 endif()
 
-# ── ArchoeraAudio 原生音频引擎（无缝播放；FFmpeg-only，无 Zig 内核）──────
+# ── NekoMusic-EraASync 原生音频引擎（无缝播放；FFmpeg-only，无 Zig 内核）──────
 # vendor 于 third_party/neko-audio-engine/，见该目录 CMakeLists 的移植说明。
 # QMediaPlayer 回退已移除：必须提供 FFmpeg（推荐自建最小 FFmpeg，见
 # third_party/neko-audio-engine/tools/build-ffmpeg-minimal.sh 与
 # docs/seamless-playback-port.md §6）。
 add_subdirectory(third_party/neko-audio-engine)
-if(ARCHOERRA_ENGINE_AVAILABLE)
+if(NEKO_ERAASYNC_ENGINE_AVAILABLE)
     message(STATUS "NekoMusic: 启用原生引擎 — 无缝音质切换 + 曲间无缝续播")
     list(APPEND SOURCES
             src/core/audioengine.cpp
@@ -439,24 +439,24 @@ if(WIN32)
     endif()
 endif()
 
-if(ARCHOERRA_ENGINE_AVAILABLE)
+if(NEKO_ERAASYNC_ENGINE_AVAILABLE)
     target_compile_definitions(${PROJECT_NAME} PRIVATE NEKO_HAS_AUDIO_ENGINE=1)
-    target_link_libraries(${PROJECT_NAME} PRIVATE archoera_engine)
+    target_link_libraries(${PROJECT_NAME} PRIVATE neko_eraasync_engine)
     # mediaprobe.cpp 直接包含 FFmpeg 头（与引擎复用同一套库）
-    target_include_directories(${PROJECT_NAME} PRIVATE ${ARCHOERRA_FFMPEG_INCLUDE_DIRS})
+    target_include_directories(${PROJECT_NAME} PRIVATE ${NEKO_ERAASYNC_FFMPEG_INCLUDE_DIRS})
 endif()
 
 # 随包内嵌自建最小 FFmpeg：设置运行时库搜索路径（$ORIGIN/@loader_path），
 # 开发树用 BUILD_RPATH 指向构建出的 lib 目录，直接可运行。
-if(ARCHOERRA_ENGINE_AVAILABLE AND NEKO_FFMPEG_BUNDLE AND ARCHOERRA_FFMPEG_ROOT)
-    message(STATUS "NekoMusic: 随包内嵌最小 FFmpeg（${ARCHOERRA_FFMPEG_ROOT}）")
+if(NEKO_ERAASYNC_ENGINE_AVAILABLE AND NEKO_FFMPEG_BUNDLE AND NEKO_ERAASYNC_FFMPEG_ROOT)
+    message(STATUS "NekoMusic: 随包内嵌最小 FFmpeg（${NEKO_ERAASYNC_FFMPEG_ROOT}）")
     set_property(TARGET ${PROJECT_NAME} APPEND PROPERTY
-        BUILD_RPATH "${ARCHOERRA_FFMPEG_ROOT}/lib")
+        BUILD_RPATH "${NEKO_ERAASYNC_FFMPEG_ROOT}/lib")
     if(APPLE)
         # .app 内的 dylib 由 macdeployqt 收进 Contents/Frameworks；
         # 同时加入构建出的 lib 目录，供 macdeployqt 解析 @rpath 后拷贝。
         set_property(TARGET ${PROJECT_NAME} APPEND PROPERTY
-            INSTALL_RPATH "@loader_path/../Frameworks" "${ARCHOERRA_FFMPEG_ROOT}/lib")
+            INSTALL_RPATH "@loader_path/../Frameworks" "${NEKO_ERAASYNC_FFMPEG_ROOT}/lib")
     elseif(LINUX)
         set_property(TARGET ${PROJECT_NAME} APPEND PROPERTY
             INSTALL_RPATH "$ORIGIN/lib")
@@ -488,8 +488,8 @@ if(LINUX)
     )
 
     # 随包内嵌的最小 FFmpeg 共享库（RUNPATH=$ORIGIN/lib 指向此处，见上）
-    if(ARCHOERRA_ENGINE_AVAILABLE AND NEKO_FFMPEG_BUNDLE AND ARCHOERRA_FFMPEG_ROOT)
-        install(DIRECTORY "${ARCHOERRA_FFMPEG_ROOT}/lib/"
+    if(NEKO_ERAASYNC_ENGINE_AVAILABLE AND NEKO_FFMPEG_BUNDLE AND NEKO_ERAASYNC_FFMPEG_ROOT)
+        install(DIRECTORY "${NEKO_ERAASYNC_FFMPEG_ROOT}/lib/"
                 DESTINATION "${NEKO_LINUX_INSTALL_DIR}/lib"
                 FILES_MATCHING PATTERN "lib*.so*")
     endif()
@@ -563,10 +563,10 @@ if(LINUX)
     list(JOIN _neko_debian_depends ", " CPACK_DEBIAN_PACKAGE_DEPENDS)
     set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
     set(_neko_shlibdeps_dirs "$ENV{QT_ROOT_DIR}/lib")
-    if(ARCHOERRA_ENGINE_AVAILABLE AND NEKO_FFMPEG_BUNDLE AND ARCHOERRA_FFMPEG_ROOT)
+    if(NEKO_ERAASYNC_ENGINE_AVAILABLE AND NEKO_FFMPEG_BUNDLE AND NEKO_ERAASYNC_FFMPEG_ROOT)
         # 自建最小 FFmpeg 属包内私有库：让 dpkg-shlibdeps 在此目录识别，
         # 避免误判为外部依赖（其余如 libssl3/libc 仍会自动补全）。
-        list(APPEND _neko_shlibdeps_dirs "${ARCHOERRA_FFMPEG_ROOT}/lib")
+        list(APPEND _neko_shlibdeps_dirs "${NEKO_ERAASYNC_FFMPEG_ROOT}/lib")
     endif()
     set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS_PRIVATE_DIRS "${_neko_shlibdeps_dirs}")
     set(CPACK_DEBIAN_PACKAGE_ARCHITECTURE "amd64")

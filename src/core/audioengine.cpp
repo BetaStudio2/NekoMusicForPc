@@ -12,7 +12,7 @@
 #include <cstring>
 #include <vector>
 
-#include "archoera_mediaengine.h"
+#include "neko_eraasync.h"
 
 namespace {
 constexpr int kEventBufCap = 2048;
@@ -22,7 +22,7 @@ QString makeSessionDir()
 {
     static std::atomic<quint64> s_seq{0};
     const QString dir = QDir::tempPath()
-        + QStringLiteral("/neko-archoera-%1-%2-%3")
+        + QStringLiteral("/neko-eraasync-%1-%2-%3")
               .arg(QCoreApplication::applicationPid())
               .arg(QDateTime::currentMSecsSinceEpoch())
               .arg(s_seq.fetch_add(1));
@@ -79,7 +79,7 @@ void AudioEngine::start(const QString &source, const Config &cfg)
     engineCfg.output_channels = cfg.outputChannels > 0 ? cfg.outputChannels : 2;
     engineCfg.bitrate = cfg.bitrate;
     engineCfg.skip_encoder = cfg.skipEncoder;
-#if defined(HAS_ARCHOERA_KERNEL)
+#if defined(HAS_NEKO_ERAASYNC_KERNEL)
     // EraAudio Zig 解码内核已链接：默认“原生优先”（逐格式接管，遇到未支持/失败的
     // 格式由引擎内部自动回退 FFmpeg）。可用环境变量 NEKO_ERAUDIO=0 在运行时强制 FFmpeg。
     {
@@ -95,12 +95,12 @@ void AudioEngine::start(const QString &source, const Config &cfg)
 
     m_thread = std::thread([this, src, sessionDir, playerFile, headers, engineCfg]() {
         char err[512] = {0};
-        ArchoeraMediaEngine *e =
+        NekoEraASyncEngine *e =
             headers.empty()
-                ? archoera_mediaengine_create(
+                ? neko_eraasync_create(
                       src.c_str(), &engineCfg, playerFile.c_str(),
                       sessionDir.c_str(), err, static_cast<int>(sizeof(err)))
-                : archoera_mediaengine_create_with_headers(
+                : neko_eraasync_create_with_headers(
                       src.c_str(), headers.c_str(), &engineCfg,
                       playerFile.c_str(), sessionDir.c_str(), err,
                       static_cast<int>(sizeof(err)));
@@ -118,7 +118,7 @@ void AudioEngine::start(const QString &source, const Config &cfg)
 
         std::vector<char> buf(kEventBufCap);
         while (!m_quit.load()) {
-            const int r = archoera_mediaengine_wait_event(
+            const int r = neko_eraasync_wait_event(
                 e, buf.data(), kEventBufCap, kWaitTimeoutMs);
             if (r > 0) {
                 const QString line = QString::fromUtf8(buf.data(), r);
@@ -130,7 +130,7 @@ void AudioEngine::start(const QString &source, const Config &cfg)
             }
         }
 
-        archoera_mediaengine_destroy(e);
+        neko_eraasync_destroy(e);
         m_handle.store(nullptr);
         m_running.store(false);
         QMetaObject::invokeMethod(this, [this]() {
@@ -147,13 +147,13 @@ void AudioEngine::stop()
 void AudioEngine::play()
 {
     if (auto *e = m_handle.load())
-        archoera_mediaengine_command(e, "{\"type\":\"play\"}");
+        neko_eraasync_command(e, "{\"type\":\"play\"}");
 }
 
 void AudioEngine::pause()
 {
     if (auto *e = m_handle.load())
-        archoera_mediaengine_command(e, "{\"type\":\"pause\"}");
+        neko_eraasync_command(e, "{\"type\":\"pause\"}");
 }
 
 void AudioEngine::seek(qint64 positionMs)
@@ -161,7 +161,7 @@ void AudioEngine::seek(qint64 positionMs)
     if (auto *e = m_handle.load()) {
         const QByteArray cmd = QStringLiteral("{\"type\":\"seek\",\"position_ms\":%1}")
                                    .arg(positionMs).toUtf8();
-        archoera_mediaengine_command(e, cmd.constData());
+        neko_eraasync_command(e, cmd.constData());
     }
 }
 
@@ -170,7 +170,7 @@ void AudioEngine::setVolume(float gain)
     if (auto *e = m_handle.load()) {
         const QByteArray cmd = QStringLiteral("{\"type\":\"set_volume\",\"gain\":%1}")
                                    .arg(static_cast<double>(gain), 0, 'f', 4).toUtf8();
-        archoera_mediaengine_command(e, cmd.constData());
+        neko_eraasync_command(e, cmd.constData());
     }
 }
 
@@ -180,7 +180,7 @@ void AudioEngine::setSink(const QString &sinkId)
         const QJsonObject o{{QStringLiteral("type"), QStringLiteral("set_sink")},
                             {QStringLiteral("id"), sinkId}};
         const QByteArray cmd = QJsonDocument(o).toJson(QJsonDocument::Compact);
-        archoera_mediaengine_command(e, cmd.constData());
+        neko_eraasync_command(e, cmd.constData());
     }
 }
 
@@ -189,14 +189,14 @@ void AudioEngine::setEventInterval(int intervalMs)
     if (auto *e = m_handle.load()) {
         const QByteArray cmd = QStringLiteral("{\"type\":\"set_event_interval\",\"interval_ms\":%1}")
                                    .arg(intervalMs).toUtf8();
-        archoera_mediaengine_command(e, cmd.constData());
+        neko_eraasync_command(e, cmd.constData());
     }
 }
 
 void AudioEngine::requestStatus()
 {
     if (auto *e = m_handle.load())
-        archoera_mediaengine_command(e, "{\"type\":\"get_status\"}");
+        neko_eraasync_command(e, "{\"type\":\"get_status\"}");
 }
 
 void AudioEngine::prepareSource(const QString &url, bool nextTrack)
@@ -207,14 +207,14 @@ void AudioEngine::prepareSource(const QString &url, bool nextTrack)
         if (nextTrack)
             o.insert(QStringLiteral("next_track"), true);
         const QByteArray cmd = QJsonDocument(o).toJson(QJsonDocument::Compact);
-        archoera_mediaengine_command(e, cmd.constData());
+        neko_eraasync_command(e, cmd.constData());
     }
 }
 
 void AudioEngine::commitSource()
 {
     if (auto *e = m_handle.load())
-        archoera_mediaengine_command(e, "{\"type\":\"commit_source\"}");
+        neko_eraasync_command(e, "{\"type\":\"commit_source\"}");
 }
 
 void AudioEngine::handleEventLine(const QString &line)
@@ -294,7 +294,7 @@ QVector<AudioEngine::Sink> AudioEngine::listSinks()
 {
     QVector<Sink> sinks;
     std::vector<char> buf(16384);
-    const int n = archoera_mediaengine_list_sinks(buf.data(), static_cast<int>(buf.size()));
+    const int n = neko_eraasync_list_sinks(buf.data(), static_cast<int>(buf.size()));
     if (n <= 0)
         return sinks;
     const QJsonDocument doc = QJsonDocument::fromJson(QByteArray(buf.data(), n));

@@ -1,6 +1,6 @@
 // PlayerEngine 原生引擎实现（NEKO_HAS_AUDIO_ENGINE）。
 //
-// 移植自 ArchoeraMusic 的「单会话暂存源」无缝播放：
+// 移植自 NekoMusic-EraASync 的「单会话暂存源」无缝播放：
 //   - 音质无缝切换：switchSourceWithoutRestart → prepare_source → source_ready
 //     → commit_source → source_switched（同一会话内接管，样本级对齐）；
 //   - 曲间无缝：prepareNextSource（临近曲尾预加载）→ commitPreparedNext

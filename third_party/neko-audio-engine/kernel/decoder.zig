@@ -1,7 +1,7 @@
-// ArchoeraMusic Audio Framework
-// Copyright (C) 2026 Archoera && BetaStudio2
+// NekoMusic-EraASync
+// Copyright (C) 2026 NekoEraASync && BetaStudio2
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// EraSync — ArchoeraMusic 自研音频内核
+// NekoMusic-EraASync — 自研音频内核
 
 //! 解码层统一接口（docs/audio-kernel-zig.md §8.1）
 //!
@@ -107,7 +107,7 @@ pub const Info = struct {
     duration_us: i64,
     duration_known: DurationKnown,
     /// 编码器名（对齐 FFmpeg 命名，如 "pcm_s16le"；静态字面量，sentinel 终止，
-    /// 供 C ABI（zk_decoder_open 的 ZkInfo.codec_name）直接取指针）
+    /// 供 C ABI（neko_eraasync_zk_decoder_open 的 NekoEraASyncZkInfo.codec_name）直接取指针）
     codec_name: [:0]const u8,
     /// 容器名（如 "wav"）
     format_name: [:0]const u8,

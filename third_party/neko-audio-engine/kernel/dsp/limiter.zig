@@ -1,12 +1,12 @@
-// ArchoeraMusic Audio Framework
-// Copyright (C) 2026 Archoera && BetaStudio2
+// NekoMusic-EraASync
+// Copyright (C) 2026 NekoEraASync && BetaStudio2
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// EraSync — ArchoeraMusic 自研音频内核
+// NekoMusic-EraASync — 自研音频内核
 
 //! 输出限幅器（docs/audio-kernel-zig.md §14；方向① 地基）
 //!
 //! 逐函数移植自 C 壳 `src/limiter.c`：软膝压缩（4:1）+ 1.0 硬上限，
-//! 阈值默认 −1 dB（留余量）。对外等价 `limiter_*`，经 `zk_dsp_limiter_*`
+//! 阈值默认 −1 dB（留余量）。对外等价 `limiter_*`，经 `neko_eraasync_zk_dsp_limiter_*`
 //! C ABI 暴露；C 壳优先路由内核、失败回退 C 实现。
 //!
 //! 命名自有（era_ 前缀），不照搬 FFmpeg / SoX 等上游标识符。
@@ -21,7 +21,7 @@ pub const era_limiter_default_threshold_db: f32 = -1.0;
 /// 超过阈值部分的压缩比（4:1 → ×0.25），与 C 一致。
 const era_limiter_makeup_ratio: f32 = 0.25;
 
-/// 限幅器实例（不透明于 C 侧 `ZkDspLimiter`）。
+/// 限幅器实例（不透明于 C 侧 `NekoEraASyncZkDspLimiter`）。
 pub const EraLimiter = struct {
     allocator: std.mem.Allocator,
     sample_rate: u32,

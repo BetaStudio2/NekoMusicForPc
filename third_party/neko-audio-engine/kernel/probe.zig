@@ -1,7 +1,7 @@
-// ArchoeraMusic Audio Framework
-// Copyright (C) 2026 Archoera && BetaStudio2
+// NekoMusic-EraASync
+// Copyright (C) 2026 NekoEraASync && BetaStudio2
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// EraSync — ArchoeraMusic 自研音频内核
+// NekoMusic-EraASync — 自研音频内核
 
 //! 格式探测（docs/audio-kernel-zig.md §7）
 //!
@@ -83,8 +83,8 @@ pub const formats = .{
     .tak = true, // TAK：已验收接管（bit-exact 对齐 ffmpeg native tak）
 };
 
-/// AS4：格式提示（C ABI `enum ZkFormatHint`）与内核 `Format` 的双向映射。
-/// 调用方在 `ZkSubmitReq.format_hint` 里携带**跨语言稳定**的数值，内核据此
+/// AS4：格式提示（C ABI `enum NekoEraASyncZkFormatHint`）与内核 `Format` 的双向映射。
+/// 调用方在 `NekoEraASyncZkSubmitReq.format_hint` 里携带**跨语言稳定**的数值，内核据此
 /// **免 probe** 直接分派；映射不上（0=unknown / 未来值）或分派失败则回退 probe。
 /// 数值一经发布不得重排（与 include/kernel_bridge.h 同步维护）。
 pub const FormatHint = enum(u32) {

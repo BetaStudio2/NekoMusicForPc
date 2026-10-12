@@ -1,5 +1,5 @@
-// ArchoeraMusic Audio Framework
-// Copyright (C) 2026 Archoera && BetaStudio2
+// NekoMusic-EraASync
+// Copyright (C) 2026 NekoEraASync && BetaStudio2
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 /**
@@ -91,7 +91,7 @@ struct PlayerCtx {
     /* 播放位置游标：已消费内容时间基（ms）+ 设备已消费帧（非流式文件模式不用） */
     qa_size stream_pos_base_ms; /* double 位模式（原子）；引擎写 / FFI 读 */
     ma_uint64 stream_consumed_frames; /* 累计设备消费帧数（本设备） */
-    /* 流式诊断日志（ARCHOERA_DEBUG_STREAM=1，回调零开销时禁用） */
+    /* 流式诊断日志（NEKO_ERAASYNC_DEBUG_STREAM=1，回调零开销时禁用） */
     int stream_debug;
     /* feed→设备 重采样（源率/声道 ≠ 设备原生时；0/0 直通则 NULL） */
     Resampler *stream_swr;
@@ -176,7 +176,7 @@ int player_sink_select(const player_sink_candidate *p_candidates,
                               d->channels < PLAYER_SINK_MIN_CHANNELS)) {
             if (p_reason) snprintf(p_reason, reason_cap,
                 "默认 %s (%uhz/%uch 低质量/单声道，如蓝牙 HFP)——尊重所选，不自动切换；"
-                "如需高质量输出请把系统默认切到 A2DP/其它设备或用 ARCHOERA_AUDIO_SINK 指定",
+                "如需高质量输出请把系统默认切到 A2DP/其它设备或用 NEKO_ERAASYNC_AUDIO_SINK 指定",
                 d->name, d->sample_rate, d->channels);
         } else {
             if (p_reason) snprintf(p_reason, reason_cap,
@@ -255,7 +255,7 @@ const char *player_sink_class_str(int cls)
     return audio_output_class_str(cls);
 }
 
-/* ── 会话无关 sink 枚举导出（Dart 侧 archoera_mediaengine_list_sinks 复用）── */
+/* ── 会话无关 sink 枚举导出（Dart 侧 neko_eraasync_list_sinks 复用）── */
 
 int player_list_sinks(player_sink_info *out, int cap)
 {
@@ -331,8 +331,8 @@ PlayerCtx *player_start_opts(const char *ogg_path,
         /* mediaengine 会话路径：sink_id 权威（空串 = 系统默认、忽略 env） */
         env_override = (sink_id[0] != '\0') ? sink_id : NULL;
     } else {
-        /* CLI 兼容路径：无显式传参时沿用 env ARCHOERA_AUDIO_SINK */
-        env_override = getenv("ARCHOERA_AUDIO_SINK");
+        /* CLI 兼容路径：无显式传参时沿用 env NEKO_ERAASYNC_AUDIO_SINK */
+        env_override = getenv("NEKO_ERAASYNC_AUDIO_SINK");
         if (env_override && env_override[0] == '\0') env_override = NULL;
     }
 
@@ -730,7 +730,7 @@ PlayerCtx *player_stream_open(const char *sink_id,
     p->position_interval_ms = POSITION_INTERVAL_MS;
     p->stream_feed_rate = (unsigned)content_rate;
     p->stream_feed_ch = (unsigned)content_channels;
-    p->stream_debug = (getenv("ARCHOERA_DEBUG_STREAM") != NULL);
+    p->stream_debug = (getenv("NEKO_ERAASYNC_DEBUG_STREAM") != NULL);
     stream_volume_set(p, st_opts.volume);
     QA_STORE_REL(&p->playing, st_opts.start_paused ? 0 : 1);
 
@@ -738,7 +738,7 @@ PlayerCtx *player_stream_open(const char *sink_id,
     if (sink_id != NULL) {
         env_override = (sink_id[0] != '\0') ? sink_id : NULL;
     } else {
-        env_override = getenv("ARCHOERA_AUDIO_SINK");
+        env_override = getenv("NEKO_ERAASYNC_AUDIO_SINK");
         if (env_override && env_override[0] == '\0') env_override = NULL;
     }
     sink_name[0] = '\0';

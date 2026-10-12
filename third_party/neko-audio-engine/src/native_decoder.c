@@ -1,16 +1,16 @@
-// ArchoeraMusic Audio Framework
-// Copyright (C) 2026 Archoera && BetaStudio2
+// NekoMusic-EraASync
+// Copyright (C) 2026 NekoEraASync && BetaStudio2
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 /**
- * native_decoder.c — 自研 Zig 解码内核（archoera_kernel）的 C 壳封装
+ * native_decoder.c — 自研 Zig 解码内核（neko_eraasync_kernel）的 C 壳封装
  *
- * 经 include/kernel_bridge.h 的 zk_* C ABI 调用静态库 libarchoera_kernel.a
- * （zig-out/lib，由 CMake 在 HAS_ARCHOERA_KERNEL 定义时构建/链接）。
+ * 经 include/kernel_bridge.h 的 neko_eraasync_zk_* C ABI 调用静态库 libneko_eraasync_kernel.a
+ * （zig-out/lib，由 CMake 在 HAS_NEKO_ERAASYNC_KERNEL 定义时构建/链接）。
  *
  * 约定（docs/audio-kernel-zig.md §16.1）：
- *   - 未接管格式 → zk_decoder_open 返回 NULL 且 errbuf 状态码为
- *     ZK_UNSUPPORTED(1)，C 壳据此回退 FFmpeg 主后端；
+ *   - 未接管格式 → neko_eraasync_zk_decoder_open 返回 NULL 且 errbuf 状态码为
+ *     NEKO_ERAASYNC_ZK_UNSUPPORTED(1)，C 壳据此回退 FFmpeg 主后端；
  *   - Zig 侧统一用宿主 CRT malloc/free（c_allocator），与 C 壳同 CRT，
  *     无跨 CRT 所有权问题；C 侧只读 info 字符串、不释放。
  *
@@ -30,14 +30,14 @@
 
 #define LOG_TAG "[audio-engine:native-decoder]"
 
-#if defined(HAS_ARCHOERA_KERNEL)
+#if defined(HAS_NEKO_ERAASYNC_KERNEL)
 
 #include "../include/kernel_bridge.h"
 
-/* S1 常驻内核池（opt-in）：mediaengine_lib 引擎线程在 ARCHOERA_ERA_POOL 时经
+/* S1 常驻内核池（opt-in）：mediaengine_lib 引擎线程在 NEKO_ERAASYNC_POOL 时经
  * native_decoder_pool_begin/end 托管；g_pool 非 NULL 时 native_decoder_open 改走
- * zk_engine_open 流式 seam（同一 ZkInfo/errbuf 契约），否则沿用 zk_decoder_*。 */
-static ZkEngine *g_pool;
+ * neko_eraasync_zk_engine_open 流式 seam（同一 NekoEraASyncZkInfo/errbuf 契约），否则沿用 neko_eraasync_zk_decoder_*。 */
+static NekoEraASyncZkEngine *g_pool;
 /* 进程级池可被多个 mediaengine 实例共享（同一 .so 内全局）。用引用计数 + 互斥：
  * 任一实例 pool_end 不得在其它实例仍持有时 shutdown，否则其流读会因 rt 停机失败
  * （概率性「自研内核解码错误」/崩溃）。仅当计数归零才真正 shutdown。 */
@@ -57,9 +57,9 @@ static void pool_unlock(void) { pthread_mutex_unlock(&g_pool_mu); }
  * （native_decoder_pool_begin 之后、native_decoder_pool_end 之前，引擎线程的
  * open 均落在该区间内）：池仅在引用计数归零时 shutdown 并置 g_pool=NULL，故
  * 只要本调用方持引用，返回的指针在本次解引用期间不会被 shutdown。*/
-static ZkEngine *pool_acquire(void)
+static NekoEraASyncZkEngine *pool_acquire(void)
 {
-    ZkEngine *p;
+    NekoEraASyncZkEngine *p;
     pool_lock();
     p = g_pool;
     pool_unlock();
@@ -68,7 +68,7 @@ static ZkEngine *pool_acquire(void)
 
 static qa_size g_stream_opens; /* 池路径 open 累计（测试访问器，单调递增） */
 /* F5 接管门控统计：attempts = native_decoder_open 调用次数；hits = 成功接管
- * （status==0）；misses = 明确未接管（status==ZK_UNSUPPORTED）。进程级、单调；
+ * （status==0）；misses = 明确未接管（status==NEKO_ERAASYNC_ZK_UNSUPPORTED）。进程级、单调；
  * 可被多个引擎线程并发递增 → 原子（relaxed 递增 / 原子读回）。 */
 static qa_size g_takeover_attempts;
 static qa_size g_takeover_hits;
@@ -83,7 +83,7 @@ int native_decoder_taken_over_by_ext(const char *path)
     for (const char *c = dot; *c; c++) {
         if (*c == '/' || *c == '\\' || *c == '?' || *c == '#') return -1;
     }
-    return zk_takeover_of_ext(dot);
+    return neko_eraasync_zk_takeover_of_ext(dot);
 }
 
 void native_decoder_stats(long long *attempts, long long *hits, long long *unsupported)
@@ -94,13 +94,13 @@ void native_decoder_stats(long long *attempts, long long *hits, long long *unsup
 }
 
 struct NativeDecoder {
-    ZkDecoder *zk;
-    ZkInfo info;
-    ZkEngineStream *stream; /* 池 stream seam 句柄（is_stream 时使用） */
+    NekoEraASyncZkDecoder *zk;
+    NekoEraASyncZkInfo info;
+    NekoEraASyncZkEngineStream *stream; /* 池 stream seam 句柄（is_stream 时使用） */
     int is_stream;
-    int is_http; /* 原生 HTTP(S) 源（zk_decoder_open_url；abort 需 shutdown 连接） */
+    int is_http; /* 原生 HTTP(S) 源（neko_eraasync_zk_decoder_open_url；abort 需 shutdown 连接） */
     /* seek 样本级对齐：seek 后待丢弃的前导样本数（自内核报告的首个输出样本到
-     * 请求目标之间）。仅当内核提供样本级位置（zk_*_position_samples >= 0）时
+     * 请求目标之间）。仅当内核提供样本级位置（neko_eraasync_zk_*_position_samples >= 0）时
      * 非零；read 路径按交错声道丢弃，跨块保持。 */
     int64_t trim_samples;
 };
@@ -113,13 +113,13 @@ int native_decoder_pool_begin(int min_w, int max_w, int cap)
         pool_unlock();
         return 0;
     }
-    /* N4：进程级流缓冲策略经宿主 env 注入（与既有 ARCHOERA_* 读取同法；失败不影响打开）。
+    /* N4：进程级流缓冲策略经宿主 env 注入（与既有 NEKO_ERAASYNC_* 读取同法；失败不影响打开）。
      * 0/未设 = 默认（预算不限、每路 16 KiB），行为与既往逐字节一致。 */
-    const char *sb = getenv("ARCHOERA_STREAM_BUDGET");
-    if (sb && sb[0]) zk_stream_mem_set_budget(strtoull(sb, NULL, 10));
-    const char *sp = getenv("ARCHOERA_STREAM_PEEK_BYTES");
-    if (sp && sp[0]) zk_stream_peek_set_bytes((unsigned)strtoul(sp, NULL, 10));
-    g_pool = zk_engine_init(min_w, max_w, cap);
+    const char *sb = getenv("NEKO_ERAASYNC_STREAM_BUDGET");
+    if (sb && sb[0]) neko_eraasync_zk_stream_mem_set_budget(strtoull(sb, NULL, 10));
+    const char *sp = getenv("NEKO_ERAASYNC_STREAM_PEEK_BYTES");
+    if (sp && sp[0]) neko_eraasync_zk_stream_peek_set_bytes((unsigned)strtoul(sp, NULL, 10));
+    g_pool = neko_eraasync_zk_engine_init(min_w, max_w, cap);
     if (!g_pool) {
         pool_unlock();
         return -1;
@@ -138,7 +138,7 @@ void native_decoder_pool_end(void)
     }
     g_pool_refs--;
     if (g_pool_refs == 0) { /* 最后一个持有者：真正停池 */
-        zk_engine_shutdown(g_pool);
+        neko_eraasync_zk_engine_shutdown(g_pool);
         g_pool = NULL;
     }
     pool_unlock();
@@ -158,7 +158,7 @@ long long native_decoder_stream_opens(void)
  * 行为；开启后路径源流式会话优先取专属 worker（无空闲自动回退全局队列）。 */
 static int pool_pinned_enabled(void)
 {
-    const char *v = getenv("ARCHOERA_ERA_POOL_PINNED");
+    const char *v = getenv("NEKO_ERAASYNC_POOL_PINNED");
     return v && v[0] == '1' && v[1] == '\0';
 }
 
@@ -181,25 +181,25 @@ NativeDecoder *native_decoder_open(const char *path, NativeInfo *info,
     if (!path) return NULL;
     QA_FETCH_ADD_RELAXED(&g_takeover_attempts, 1);
 
-    ZkInfo zinfo;
+    NekoEraASyncZkInfo zinfo;
     char eb[512];
-    ZkDecoder *zk = NULL;
-    ZkEngineStream *st = NULL;
+    NekoEraASyncZkDecoder *zk = NULL;
+    NekoEraASyncZkEngineStream *st = NULL;
     NativeDecoder *d;
-    ZkEngine *pool;
+    NekoEraASyncZkEngine *pool;
     memset(&zinfo, 0, sizeof(zinfo));
     memset(eb, 0, sizeof(eb));
 
     pool = pool_acquire();
     if (pool) {
         /* S1 池路径：流式 seam（同一 errbuf 契约：errbuf[0..4] LE int32 状态码）。
-         * AS2：ARCHOERA_ERA_POOL_PINNED=1 时优先专属 worker（pinned 1:1）。 */
+         * AS2：NEKO_ERAASYNC_POOL_PINNED=1 时优先专属 worker（pinned 1:1）。 */
         st = pool_pinned_enabled()
-                 ? zk_engine_open_pinned(pool, path, &zinfo, eb, sizeof(eb))
-                 : zk_engine_open(pool, path, &zinfo, eb, sizeof(eb));
+                 ? neko_eraasync_zk_engine_open_pinned(pool, path, &zinfo, eb, sizeof(eb))
+                 : neko_eraasync_zk_engine_open(pool, path, &zinfo, eb, sizeof(eb));
         if (!st) {
             int fs = read_le32_status(eb);
-            if (fs == 1) QA_FETCH_ADD_RELAXED(&g_takeover_misses, 1); /* ZK_UNSUPPORTED */
+            if (fs == 1) QA_FETCH_ADD_RELAXED(&g_takeover_misses, 1); /* NEKO_ERAASYNC_ZK_UNSUPPORTED */
             if (status_out) *status_out = fs;
             if (errbuf && errbuf_size > 0) {
                 snprintf(errbuf, errbuf_size, "%s", eb + 4);
@@ -208,10 +208,10 @@ NativeDecoder *native_decoder_open(const char *path, NativeInfo *info,
         }
         QA_FETCH_ADD_RELAXED(&g_stream_opens, 1);
     } else {
-        zk = zk_decoder_open(path, &zinfo, eb, (int)sizeof(eb));
+        zk = neko_eraasync_zk_decoder_open(path, &zinfo, eb, (int)sizeof(eb));
         if (!zk) {
             int fs = read_le32_status(eb);
-            if (fs == 1) QA_FETCH_ADD_RELAXED(&g_takeover_misses, 1); /* ZK_UNSUPPORTED */
+            if (fs == 1) QA_FETCH_ADD_RELAXED(&g_takeover_misses, 1); /* NEKO_ERAASYNC_ZK_UNSUPPORTED */
             if (status_out) *status_out = fs;
             if (errbuf && errbuf_size > 0) {
                 snprintf(errbuf, errbuf_size, "%s", eb + 4);
@@ -223,9 +223,9 @@ NativeDecoder *native_decoder_open(const char *path, NativeInfo *info,
 
     d = (NativeDecoder *)calloc(1, sizeof(*d));
     if (!d) {
-        if (zk) zk_decoder_close(zk);
-        if (st) zk_engine_close(st);
-        if (status_out) *status_out = 7; /* ZK_OUT_OF_MEMORY */
+        if (zk) neko_eraasync_zk_decoder_close(zk);
+        if (st) neko_eraasync_zk_engine_close(st);
+        if (status_out) *status_out = 7; /* NEKO_ERAASYNC_ZK_OUT_OF_MEMORY */
         if (errbuf && errbuf_size > 0) {
             snprintf(errbuf, errbuf_size, "out of memory");
         }
@@ -255,19 +255,19 @@ NativeDecoder *native_decoder_open_mem(const void *data, size_t len, NativeInfo 
 {
     if (!data || len == 0) return NULL;
 
-    ZkInfo zinfo;
+    NekoEraASyncZkInfo zinfo;
     char eb[512];
     NativeDecoder *d;
-    ZkDecoder *zk = NULL;
-    ZkEngineStream *st = NULL;
-    ZkEngine *pool;
+    NekoEraASyncZkDecoder *zk = NULL;
+    NekoEraASyncZkEngineStream *st = NULL;
+    NekoEraASyncZkEngine *pool;
     memset(&zinfo, 0, sizeof(zinfo));
     memset(eb, 0, sizeof(eb));
 
-    /* 池启用时走 zk_engine 流式 seam（与路径打开同法）；否则直连 decoder。 */
+    /* 池启用时走 neko_eraasync_zk_engine 流式 seam（与路径打开同法）；否则直连 decoder。 */
     pool = pool_acquire();
     if (pool) {
-        st = zk_engine_open_mem(pool, (const unsigned char *)data, len,
+        st = neko_eraasync_zk_engine_open_mem(pool, (const unsigned char *)data, len,
                                 &zinfo, eb, sizeof(eb));
         if (!st) {
             if (status_out) *status_out = read_le32_status(eb);
@@ -278,7 +278,7 @@ NativeDecoder *native_decoder_open_mem(const void *data, size_t len, NativeInfo 
         }
         QA_FETCH_ADD_RELAXED(&g_stream_opens, 1);
     } else {
-        zk = zk_decoder_open_mem((const unsigned char *)data, len,
+        zk = neko_eraasync_zk_decoder_open_mem((const unsigned char *)data, len,
                                  &zinfo, eb, (int)sizeof(eb));
         if (!zk) {
             if (status_out) *status_out = read_le32_status(eb);
@@ -291,9 +291,9 @@ NativeDecoder *native_decoder_open_mem(const void *data, size_t len, NativeInfo 
 
     d = (NativeDecoder *)calloc(1, sizeof(*d));
     if (!d) {
-        if (zk) zk_decoder_close(zk);
-        if (st) zk_engine_close(st);
-        if (status_out) *status_out = 7; /* ZK_OUT_OF_MEMORY */
+        if (zk) neko_eraasync_zk_decoder_close(zk);
+        if (st) neko_eraasync_zk_engine_close(st);
+        if (status_out) *status_out = 7; /* NEKO_ERAASYNC_ZK_OUT_OF_MEMORY */
         if (errbuf && errbuf_size > 0) {
             snprintf(errbuf, errbuf_size, "out of memory");
         }
@@ -326,19 +326,19 @@ NativeDecoder *native_decoder_open_cb(void *ctx,
 {
     if (!ctx || !on_read || !on_seek) return NULL;
 
-    ZkInfo zinfo;
+    NekoEraASyncZkInfo zinfo;
     char eb[512];
     NativeDecoder *d;
-    ZkDecoder *zk = NULL;
-    ZkEngineStream *st = NULL;
-    ZkEngine *pool;
+    NekoEraASyncZkDecoder *zk = NULL;
+    NekoEraASyncZkEngineStream *st = NULL;
+    NekoEraASyncZkEngine *pool;
     memset(&zinfo, 0, sizeof(zinfo));
     memset(eb, 0, sizeof(eb));
 
-    /* 池启用时走 zk_engine 流式 seam；否则直连 decoder（ctx 归调用方）。 */
+    /* 池启用时走 neko_eraasync_zk_engine 流式 seam；否则直连 decoder（ctx 归调用方）。 */
     pool = pool_acquire();
     if (pool) {
-        st = zk_engine_open_cb(pool, ctx, on_read, on_seek, size_hint,
+        st = neko_eraasync_zk_engine_open_cb(pool, ctx, on_read, on_seek, size_hint,
                                &zinfo, eb, sizeof(eb));
         if (!st) {
             if (status_out) *status_out = read_le32_status(eb);
@@ -349,7 +349,7 @@ NativeDecoder *native_decoder_open_cb(void *ctx,
         }
         QA_FETCH_ADD_RELAXED(&g_stream_opens, 1);
     } else {
-        zk = zk_decoder_open_cb(ctx, on_read, on_seek, size_hint,
+        zk = neko_eraasync_zk_decoder_open_cb(ctx, on_read, on_seek, size_hint,
                                 &zinfo, eb, (int)sizeof(eb));
         if (!zk) {
             if (status_out) *status_out = read_le32_status(eb);
@@ -362,9 +362,9 @@ NativeDecoder *native_decoder_open_cb(void *ctx,
 
     d = (NativeDecoder *)calloc(1, sizeof(*d));
     if (!d) {
-        if (zk) zk_decoder_close(zk);
-        if (st) zk_engine_close(st);
-        if (status_out) *status_out = 7; /* ZK_OUT_OF_MEMORY */
+        if (zk) neko_eraasync_zk_decoder_close(zk);
+        if (st) neko_eraasync_zk_engine_close(st);
+        if (status_out) *status_out = 7; /* NEKO_ERAASYNC_ZK_OUT_OF_MEMORY */
         if (errbuf && errbuf_size > 0) {
             snprintf(errbuf, errbuf_size, "out of memory");
         }
@@ -389,8 +389,8 @@ NativeDecoder *native_decoder_open_cb(void *ctx,
 }
 
 /* 从 EraAudio 原生 HTTP(S) 打开（内核自研请求/响应解析，不经宿主 FFmpeg AVIO）。
- * 池启用时走 zk_engine_open_url 流式 seam（与 path/mem/cb 一致）；否则直连
- * decoder（zk_decoder_open_url）。失败返回 NULL 并由 status_out 写稳定状态码，
+ * 池启用时走 neko_eraasync_zk_engine_open_url 流式 seam（与 path/mem/cb 一致）；否则直连
+ * decoder（neko_eraasync_zk_decoder_open_url）。失败返回 NULL 并由 status_out 写稳定状态码，
  * 调用方据此回退宿主 AVIO 路径 / FFmpeg 主后端。 */
 NativeDecoder *native_decoder_open_url(const char *url, const char *headers, NativeInfo *info,
                                        int *status_out,
@@ -398,21 +398,21 @@ NativeDecoder *native_decoder_open_url(const char *url, const char *headers, Nat
 {
     if (!url) return NULL;
 
-    ZkInfo zinfo;
+    NekoEraASyncZkInfo zinfo;
     char eb[512];
     NativeDecoder *d;
-    ZkDecoder *zk = NULL;
-    ZkEngineStream *st = NULL;
-    ZkEngine *pool;
+    NekoEraASyncZkDecoder *zk = NULL;
+    NekoEraASyncZkEngineStream *st = NULL;
+    NekoEraASyncZkEngine *pool;
     memset(&zinfo, 0, sizeof(zinfo));
     memset(eb, 0, sizeof(eb));
 
-    /* 池启用时走 zk_engine 流式 seam；否则直连 decoder。 */
+    /* 池启用时走 neko_eraasync_zk_engine 流式 seam；否则直连 decoder。 */
     pool = pool_acquire();
     if (pool) {
         st = (headers && headers[0])
-                 ? zk_engine_open_url_headers(pool, url, headers, &zinfo, eb, sizeof(eb))
-                 : zk_engine_open_url(pool, url, &zinfo, eb, sizeof(eb));
+                 ? neko_eraasync_zk_engine_open_url_headers(pool, url, headers, &zinfo, eb, sizeof(eb))
+                 : neko_eraasync_zk_engine_open_url(pool, url, &zinfo, eb, sizeof(eb));
         if (!st) {
             if (status_out) *status_out = read_le32_status(eb);
             if (errbuf && errbuf_size > 0) {
@@ -424,8 +424,8 @@ NativeDecoder *native_decoder_open_url(const char *url, const char *headers, Nat
         ERA_LOGD(NULL, "%s 原生 URL 经常驻池 seam 打开: %s\n", LOG_TAG, url);
     } else {
         zk = (headers && headers[0])
-                 ? zk_decoder_open_url_headers(url, headers, &zinfo, eb, (int)sizeof(eb))
-                 : zk_decoder_open_url(url, &zinfo, eb, (int)sizeof(eb));
+                 ? neko_eraasync_zk_decoder_open_url_headers(url, headers, &zinfo, eb, (int)sizeof(eb))
+                 : neko_eraasync_zk_decoder_open_url(url, &zinfo, eb, (int)sizeof(eb));
         if (!zk) {
             if (status_out) *status_out = read_le32_status(eb);
             if (errbuf && errbuf_size > 0) {
@@ -438,9 +438,9 @@ NativeDecoder *native_decoder_open_url(const char *url, const char *headers, Nat
 
     d = (NativeDecoder *)calloc(1, sizeof(*d));
     if (!d) {
-        if (zk) zk_decoder_close(zk);
-        if (st) zk_engine_close(st);
-        if (status_out) *status_out = 7; /* ZK_OUT_OF_MEMORY */
+        if (zk) neko_eraasync_zk_decoder_close(zk);
+        if (st) neko_eraasync_zk_engine_close(st);
+        if (status_out) *status_out = 7; /* NEKO_ERAASYNC_ZK_OUT_OF_MEMORY */
         if (errbuf && errbuf_size > 0) {
             snprintf(errbuf, errbuf_size, "out of memory");
         }
@@ -472,9 +472,9 @@ static long long native_read_raw(NativeDecoder *d, float *out, int max_frames,
     int oc = 0;
     long long frames;
     if (d->is_stream) {
-        frames = zk_engine_read(d->stream, out, (size_t)max_frames, &oc);
+        frames = neko_eraasync_zk_engine_read(d->stream, out, (size_t)max_frames, &oc);
     } else {
-        frames = zk_decoder_read(d->zk, out, (size_t)max_frames, &oc);
+        frames = neko_eraasync_zk_decoder_read(d->zk, out, (size_t)max_frames, &oc);
     }
     *out_channels = oc;
     return frames;
@@ -486,7 +486,7 @@ int native_decoder_read(NativeDecoder *d, float *out, int max_frames,
     if (!d || !out || !out_channels || max_frames <= 0) return -1;
     int ch = d->info.channels > 0 ? d->info.channels : 1;
     int total = 0;
-    /* zk_*_read：>=0 为帧数（0=EOF），<0 为错误（负 ZkStatus 状态码）。
+    /* neko_eraasync_zk_*_read：>=0 为帧数（0=EOF），<0 为错误（负 NekoEraASyncZkStatus 状态码）。
      * 错误经负值上报（zk 不再把解码错误吞成 0），C 壳据此让 pipeline 报错，
      * 而非把坏帧静默当 EOF 截断。
      *
@@ -498,7 +498,7 @@ int native_decoder_read(NativeDecoder *d, float *out, int max_frames,
         long long frames = native_read_raw(d,
             out + (size_t)total * (size_t)ch,
             max_frames - total, out_channels);
-        if (frames < 0) return (int)frames; /* <0：解码错误（-ZkStatus） */
+        if (frames < 0) return (int)frames; /* <0：解码错误（-NekoEraASyncZkStatus） */
         if (frames == 0) break;             /* EOF（正常文件尾） */
         if (d->trim_samples > 0) {
             if (d->trim_samples >= frames) {
@@ -523,9 +523,9 @@ int native_decoder_seek_ms(NativeDecoder *d, int64_t ms)
     d->trim_samples = 0;
     int rc;
     if (d->is_stream) {
-        rc = zk_engine_seek_ms(d->stream, (long long)ms) == 0 ? 0 : -1;
+        rc = neko_eraasync_zk_engine_seek_ms(d->stream, (long long)ms) == 0 ? 0 : -1;
     } else {
-        rc = zk_decoder_seek_ms(d->zk, (long long)ms) == 0 ? 0 : -1;
+        rc = neko_eraasync_zk_decoder_seek_ms(d->zk, (long long)ms) == 0 ? 0 : -1;
     }
     if (rc != 0) return -1;
     /* 样本级裁剪：目标样本 = ms×sr/1000（与内核取整一致）；落点 = kernel
@@ -535,8 +535,8 @@ int native_decoder_seek_ms(NativeDecoder *d, int64_t ms)
         unsigned long long sr = (unsigned long long)d->info.sample_rate;
         unsigned long long tms = (unsigned long long)ms;
         unsigned long long target = tms * sr / 1000ULL;
-        long long landing = d->is_stream ? zk_engine_position_samples(d->stream)
-                                         : zk_decoder_position_samples(d->zk);
+        long long landing = d->is_stream ? neko_eraasync_zk_engine_position_samples(d->stream)
+                                         : neko_eraasync_zk_decoder_position_samples(d->zk);
         if (landing >= 0 && target > (unsigned long long)landing) {
             d->trim_samples = (int64_t)(target - (unsigned long long)landing);
         }
@@ -562,16 +562,16 @@ int64_t native_decoder_duration_us(const NativeDecoder *d)
 int64_t native_decoder_position_ms(const NativeDecoder *d)
 {
     if (!d) return 0;
-    long long ms = d->is_stream ? zk_engine_position_ms(d->stream)
-                                : zk_decoder_position_ms(d->zk);
+    long long ms = d->is_stream ? neko_eraasync_zk_engine_position_ms(d->stream)
+                                : neko_eraasync_zk_decoder_position_ms(d->zk);
     return (int64_t)ms;
 }
 
 int64_t native_decoder_position_samples(NativeDecoder *d)
 {
     if (!d) return -1;
-    return d->is_stream ? (int64_t)zk_engine_position_samples(d->stream)
-                        : (int64_t)zk_decoder_position_samples(d->zk);
+    return d->is_stream ? (int64_t)neko_eraasync_zk_engine_position_samples(d->stream)
+                        : (int64_t)neko_eraasync_zk_decoder_position_samples(d->zk);
 }
 
 const char *native_decoder_codec_name(const NativeDecoder *d)
@@ -585,9 +585,9 @@ void native_decoder_abort(NativeDecoder *d)
     if (!d) return;
     if (!d->is_http) return;
     if (d->is_stream && d->stream) {
-        zk_engine_abort(d->stream); /* 池化 URL 流：解阻塞 + 会话取消 */
+        neko_eraasync_zk_engine_abort(d->stream); /* 池化 URL 流：解阻塞 + 会话取消 */
     } else if (d->zk) {
-        zk_decoder_abort(d->zk); /* 直连 URL 流 */
+        neko_eraasync_zk_decoder_abort(d->zk); /* 直连 URL 流 */
     }
 }
 
@@ -595,14 +595,14 @@ void native_decoder_close(NativeDecoder *d)
 {
     if (!d) return;
     if (d->is_stream) {
-        if (d->stream) zk_engine_close(d->stream);
+        if (d->stream) neko_eraasync_zk_engine_close(d->stream);
     } else if (d->zk) {
-        zk_decoder_close(d->zk);
+        neko_eraasync_zk_decoder_close(d->zk);
     }
     free(d);
 }
 
-#else /* !HAS_ARCHOERA_KERNEL：内核未链接，编译期空实现（保持可编过） */
+#else /* !HAS_NEKO_ERAASYNC_KERNEL：内核未链接，编译期空实现（保持可编过） */
 
 struct NativeDecoder { int _unused; };
 
@@ -649,9 +649,9 @@ NativeDecoder *native_decoder_open(const char *path, NativeInfo *info,
                                    char *errbuf, int errbuf_size)
 {
     (void)path; (void)info;
-    if (status_out) *status_out = 1; /* ZK_UNSUPPORTED */
+    if (status_out) *status_out = 1; /* NEKO_ERAASYNC_ZK_UNSUPPORTED */
     if (errbuf && errbuf_size > 0) {
-        snprintf(errbuf, errbuf_size, "archoera_kernel 未链接（构建时无 zig）");
+        snprintf(errbuf, errbuf_size, "neko_eraasync_kernel 未链接（构建时无 zig）");
     }
     return NULL;
 }
@@ -661,9 +661,9 @@ NativeDecoder *native_decoder_open_mem(const void *data, size_t len, NativeInfo 
                                        char *errbuf, int errbuf_size)
 {
     (void)data; (void)len; (void)info;
-    if (status_out) *status_out = 1; /* ZK_UNSUPPORTED */
+    if (status_out) *status_out = 1; /* NEKO_ERAASYNC_ZK_UNSUPPORTED */
     if (errbuf && errbuf_size > 0) {
-        snprintf(errbuf, errbuf_size, "archoera_kernel 未链接（构建时无 zig）");
+        snprintf(errbuf, errbuf_size, "neko_eraasync_kernel 未链接（构建时无 zig）");
     }
     return NULL;
 }
@@ -676,9 +676,9 @@ NativeDecoder *native_decoder_open_cb(void *ctx,
                                       char *errbuf, int errbuf_size)
 {
     (void)ctx; (void)on_read; (void)on_seek; (void)size_hint; (void)info;
-    if (status_out) *status_out = 1; /* ZK_UNSUPPORTED */
+    if (status_out) *status_out = 1; /* NEKO_ERAASYNC_ZK_UNSUPPORTED */
     if (errbuf && errbuf_size > 0) {
-        snprintf(errbuf, errbuf_size, "archoera_kernel 未链接（构建时无 zig）");
+        snprintf(errbuf, errbuf_size, "neko_eraasync_kernel 未链接（构建时无 zig）");
     }
     return NULL;
 }
@@ -688,9 +688,9 @@ NativeDecoder *native_decoder_open_url(const char *url, const char *headers, Nat
                                        char *errbuf, int errbuf_size)
 {
     (void)url; (void)info; (void)headers;
-    if (status_out) *status_out = 1; /* ZK_UNSUPPORTED */
+    if (status_out) *status_out = 1; /* NEKO_ERAASYNC_ZK_UNSUPPORTED */
     if (errbuf && errbuf_size > 0) {
-        snprintf(errbuf, errbuf_size, "archoera_kernel 未链接（构建时无 zig）");
+        snprintf(errbuf, errbuf_size, "neko_eraasync_kernel 未链接（构建时无 zig）");
     }
     return NULL;
 }
@@ -755,4 +755,4 @@ void native_decoder_close(NativeDecoder *d)
     (void)d;
 }
 
-#endif /* HAS_ARCHOERA_KERNEL */
+#endif /* HAS_NEKO_ERAASYNC_KERNEL */

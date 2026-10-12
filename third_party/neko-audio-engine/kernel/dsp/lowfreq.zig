@@ -1,7 +1,7 @@
-// ArchoeraMusic Audio Framework
-// Copyright (C) 2026 Archoera && BetaStudio2
+// NekoMusic-EraASync
+// Copyright (C) 2026 NekoEraASync && BetaStudio2
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// EraSync — ArchoeraMusic 自研音频内核
+// NekoMusic-EraASync — 自研音频内核
 
 //! 次声 / 低频管理（docs/audio-kernel-zig.md §14；扩张计划方向① D2）
 //!
@@ -13,7 +13,7 @@
 //!   - 整块默认禁用（逐位旁通）；`set_enabled(true)` 后按 HPF/bass 各自使能生效；
 //!   - `set_hpf(freq<=0, ...)` 关闭 HPF；非有限 freq/gain 夹取到安全范围（NaN 防护）。
 //!
-//! 系数计算复用 `biquad.zig`。对外经 `zk_dsp_lowfreq_*` C ABI 暴露；C 壳优先
+//! 系数计算复用 `biquad.zig`。对外经 `neko_eraasync_zk_dsp_lowfreq_*` C ABI 暴露；C 壳优先
 //! 路由内核、失败回退纯 C 实现。命名自有（`era_` 前缀），不照搬上游标识符。
 
 const std = @import("std");
@@ -29,7 +29,7 @@ pub const era_lowfreq_default_hpf_freq: f32 = 20.0;
 /// 默认 bass shelf 转折频率（Hz）。
 pub const era_lowfreq_default_bass_freq: f32 = 100.0;
 
-/// 次声低频管理实例（不透明于 C 侧 `ZkDspLowFreq`）。
+/// 次声低频管理实例（不透明于 C 侧 `NekoEraASyncZkDspLowFreq`）。
 pub const EraLowFreq = struct {
     allocator: std.mem.Allocator,
     sample_rate: u32,

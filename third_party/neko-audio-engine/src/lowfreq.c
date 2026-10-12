@@ -1,5 +1,5 @@
-// ArchoeraMusic Audio Framework
-// Copyright (C) 2026 Archoera && BetaStudio2
+// NekoMusic-EraASync
+// Copyright (C) 2026 NekoEraASync && BetaStudio2
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 /**
@@ -8,8 +8,8 @@
  * 高通（一阶/二阶，Butterworth Q=0.7071）+ 低架 bass shelf；系数公式与内核
  * `kernel/dsp/biquad.zig` 同式（`w0` 以 double 计算后落回 float）。
  *
- * 内核路由（对齐 equalizer.c）：HAS_ARCHOERA_KERNEL 时优先经
- * zk_dsp_lowfreq_*，create 失败回退下方纯 C 实现；内核库缺失则纯 C。
+ * 内核路由（对齐 equalizer.c）：HAS_NEKO_ERAASYNC_KERNEL 时优先经
+ * neko_eraasync_zk_dsp_lowfreq_*，create 失败回退下方纯 C 实现；内核库缺失则纯 C。
  */
 #include "lowfreq.h"
 #include "era_log.h"
@@ -17,7 +17,7 @@
 #include <string.h>
 #include <math.h>
 
-#if defined(HAS_ARCHOERA_KERNEL)
+#if defined(HAS_NEKO_ERAASYNC_KERNEL)
 #include "../include/kernel_bridge.h"
 #endif
 
@@ -50,8 +50,8 @@ struct LowFreq {
     LowBiquad *hpf1; /* 一阶高通每声道；内核路径下为 NULL */
     LowBiquad *hpf2; /* 二阶高通每声道 */
     LowBiquad *bass; /* bass shelf 每声道 */
-#if defined(HAS_ARCHOERA_KERNEL)
-    ZkDspLowFreq *zk; /* 非 NULL → 内核实现（优先） */
+#if defined(HAS_NEKO_ERAASYNC_KERNEL)
+    NekoEraASyncZkDspLowFreq *zk; /* 非 NULL → 内核实现（优先） */
 #endif
 };
 
@@ -151,8 +151,8 @@ LowFreq* lowfreq_create(int sample_rate, int channels)
     lf->bass_gain_db = 0.0f;
     lf->bass_freq = LOWFREQ_DEFAULT_BASS_FREQ;
 
-#if defined(HAS_ARCHOERA_KERNEL)
-    lf->zk = zk_dsp_lowfreq_create(sample_rate, channels);
+#if defined(HAS_NEKO_ERAASYNC_KERNEL)
+    lf->zk = neko_eraasync_zk_dsp_lowfreq_create(sample_rate, channels);
     if (!lf->zk) {
         lf->hpf1 = calloc((size_t)channels, sizeof(LowBiquad));
         lf->hpf2 = calloc((size_t)channels, sizeof(LowBiquad));
@@ -182,9 +182,9 @@ void lowfreq_set_enabled(LowFreq *lf, bool enabled)
 {
     if (!lf) return;
     lf->enabled = enabled;
-#if defined(HAS_ARCHOERA_KERNEL)
+#if defined(HAS_NEKO_ERAASYNC_KERNEL)
     if (lf->zk) {
-        zk_dsp_lowfreq_set_enabled(lf->zk, enabled ? 1 : 0);
+        neko_eraasync_zk_dsp_lowfreq_set_enabled(lf->zk, enabled ? 1 : 0);
         return;
     }
 #endif
@@ -195,8 +195,8 @@ void lowfreq_set_hpf(LowFreq *lf, float freq, int order)
     if (!lf) return;
     if (!(freq > 0.0f) || !isfinite(freq)) {
         lf->hpf_enabled = false;
-#if defined(HAS_ARCHOERA_KERNEL)
-        if (lf->zk) zk_dsp_lowfreq_set_hpf(lf->zk, freq, order);
+#if defined(HAS_NEKO_ERAASYNC_KERNEL)
+        if (lf->zk) neko_eraasync_zk_dsp_lowfreq_set_hpf(lf->zk, freq, order);
 #endif
         return;
     }
@@ -204,9 +204,9 @@ void lowfreq_set_hpf(LowFreq *lf, float freq, int order)
     lf->hpf_order = (order <= 1) ? 1 : 2;
     lf->hpf_freq = low_clamp_freq(freq, lf->sample_rate);
 
-#if defined(HAS_ARCHOERA_KERNEL)
+#if defined(HAS_NEKO_ERAASYNC_KERNEL)
     if (lf->zk) {
-        zk_dsp_lowfreq_set_hpf(lf->zk, freq, order);
+        neko_eraasync_zk_dsp_lowfreq_set_hpf(lf->zk, freq, order);
         return;
     }
 #endif
@@ -228,9 +228,9 @@ void lowfreq_set_bass(LowFreq *lf, float gain_db, float freq)
     lf->bass_gain_db = low_sanitize_gain(gain_db);
     lf->bass_freq = low_clamp_freq(freq, lf->sample_rate);
 
-#if defined(HAS_ARCHOERA_KERNEL)
+#if defined(HAS_NEKO_ERAASYNC_KERNEL)
     if (lf->zk) {
-        zk_dsp_lowfreq_set_bass(lf->zk, gain_db, freq);
+        neko_eraasync_zk_dsp_lowfreq_set_bass(lf->zk, gain_db, freq);
         return;
     }
 #endif
@@ -245,9 +245,9 @@ void lowfreq_process(LowFreq *lf, float *pcm, int samples)
 {
     if (!lf || !pcm || samples <= 0) return;
 
-#if defined(HAS_ARCHOERA_KERNEL)
+#if defined(HAS_NEKO_ERAASYNC_KERNEL)
     if (lf->zk) {
-        zk_dsp_lowfreq_process(lf->zk, pcm, samples);
+        neko_eraasync_zk_dsp_lowfreq_process(lf->zk, pcm, samples);
         return;
     }
 #endif
@@ -284,8 +284,8 @@ void lowfreq_process(LowFreq *lf, float *pcm, int samples)
 void lowfreq_destroy(LowFreq *lf)
 {
     if (!lf) return;
-#if defined(HAS_ARCHOERA_KERNEL)
-    if (lf->zk) zk_dsp_lowfreq_destroy(lf->zk);
+#if defined(HAS_NEKO_ERAASYNC_KERNEL)
+    if (lf->zk) neko_eraasync_zk_dsp_lowfreq_destroy(lf->zk);
 #endif
     if (lf->hpf1) free(lf->hpf1);
     if (lf->hpf2) free(lf->hpf2);

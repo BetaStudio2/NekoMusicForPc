@@ -254,7 +254,7 @@ if [[ -d "$MULTIMEDIA_PLUGIN_DIR" ]]; then
         echo "  Removed libffmpegmediaplugin.dylib (Qt 改用 AVFoundation)"
     fi
 fi
-# 原生无缝播放引擎（ArchoeraAudio）链接 FFmpeg 时需保留 Frameworks 下的
+# 原生无缝播放引擎（NekoMusic-EraASync）链接 FFmpeg 时需保留 Frameworks 下的
 # libav*/libsw* dylib（macdeployqt 已把 rpath 改为 @rpath）；引擎被跳过时按旧行为
 # 清理，避免 Qt 走 AVFoundation 后仍打包无用 FFmpeg。以 app 可执行文件是否真正
 # 链接 libav* 判定。

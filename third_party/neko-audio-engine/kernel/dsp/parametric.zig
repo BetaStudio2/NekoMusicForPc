@@ -1,7 +1,7 @@
-// ArchoeraMusic Audio Framework
-// Copyright (C) 2026 Archoera && BetaStudio2
+// NekoMusic-EraASync
+// Copyright (C) 2026 NekoEraASync && BetaStudio2
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// EraSync — ArchoeraMusic 自研音频内核
+// NekoMusic-EraASync — 自研音频内核
 
 //! 参数化均衡器（docs/audio-kernel-zig.md §14；扩张计划方向① D1）
 //!
@@ -14,7 +14,7 @@
 //!   - `set_band` 会令活动段数 = max(活动段数, index+1)；`clear` 复位段表与状态；
 //!   - 非有限 freq/gain、非法 Q 一律夹取到安全范围（NaN 防护）。
 //!
-//! 对外经 `zk_dsp_peq_*` C ABI 暴露；C 壳优先路由内核、失败回退纯 C 实现。
+//! 对外经 `neko_eraasync_zk_dsp_peq_*` C ABI 暴露；C 壳优先路由内核、失败回退纯 C 实现。
 //! 命名自有（`era_` 前缀），不照搬 FFmpeg / SoX / WebAudio 等上游标识符。
 
 const std = @import("std");
@@ -25,7 +25,7 @@ const Stage = @import("stage.zig").Stage;
 /// 单实例最大段数（C ABI 契约；与 C 壳 `PEQ_MAX_BANDS` 一致）。
 pub const era_peq_max_bands: usize = 16;
 
-/// 段类型（数值与 C `enum ZkBandKind` 对齐）。
+/// 段类型（数值与 C `enum NekoEraASyncZkBandKind` 对齐）。
 pub const EraBandKind = enum(u8) {
     peak = 0,
     low_shelf = 1,
@@ -49,7 +49,7 @@ pub const EraBand = struct {
     enabled: bool = true,
 };
 
-/// 参数化 EQ 实例（不透明于 C 侧 `ZkDspPeq`）。
+/// 参数化 EQ 实例（不透明于 C 侧 `NekoEraASyncZkDspPeq`）。
 pub const EraParamEq = struct {
     allocator: std.mem.Allocator,
     sample_rate: u32,

@@ -1,7 +1,7 @@
-// ArchoeraMusic Audio Framework
-// Copyright (C) 2026 Archoera && BetaStudio2
+// NekoMusic-EraASync
+// Copyright (C) 2026 NekoEraASync && BetaStudio2
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// EraSync — ArchoeraMusic 自研音频内核
+// NekoMusic-EraASync — 自研音频内核
 
 //! WMA Voice DSP/量化助手——移植 FFmpeg（celp_filters / acelp_filters /
 //! acelp_vectors / lsp 相关函数 + wmavoice.c 内嵌小函数），n9.0.1。

@@ -92,8 +92,8 @@ jobs:
           echo "== RUNPATH =="
           readelf -d "$BIN" | grep -E 'RPATH|RUNPATH' || true
           echo "== EraAudio 内核符号 =="
-          nm "$BIN" | grep -q ' T zk_decoder_open' \
-            || { echo "EraAudio 内核未链接（zk_* 缺失）— zig 未生效？"; exit 1; }
+          nm "$BIN" | grep -q ' T neko_eraasync_zk_decoder_open' \
+            || { echo "EraAudio 内核未链接（neko_eraasync_zk_* 缺失）— zig 未生效？"; exit 1; }
 
       - name: Resolve artifact path
         id: pack

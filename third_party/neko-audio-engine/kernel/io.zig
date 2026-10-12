@@ -1,7 +1,7 @@
-// ArchoeraMusic Audio Framework
-// Copyright (C) 2026 Archoera && BetaStudio2
+// NekoMusic-EraASync
+// Copyright (C) 2026 NekoEraASync && BetaStudio2
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// EraSync — ArchoeraMusic 自研音频内核
+// NekoMusic-EraASync — 自研音频内核
 
 //! 输入抽象（docs/audio-kernel-zig.md §6.1）
 //!
@@ -769,7 +769,7 @@ test "openCallback: 大请求先交还已预读字节（不丢数据）" {
 }
 
 /// 回调流测试夹具：内存字节 + 精确 seek；记录宿主 seek 次数与可选「注入失败点」。
-/// 语义与 zk_read_cb / zk_seek_cb 契约一致（current 按 off - buffered 前移底层流）。
+/// 语义与 neko_eraasync_zk_read_cb / neko_eraasync_zk_seek_cb 契约一致（current 按 off - buffered 前移底层流）。
 const CbHarness = struct {
     data: []const u8,
     pos: usize = 0,

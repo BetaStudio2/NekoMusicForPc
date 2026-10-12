@@ -1,5 +1,5 @@
-// ArchoeraMusic Audio Framework
-// Copyright (C) 2026 Archoera && BetaStudio2
+// NekoMusic-EraASync
+// Copyright (C) 2026 NekoEraASync && BetaStudio2
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 /**
@@ -28,7 +28,7 @@ typedef struct PcmUds PcmUds;
 /**
  * 创建 UDS 服务器
  *
- * @param path socket 文件路径（如 /tmp/archoera-pcm-xxx.sock）
+ * @param path socket 文件路径（如 /tmp/neko-eraasync-pcm-xxx.sock）
  * @return 实例，失败返回 NULL
  */
 PcmUds* pcm_uds_create(const char *path);

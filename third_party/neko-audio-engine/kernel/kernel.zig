@@ -1,17 +1,17 @@
-// ArchoeraMusic Audio Framework
-// Copyright (C) 2026 Archoera && BetaStudio2
+// NekoMusic-EraASync
+// Copyright (C) 2026 NekoEraASync && BetaStudio2
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// EraSync — ArchoeraMusic 自研音频内核
+// NekoMusic-EraASync — 自研音频内核
 
-//! archoera_kernel — 自研音频解码内核（FFmpeg 渐进替换）
+//! neko_eraasync_kernel — 自研音频解码内核（FFmpeg 渐进替换）
 //!
 //! 定位（docs/audio-kernel-zig.md v3）：
 //!   FFmpeg 保持默认主引擎；本内核按格式逐项验收后接管解码。
-//!   C 壳（audio-engine/src/*.c）通过 kernel_bridge.h（zk_* C ABI）调用本内核，
+//!   C 壳（audio-engine/src/*.c）通过 kernel_bridge.h（neko_eraasync_zk_* C ABI）调用本内核，
 //!   Dart FFI 层零改动。
 //!
 //! 文件组织（后续步骤逐步引入）：
-//!   error.zig     —— 统一错误类型与错误码 ↔ zk_* 状态码映射（e2）
+//!   error.zig     —— 统一错误类型与错误码 ↔ neko_eraasync_zk_* 状态码映射（e2）
 //!   io.zig        —— 只读字节流 Reader 抽象（内存 / 文件 / 自定义 IO，e2）
 //!   probe.zig     —— 魔数嗅探：识别容器/编码格式（e2）
 //!   decoder.zig   —— 统一解码接口 + 格式工厂（e3）
@@ -45,18 +45,18 @@ pub const log = @import("log.zig");
 /// 内核版本（语义化版本，与 build.zig.zon 保持同步）
 pub const version: std.SemanticVersion = .{ .major = 0, .minor = 1, .patch = 0 };
 
-/// 内核版本字符串（"major.minor.patch"），供 C ABI 的 zk_version 查询使用
+/// 内核版本字符串（"major.minor.patch"），供 C ABI 的 neko_eraasync_zk_version 查询使用
 pub const version_string = "0.1.0";
 
 // ---------------------------------------------------------------------------
 // C ABI 桥接（docs/audio-kernel-zig.md §16.1，头契约：include/kernel_bridge.h）
 // ---------------------------------------------------------------------------
 
-/// 打开解码器。成功返回 `*engine.Engine`（C 侧 `ZkDecoder`）；
+/// 打开解码器。成功返回 `*engine.Engine`（C 侧 `NekoEraASyncZkDecoder`）；
 /// 失败返回 null 并写 errbuf（errbuf[0..4] = LE 状态码，其后 NUL 终止诊断消息）。
-export fn zk_decoder_open(
+export fn neko_eraasync_zk_decoder_open(
     path: [*:0]const u8,
-    info: *engine.ZkInfo,
+    info: *engine.NekoEraASyncZkInfo,
     errbuf: [*]u8,
     errbuf_size: c_int,
 ) ?*engine.Engine {
@@ -64,11 +64,11 @@ export fn zk_decoder_open(
 }
 
 /// 从内存字节切片打开解码器（纯内存源，docs/audio-memory-source.md §7）。
-/// 契约同 [zk_decoder_open]；`data` 所有权归调用方，须覆盖解码会话生命周期。
-export fn zk_decoder_open_mem(
+/// 契约同 [neko_eraasync_zk_decoder_open]；`data` 所有权归调用方，须覆盖解码会话生命周期。
+export fn neko_eraasync_zk_decoder_open_mem(
     data: [*]const u8,
     len: usize,
-    info: *engine.ZkInfo,
+    info: *engine.NekoEraASyncZkInfo,
     errbuf: [*]u8,
     errbuf_size: c_int,
 ) ?*engine.Engine {
@@ -76,13 +76,13 @@ export fn zk_decoder_open_mem(
 }
 
 /// 从 C 回调流打开解码器（在线流式源；宿主注入 read/seek，内核零网络栈）。
-/// 契约同 [zk_decoder_open]；ctx 与回调生命周期归调用方，须覆盖解码会话。
-export fn zk_decoder_open_cb(
+/// 契约同 [neko_eraasync_zk_decoder_open]；ctx 与回调生命周期归调用方，须覆盖解码会话。
+export fn neko_eraasync_zk_decoder_open_cb(
     ctx: ?*anyopaque,
     on_read: ?engine.CReadFn,
     on_seek: ?engine.CSeekFn,
     size_hint: c_ulonglong,
-    info: *engine.ZkInfo,
+    info: *engine.NekoEraASyncZkInfo,
     errbuf: [*]u8,
     errbuf_size: c_int,
 ) ?*engine.Engine {
@@ -98,24 +98,24 @@ export fn zk_decoder_open_cb(
 }
 
 /// 从 **EraAudio 原生 HTTP(S)** 打开解码器（在线直链；内核自研请求/响应解析，
-/// 不经宿主 FFmpeg AVIO）。契约同 [zk_decoder_open]；失败（非 http(s)/连接/
+/// 不经宿主 FFmpeg AVIO）。契约同 [neko_eraasync_zk_decoder_open]；失败（非 http(s)/连接/
 /// TLS/状态码/未接管格式）返回 null 并写 errbuf，C 壳据此回退 AVIO/FFmpeg。
-/// URL 仅在本调用内存活；成功后网络流归 Engine，[zk_decoder_close] 自动关闭。
-export fn zk_decoder_open_url(
+/// URL 仅在本调用内存活；成功后网络流归 Engine，[neko_eraasync_zk_decoder_close] 自动关闭。
+export fn neko_eraasync_zk_decoder_open_url(
     url: [*:0]const u8,
-    info: *engine.ZkInfo,
+    info: *engine.NekoEraASyncZkInfo,
     errbuf: [*]u8,
     errbuf_size: c_int,
 ) ?*engine.Engine {
     return engine.zkOpenUrl(std.mem.span(url), null, info, errbuf, errbuf_size);
 }
 
-/// 同 [zk_decoder_open_url]，但附带自定义请求头（`\n`/`\r\n` 分行；空指针 = 无）。
+/// 同 [neko_eraasync_zk_decoder_open_url]，但附带自定义请求头（`\n`/`\r\n` 分行；空指针 = 无）。
 /// 供宿主按源注入 `X-Neko-Client` / `User-Agent` 等标识。
-export fn zk_decoder_open_url_headers(
+export fn neko_eraasync_zk_decoder_open_url_headers(
     url: [*:0]const u8,
     headers: ?[*:0]const u8,
-    info: *engine.ZkInfo,
+    info: *engine.NekoEraASyncZkInfo,
     errbuf: [*]u8,
     errbuf_size: c_int,
 ) ?*engine.Engine {
@@ -125,7 +125,7 @@ export fn zk_decoder_open_url_headers(
 
 /// 解码最多 max_frames 帧 float32 交错到 out。
 /// 返回 >=0 帧数（0 = EOF）；错误返回负值（-err.Status，见 include/kernel_bridge.h）。
-export fn zk_decoder_read(
+export fn neko_eraasync_zk_decoder_read(
     d: *engine.Engine,
     out: [*]f32,
     max_frames: usize,
@@ -135,34 +135,34 @@ export fn zk_decoder_read(
 }
 
 /// 跳转毫秒位置；0 = 成功，非 0 = 稳定状态码。
-export fn zk_decoder_seek_ms(d: *engine.Engine, ms: i64) c_int {
+export fn neko_eraasync_zk_decoder_seek_ms(d: *engine.Engine, ms: i64) c_int {
     return engine.zkSeekMs(d, ms);
 }
 
 /// 当前播放位置（毫秒，自文件开头计）。
-export fn zk_decoder_position_ms(d: *engine.Engine) i64 {
+export fn neko_eraasync_zk_decoder_position_ms(d: *engine.Engine) i64 {
     return engine.zkPositionMs(d);
 }
 
 /// 当前解码位置（样本，自文件开头计）；-1 = 未提供（调用方不应裁剪）。
-export fn zk_decoder_position_samples(d: *engine.Engine) i64 {
+export fn neko_eraasync_zk_decoder_position_samples(d: *engine.Engine) i64 {
     return engine.zkPositionSamples(d);
 }
 
 /// 释放解码会话（含底层文件句柄与全部缓冲）；d 为 NULL 时为空操作（头契约）。
-export fn zk_decoder_close(d: ?*engine.Engine) void {
+export fn neko_eraasync_zk_decoder_close(d: ?*engine.Engine) void {
     if (d) |e| engine.zkClose(e);
 }
 
 /// 中断解码：仅对 EraAudio 原生 HTTP(S) 源有效（置位 + 尽力 shutdown 连接以
 /// 解除阻塞读）；其它源为空操作。d 为 NULL 时为空操作。
-export fn zk_decoder_abort(d: ?*engine.Engine) void {
+export fn neko_eraasync_zk_decoder_abort(d: ?*engine.Engine) void {
     if (d) |e| engine.zkAbort(e);
 }
 
-/// 注入统一日志 sink（宿主 C 壳把 libarchoera_log 的 archoera_log_write 指针传来；
+/// 注入统一日志 sink（宿主 C 壳把 libneko_eraasync_log 的 neko_eraasync_log_write 指针传来；
 /// fn=NULL 注销回退 std.debug.print）。头契约见 include/kernel_bridge.h。
-export fn zk_set_log_sink(fn_ptr: ?log.Sink, min_level: c_int) void {
+export fn neko_eraasync_zk_set_log_sink(fn_ptr: ?log.Sink, min_level: c_int) void {
     log.setSink(fn_ptr, min_level);
 }
 
@@ -170,13 +170,13 @@ export fn zk_set_log_sink(fn_ptr: ?log.Sink, min_level: c_int) void {
 // DSP 下沉 FFI（docs/audio-kernel-zig.md §14；扩张计划方向① 地基）
 //
 // C 壳 equalizer.c / limiter.c / loudness.c 优先路由本内核实现；内核库缺失
-// （C 侧 HAS_ARCHOERA_KERNEL 未定义）或 create 失败时回退 C 实现。
+// （C 侧 HAS_NEKO_ERAASYNC_KERNEL 未定义）或 create 失败时回退 C 实现。
 // 对外 C 头契约见 include/kernel_bridge.h；Dart 侧 libfft.so ABI 不受影响
 // （fft/resampler/tempo 本轮仅内核侧接口占位，未导出任何符号）。
 // ---------------------------------------------------------------------------
 
-/// 均衡器句柄（C 侧 `ZkDspEq`）；非法参数 / OOM 返回 NULL（C 壳回退）。
-export fn zk_dsp_eq_create(sample_rate: c_int, channels: c_int) ?*dsp.eq.EraEq {
+/// 均衡器句柄（C 侧 `NekoEraASyncZkDspEq`）；非法参数 / OOM 返回 NULL（C 壳回退）。
+export fn neko_eraasync_zk_dsp_eq_create(sample_rate: c_int, channels: c_int) ?*dsp.eq.EraEq {
     if (sample_rate <= 0 or channels <= 0 or channels > 64) return null;
     return dsp.eq.era_eq_create(
         std.heap.c_allocator,
@@ -186,7 +186,7 @@ export fn zk_dsp_eq_create(sample_rate: c_int, channels: c_int) ?*dsp.eq.EraEq {
 }
 
 /// 设置 10 段增益（dB）；eq/gains 为 NULL 时空操作。
-export fn zk_dsp_eq_set_gains(eq: ?*dsp.eq.EraEq, gains: ?[*]const f32) void {
+export fn neko_eraasync_zk_dsp_eq_set_gains(eq: ?*dsp.eq.EraEq, gains: ?[*]const f32) void {
     const e = eq orelse return;
     const g = gains orelse return;
     var arr: [dsp.eq.era_eq_band_count]f32 = undefined;
@@ -195,13 +195,13 @@ export fn zk_dsp_eq_set_gains(eq: ?*dsp.eq.EraEq, gains: ?[*]const f32) void {
 }
 
 /// 设置前级增益（dB）。
-export fn zk_dsp_eq_set_preamp(eq: ?*dsp.eq.EraEq, preamp_db: f32) void {
+export fn neko_eraasync_zk_dsp_eq_set_preamp(eq: ?*dsp.eq.EraEq, preamp_db: f32) void {
     const e = eq orelse return;
     dsp.eq.era_eq_set_preamp(e, preamp_db);
 }
 
 /// 就地处理交错 float32 PCM，samples = 每声道帧数（总样本 = samples×channels）。
-export fn zk_dsp_eq_process(eq: ?*dsp.eq.EraEq, pcm: ?[*]f32, samples: c_int) void {
+export fn neko_eraasync_zk_dsp_eq_process(eq: ?*dsp.eq.EraEq, pcm: ?[*]f32, samples: c_int) void {
     const e = eq orelse return;
     const p = pcm orelse return;
     if (samples <= 0) return;
@@ -210,13 +210,13 @@ export fn zk_dsp_eq_process(eq: ?*dsp.eq.EraEq, pcm: ?[*]f32, samples: c_int) vo
 }
 
 /// 释放均衡器；eq 为 NULL 时空操作。
-export fn zk_dsp_eq_destroy(eq: ?*dsp.eq.EraEq) void {
+export fn neko_eraasync_zk_dsp_eq_destroy(eq: ?*dsp.eq.EraEq) void {
     const e = eq orelse return;
     dsp.eq.era_eq_destroy(e);
 }
 
-/// 限幅器句柄（C 侧 `ZkDspLimiter`）；非法参数 / OOM 返回 NULL。
-export fn zk_dsp_limiter_create(sample_rate: c_int, channels: c_int) ?*dsp.limiter.EraLimiter {
+/// 限幅器句柄（C 侧 `NekoEraASyncZkDspLimiter`）；非法参数 / OOM 返回 NULL。
+export fn neko_eraasync_zk_dsp_limiter_create(sample_rate: c_int, channels: c_int) ?*dsp.limiter.EraLimiter {
     if (sample_rate <= 0 or channels <= 0 or channels > 64) return null;
     return dsp.limiter.era_limiter_create(
         std.heap.c_allocator,
@@ -226,25 +226,25 @@ export fn zk_dsp_limiter_create(sample_rate: c_int, channels: c_int) ?*dsp.limit
 }
 
 /// 启用（enabled != 0）/ 禁用。
-export fn zk_dsp_limiter_set_enabled(lim: ?*dsp.limiter.EraLimiter, enabled: c_int) void {
+export fn neko_eraasync_zk_dsp_limiter_set_enabled(lim: ?*dsp.limiter.EraLimiter, enabled: c_int) void {
     const l = lim orelse return;
     dsp.limiter.era_limiter_set_enabled(l, enabled != 0);
 }
 
 /// 设置阈值（dB）。
-export fn zk_dsp_limiter_set_threshold(lim: ?*dsp.limiter.EraLimiter, threshold_db: f32) void {
+export fn neko_eraasync_zk_dsp_limiter_set_threshold(lim: ?*dsp.limiter.EraLimiter, threshold_db: f32) void {
     const l = lim orelse return;
     dsp.limiter.era_limiter_set_threshold(l, threshold_db);
 }
 
 /// 当前阈值（dB）；lim 为 NULL 时返回默认 −1dB。
-export fn zk_dsp_limiter_get_threshold(lim: ?*const dsp.limiter.EraLimiter) f32 {
+export fn neko_eraasync_zk_dsp_limiter_get_threshold(lim: ?*const dsp.limiter.EraLimiter) f32 {
     const l = lim orelse return dsp.limiter.era_limiter_default_threshold_db;
     return dsp.limiter.era_limiter_get_threshold(l);
 }
 
 /// 就地处理交错 float32 PCM（samples = 每声道帧数）。
-export fn zk_dsp_limiter_process(lim: ?*dsp.limiter.EraLimiter, pcm: ?[*]f32, samples: c_int) void {
+export fn neko_eraasync_zk_dsp_limiter_process(lim: ?*dsp.limiter.EraLimiter, pcm: ?[*]f32, samples: c_int) void {
     const l = lim orelse return;
     const p = pcm orelse return;
     if (samples <= 0) return;
@@ -253,13 +253,13 @@ export fn zk_dsp_limiter_process(lim: ?*dsp.limiter.EraLimiter, pcm: ?[*]f32, sa
 }
 
 /// 释放限幅器；lim 为 NULL 时空操作。
-export fn zk_dsp_limiter_destroy(lim: ?*dsp.limiter.EraLimiter) void {
+export fn neko_eraasync_zk_dsp_limiter_destroy(lim: ?*dsp.limiter.EraLimiter) void {
     const l = lim orelse return;
     dsp.limiter.era_limiter_destroy(l);
 }
 
-/// 响度归一化句柄（C 侧 `ZkDspLoudness`）；非法参数 / OOM 返回 NULL。
-export fn zk_dsp_loudness_create(sample_rate: c_int, channels: c_int) ?*dsp.loudness.EraLoudness {
+/// 响度归一化句柄（C 侧 `NekoEraASyncZkDspLoudness`）；非法参数 / OOM 返回 NULL。
+export fn neko_eraasync_zk_dsp_loudness_create(sample_rate: c_int, channels: c_int) ?*dsp.loudness.EraLoudness {
     if (sample_rate <= 0 or channels <= 0 or channels > 64) return null;
     return dsp.loudness.era_loudness_create(
         std.heap.c_allocator,
@@ -269,25 +269,25 @@ export fn zk_dsp_loudness_create(sample_rate: c_int, channels: c_int) ?*dsp.loud
 }
 
 /// 启用（enabled != 0）/ 禁用。
-export fn zk_dsp_loudness_set_enabled(l: ?*dsp.loudness.EraLoudness, enabled: c_int) void {
+export fn neko_eraasync_zk_dsp_loudness_set_enabled(l: ?*dsp.loudness.EraLoudness, enabled: c_int) void {
     const x = l orelse return;
     dsp.loudness.era_loudness_set_enabled(x, enabled != 0);
 }
 
 /// 设置目标响度（LUFS）。
-export fn zk_dsp_loudness_set_target(l: ?*dsp.loudness.EraLoudness, target_lufs: f32) void {
+export fn neko_eraasync_zk_dsp_loudness_set_target(l: ?*dsp.loudness.EraLoudness, target_lufs: f32) void {
     const x = l orelse return;
     dsp.loudness.era_loudness_set_target(x, target_lufs);
 }
 
 /// 设置预计算增益（dB）。
-export fn zk_dsp_loudness_set_gain(l: ?*dsp.loudness.EraLoudness, gain_db: f32) void {
+export fn neko_eraasync_zk_dsp_loudness_set_gain(l: ?*dsp.loudness.EraLoudness, gain_db: f32) void {
     const x = l orelse return;
     dsp.loudness.era_loudness_set_gain(x, gain_db);
 }
 
 /// 就地处理交错 float32 PCM（samples = 每声道帧数）。
-export fn zk_dsp_loudness_process(l: ?*dsp.loudness.EraLoudness, pcm: ?[*]f32, samples: c_int) void {
+export fn neko_eraasync_zk_dsp_loudness_process(l: ?*dsp.loudness.EraLoudness, pcm: ?[*]f32, samples: c_int) void {
     const x = l orelse return;
     const p = pcm orelse return;
     if (samples <= 0) return;
@@ -296,7 +296,7 @@ export fn zk_dsp_loudness_process(l: ?*dsp.loudness.EraLoudness, pcm: ?[*]f32, s
 }
 
 /// 释放响度实例；l 为 NULL 时空操作。
-export fn zk_dsp_loudness_destroy(l: ?*dsp.loudness.EraLoudness) void {
+export fn neko_eraasync_zk_dsp_loudness_destroy(l: ?*dsp.loudness.EraLoudness) void {
     const x = l orelse return;
     dsp.loudness.era_loudness_destroy(x);
 }
@@ -308,7 +308,7 @@ export fn zk_dsp_loudness_destroy(l: ?*dsp.loudness.EraLoudness) void {
 // 集成响度（含门限）+ 线性采样峰值。仅保留每块能量，不保留整文件 PCM。
 // ---------------------------------------------------------------------------
 
-/// 与 include/kernel_bridge.h `ZkLoudnessResult` 逐字段对齐（extern struct 保证 C ABI）。
+/// 与 include/kernel_bridge.h `NekoEraASyncZkLoudnessResult` 逐字段对齐（extern struct 保证 C ABI）。
 const CLoudnessResult = extern struct {
     integrated_lufs: f64,
     peak: f64,
@@ -316,14 +316,14 @@ const CLoudnessResult = extern struct {
 };
 
 /// 解码 `path` 测量 EBU R128 集成响度 + 线性采样峰值。
-/// 返回 0 成功（含 valid=0 的静音/过短情形）；<0 = -（enum ZkStatus）。
-export fn zk_loudness_measure(path: [*:0]const u8, out: ?*CLoudnessResult) c_int {
+/// 返回 0 成功（含 valid=0 的静音/过短情形）；<0 = -（enum NekoEraASyncZkStatus）。
+export fn neko_eraasync_zk_loudness_measure(path: [*:0]const u8, out: ?*CLoudnessResult) c_int {
     const o = out orelse return -@as(c_int, @intFromEnum(err.Status.io_error));
     o.* = .{ .integrated_lufs = 0.0, .peak = 0.0, .valid = 0 };
     return measureLoudness(std.mem.span(path), o);
 }
 
-/// [zk_loudness_measure] 的实现体：解码 → K 加权测量 → 回填结果。
+/// [neko_eraasync_zk_loudness_measure] 的实现体：解码 → K 加权测量 → 回填结果。
 fn measureLoudness(path: []const u8, o: *CLoudnessResult) c_int {
     const gpa = std.heap.c_allocator;
     var info: decoder.Info = undefined;
@@ -378,7 +378,7 @@ fn measureLoudness(path: []const u8, o: *CLoudnessResult) c_int {
 }
 
 // ---------------------------------------------------------------------------
-// 常驻内核接入 seam（§7 async 主干；加法式：不改 zk_decoder_* / C 壳现有会话）
+// 常驻内核接入 seam（§7 async 主干；加法式：不改 neko_eraasync_zk_decoder_* / C 壳现有会话）
 //
 // 表面同步、内里异步：C 壳阻塞调用 → 内核 Host 池并行解码 → 完工事件回程。
 // 与现有引擎路径（mediaengine_lib/pipeline/player/纯内存源）完全隔离。
@@ -390,7 +390,7 @@ const DecOnce = struct {
     path: []const u8,
     out: [*]f32,
     cap_frames: usize,
-    info_out: ?*engine.ZkInfo = null,
+    info_out: ?*engine.NekoEraASyncZkInfo = null,
     frames: isize = 0,
     ch: u8 = 0,
 
@@ -401,14 +401,14 @@ const DecOnce = struct {
 };
 
 /// 一次「open path → 解至多 cap_frames 帧 float32 交错到 out（含 info 最小字段）」的
-/// 公共体：`zk_engine_decode_once`（表面同步）与 `zk_submit_decode`（异步句柄）共用，
+/// 公共体：`neko_eraasync_zk_engine_decode_once`（表面同步）与 `neko_eraasync_zk_submit_decode`（异步句柄）共用，
 /// 保证两路**返回语义/失败状态码单一来源**（§6.1 任务提交面与句柄）。
-/// 返回 >=0 实际帧数（0 = EOF）/ <0 = -（enum ZkStatus）；`ch_out` 输出实际声道数。
+/// 返回 >=0 实际帧数（0 = EOF）/ <0 = -（enum NekoEraASyncZkStatus）；`ch_out` 输出实际声道数。
 fn decodeInto(
     path: []const u8,
     out: [*]f32,
     cap_frames: usize,
-    info_out: ?*engine.ZkInfo,
+    info_out: ?*engine.NekoEraASyncZkInfo,
     ch_out: *u8,
 ) isize {
     // path 源 + 空 cb 缓冲 → 与结构化面的 decodeIntoSource 单一实现（避免双份漂移）
@@ -421,8 +421,8 @@ fn endianOfCodec(codec_name: []const u8) std.builtin.Endian {
     return .little;
 }
 
-/// 最小 ZkInfo 填充（decode_once 用；codec/format 为静态字面量，metadata 置空）
-fn fillZkInfoMinimal(zi: *engine.ZkInfo, zinfo: decoder.Info) void {
+/// 最小 NekoEraASyncZkInfo 填充（decode_once 用；codec/format 为静态字面量，metadata 置空）
+fn fillZkInfoMinimal(zi: *engine.NekoEraASyncZkInfo, zinfo: decoder.Info) void {
     zi.* = .{
         .sample_rate = @intCast(zinfo.sample_rate),
         .channels = @intCast(zinfo.channels),
@@ -445,13 +445,13 @@ fn fillZkInfoMinimal(zi: *engine.ZkInfo, zinfo: decoder.Info) void {
 }
 
 /// 初始化常驻内核（Host：池 + 定容任务槽）。返回不透明句柄；失败返回 null。
-export fn zk_engine_init(min_workers: c_int, max_workers: c_int, cap_tasks: c_int) ?*khost.Host {
+export fn neko_eraasync_zk_engine_init(min_workers: c_int, max_workers: c_int, cap_tasks: c_int) ?*khost.Host {
     return zkEngineInit(max_streams_default, min_workers, max_workers, cap_tasks);
 }
 
-/// 同 zk_engine_init，另指定流式会话并发上限 max_streams（§6.3 硬计数；缺省
-/// zk_engine_init 用 khost.Cfg 默认 = 8）。测试/宿主显式约束流并发时用。
-export fn zk_engine_init_streams(
+/// 同 neko_eraasync_zk_engine_init，另指定流式会话并发上限 max_streams（§6.3 硬计数；缺省
+/// neko_eraasync_zk_engine_init 用 khost.Cfg 默认 = 8）。测试/宿主显式约束流并发时用。
+export fn neko_eraasync_zk_engine_init_streams(
     min_workers: c_int,
     max_workers: c_int,
     cap_tasks: c_int,
@@ -474,7 +474,7 @@ fn zkEngineInit(max_streams: u16, min_workers: c_int, max_workers: c_int, cap_ta
 }
 
 /// 停机并释放常驻内核；h 为 NULL 时空操作。
-export fn zk_engine_shutdown(h: ?*khost.Host) void {
+export fn neko_eraasync_zk_engine_shutdown(h: ?*khost.Host) void {
     if (h) |x| {
         x.shutdown();
         x.deinit();
@@ -483,15 +483,15 @@ export fn zk_engine_shutdown(h: ?*khost.Host) void {
 
 /// 池内一次性解码到 out（float32 交错，最多 max_frames 帧）。
 /// 表面同步：本调用阻塞至完工（内核池并行内部）。返回 >=0 实际帧数（0=EOF）；
-/// <0 = -ZkStatus；out_channels 输出实际声道数。调用方保证 out 可容纳
+/// <0 = -NekoEraASyncZkStatus；out_channels 输出实际声道数。调用方保证 out 可容纳
 /// max_frames × 最大声道（内核契约 ≤8）。
-export fn zk_engine_decode_once(
+export fn neko_eraasync_zk_engine_decode_once(
     h: ?*khost.Host,
     path: [*:0]const u8,
     out: [*]f32,
     max_frames: usize,
     out_channels: *c_int,
-    info: ?*engine.ZkInfo,
+    info: ?*engine.NekoEraASyncZkInfo,
 ) isize {
     const host = h orelse return -@as(isize, @intFromEnum(err.Status.io_error));
     const holder = std.heap.c_allocator.create(DecOnce) catch
@@ -516,19 +516,19 @@ export fn zk_engine_decode_once(
 // ---------------------------------------------------------------------------
 // 结构化任务提交面（§6.1 任务提交面与句柄；AS1 kind/source/format/hint）
 //
-// zk_submit（结构化，非阻塞）→ zk_task_wait 完工事件取结果 → zk_task_free。
+// neko_eraasync_zk_submit（结构化，非阻塞）→ neko_eraasync_zk_task_wait 完工事件取结果 → neko_eraasync_zk_task_free。
 //   - kind=decode：源 path/mem/cb，解至多 max_frames 帧 float32 交错到 out；
 //   - kind=metadata：源 path，probe+open 填 *meta（tags 生命周期同句柄）。
 // 复用 khost.Host.submit（定容任务槽，满即拒 = InstanceLimit）与 task.Task 完工
-// 事件（**push，无轮询**：Io.Event 阻塞等待，而非轮询 outcome）。句柄 = C `ZkTask`。
-// zk_submit_decode 为 kind=decode + source=path 的便捷包装（既有面语义不变）。
-// 解码体与 zk_engine_decode_once 共用 decodeInto*（语义/失败状态码单一来源）。
+// 事件（**push，无轮询**：Io.Event 阻塞等待，而非轮询 outcome）。句柄 = C `NekoEraASyncZkTask`。
+// neko_eraasync_zk_submit_decode 为 kind=decode + source=path 的便捷包装（既有面语义不变）。
+// 解码体与 neko_eraasync_zk_engine_decode_once 共用 decodeInto*（语义/失败状态码单一来源）。
 // ---------------------------------------------------------------------------
 
 const SubmitKind = enum(u8) { decode = 0, metadata = 1 };
 const SubmitSourceKind = enum(u8) { path = 0, mem = 1, cb = 2 };
 
-/// 与 include/kernel_bridge.h `ZkSubmitReq` 逐字段对齐（extern struct 保证 C ABI）
+/// 与 include/kernel_bridge.h `NekoEraASyncZkSubmitReq` 逐字段对齐（extern struct 保证 C ABI）
 const CSubmitReq = extern struct {
     kind: c_int,
     source: c_int,
@@ -544,8 +544,8 @@ const CSubmitReq = extern struct {
     out: ?[*]f32,
     max_frames: usize,
     out_channels: ?*c_int,
-    info: ?*engine.ZkInfo,
-    meta: ?*engine.ZkMetaInfo,
+    info: ?*engine.NekoEraASyncZkInfo,
+    meta: ?*engine.NekoEraASyncZkMetaInfo,
     errbuf: ?[*]u8,
     errbuf_size: c_int,
 };
@@ -607,16 +607,16 @@ fn buildSource(req: *const CSubmitReq) ?SourceBuild {
 }
 
 /// 从任意源形态（path/mem/cb）打开解码器并解至多 cap_frames 帧到 out。
-/// 与 `decodeInto` 共用同一解码/转换语义（返回 >=0 帧数 / <0 = -ZkStatus）。
+/// 与 `decodeInto` 共用同一解码/转换语义（返回 >=0 帧数 / <0 = -NekoEraASyncZkStatus）。
 /// `format_hint`（AS4）：非 0 时按提示免 probe 直分派（失败回退 probe）。
 /// `cancel`（AS5）：非 null 时在解码开始与每个 chunk 边界检查，置位则返回
-/// `-ZkStatus.aborted`（协作式取消，不抢占运行中的块）。
+/// `-NekoEraASyncZkStatus.aborted`（协作式取消，不抢占运行中的块）。
 fn decodeIntoSource(
     src: session.Source,
     cb_buf: []u8,
     out: [*]f32,
     cap_frames: usize,
-    info_out: ?*engine.ZkInfo,
+    info_out: ?*engine.NekoEraASyncZkInfo,
     ch_out: *u8,
     format_hint: u32,
     cancel: ?*const std.atomic.Value(bool),
@@ -684,8 +684,8 @@ fn decodeIntoSource(
     return @intCast(produced);
 }
 
-/// 结构化任务句柄载体（C 侧 `ZkTask`）。生命周期：
-/// `zk_submit` 分配（c_allocator）→ `zk_task_wait`（可重复，幂等）→ `zk_task_free`。
+/// 结构化任务句柄载体（C 侧 `NekoEraASyncZkTask`）。生命周期：
+/// `neko_eraasync_zk_submit` 分配（c_allocator）→ `neko_eraasync_zk_task_wait`（可重复，幂等）→ `neko_eraasync_zk_task_free`。
 /// 源（path/mem/cb）与 out 只存引用，调用方须保证存活到 wait 返回（worker 异步读）。
 const SubmitTask = struct {
     task: task.Task = .{ .run = run },
@@ -697,14 +697,14 @@ const SubmitTask = struct {
     /// AS4：格式提示（CSubmitReq.format_hint 原样带入；0=auto）。
     format_hint: u32 = 0,
     out_channels: ?*c_int = null,
-    info_out: ?*engine.ZkInfo = null,
+    info_out: ?*engine.NekoEraASyncZkInfo = null,
     ch: u8 = 0,
     frames: isize = 0,
     // kind=metadata
-    meta_out: ?*engine.ZkMetaInfo = null,
-    tags: []engine.ZkTag = &.{},
+    meta_out: ?*engine.NekoEraASyncZkMetaInfo = null,
+    tags: []engine.NekoEraASyncZkTag = &.{},
     opened: ?decoder.OpenedMeta = null,
-    // 公共：负 ZkStatus（失败）/ 0（成功/进行中）
+    // 公共：负 NekoEraASyncZkStatus（失败）/ 0（成功/进行中）
     status: c_int = 0,
 
     fn run(t: *task.Task) void {
@@ -754,7 +754,7 @@ const SubmitTask = struct {
             return;
         };
         const src = info.metadata.tags;
-        const tags = std.heap.c_allocator.alloc(engine.ZkTag, src.len) catch {
+        const tags = std.heap.c_allocator.alloc(engine.NekoEraASyncZkTag, src.len) catch {
             opened.deinit();
             self.status = @intFromEnum(err.Status.out_of_memory);
             t.outcome = .failed;
@@ -822,7 +822,7 @@ fn zkSubmitImpl(h: ?*khost.Host, req: ?*const CSubmitReq) ?*SubmitTask {
     return d;
 }
 
-/// 失败时为提交请求写 errbuf[0..4] = LE ZkStatus（无 errbuf 则仅返回 null）。
+/// 失败时为提交请求写 errbuf[0..4] = LE NekoEraASyncZkStatus（无 errbuf 则仅返回 null）。
 fn submitErrOut(req: *const CSubmitReq, status: c_int) void {
     const eb = req.errbuf orelse return;
     if (req.errbuf_size <= 0) return;
@@ -830,19 +830,19 @@ fn submitErrOut(req: *const CSubmitReq, status: c_int) void {
 }
 
 /// 结构化提交（见 include/kernel_bridge.h 契约）。非阻塞；失败返回 null。
-export fn zk_submit(h: ?*khost.Host, req: ?*const CSubmitReq) ?*SubmitTask {
+export fn neko_eraasync_zk_submit(h: ?*khost.Host, req: ?*const CSubmitReq) ?*SubmitTask {
     return zkSubmitImpl(h, req);
 }
 
 /// 提交一次池内异步解码任务（kind=decode / source=path 的便捷包装，非阻塞；
 /// 契约见 include/kernel_bridge.h）。立即返回句柄；失败（h/path/out 为空 /
 /// max_frames==0 / 池停机 / 任务槽满 / OOM）返回 null。
-export fn zk_submit_decode(
+export fn neko_eraasync_zk_submit_decode(
     h: ?*khost.Host,
     path: ?[*:0]const u8,
     out: ?[*]f32,
     max_frames: usize,
-    info: ?*engine.ZkInfo,
+    info: ?*engine.NekoEraASyncZkInfo,
 ) ?*SubmitTask {
     const r = CSubmitReq{
         .kind = 0,
@@ -868,16 +868,16 @@ export fn zk_submit_decode(
 }
 
 /// 等待任务完工（阻塞、无轮询）。返回 >=0 实际帧数（0=EOF；metadata=0）/
-/// <0 = -（enum ZkStatus）。完工事件保持置位 → 可重复调用（幂等）；
-/// t 为 NULL 返回 -（ZK_IO_ERROR）。
-export fn zk_task_wait(t: ?*SubmitTask) c_longlong {
+/// <0 = -（enum NekoEraASyncZkStatus）。完工事件保持置位 → 可重复调用（幂等）；
+/// t 为 NULL 返回 -（NEKO_ERAASYNC_ZK_IO_ERROR）。
+export fn neko_eraasync_zk_task_wait(t: ?*SubmitTask) c_longlong {
     const d = t orelse return -@as(c_longlong, @intFromEnum(err.Status.io_error));
     task.wait(&d.task);
     return @intCast(d.frames);
 }
 
-/// 完工结果（enum ZkSubmitOutcome）；t 为 NULL → PENDING(0)。
-export fn zk_task_outcome(t: ?*SubmitTask) c_int {
+/// 完工结果（enum NekoEraASyncZkSubmitOutcome）；t 为 NULL → PENDING(0)。
+export fn neko_eraasync_zk_task_outcome(t: ?*SubmitTask) c_int {
     const d = t orelse return 0;
     return switch (d.task.outcome) {
         .pending => 0,
@@ -887,20 +887,20 @@ export fn zk_task_outcome(t: ?*SubmitTask) c_int {
     };
 }
 
-/// 负 ZkStatus（失败）/ 0（成功或进行中）；t 为 NULL → -（ZK_IO_ERROR）。
-export fn zk_task_status(t: ?*SubmitTask) c_int {
+/// 负 NekoEraASyncZkStatus（失败）/ 0（成功或进行中）；t 为 NULL → -（NEKO_ERAASYNC_ZK_IO_ERROR）。
+export fn neko_eraasync_zk_task_status(t: ?*SubmitTask) c_int {
     const d = t orelse return -@as(c_int, @intFromEnum(err.Status.io_error));
     return d.status;
 }
 
 /// decode 帧数（0=EOF）；非 decode 任务返回 0。
-export fn zk_task_frames(t: ?*SubmitTask) c_longlong {
+export fn neko_eraasync_zk_task_frames(t: ?*SubmitTask) c_longlong {
     const d = t orelse return 0;
     return @intCast(d.frames);
 }
 
 /// 带超时 wait（毫秒）：1=已完工，0=超时；t 为 NULL → 0。
-export fn zk_task_wait_timeout(t: ?*SubmitTask, timeout_ms: c_longlong) c_int {
+export fn neko_eraasync_zk_task_wait_timeout(t: ?*SubmitTask, timeout_ms: c_longlong) c_int {
     const d = t orelse return 0;
     const ms: u64 = if (timeout_ms < 0) 0 else @intCast(timeout_ms);
     const ns = ms * std.time.ns_per_ms;
@@ -913,7 +913,7 @@ export fn zk_task_wait_timeout(t: ?*SubmitTask, timeout_ms: c_longlong) c_int {
 
 /// 释放任务句柄（t 为 NULL 时空操作）。内部先 wait 收尾（幂等），未显式 wait 直接
 /// free 也不悬垂。**同一句柄只可 free 一次**（重复 free 属未定义行为，契约明确）。
-export fn zk_task_free(t: ?*SubmitTask) void {
+export fn neko_eraasync_zk_task_free(t: ?*SubmitTask) void {
     const d = t orelse return;
     task.wait(&d.task);
     if (d.opened) |*o| o.deinit();
@@ -930,15 +930,15 @@ export fn zk_task_free(t: ?*SubmitTask) void {
 /// metadata 句柄：probe-only 会话或回退解码器（§8.4.2①）+ tags 数组
 const MetaHandle = struct {
     opened: decoder.OpenedMeta,
-    tags: []engine.ZkTag,
+    tags: []engine.NekoEraASyncZkTag,
 };
 
 /// scanner 依据自身指标（AdaptiveConcurrency/内存）协商的并发提示；
 /// 供内核后续 metadata 池/限流使用（当前仅存储与回读，不改变单调用语义）。
 var g_meta_concurrency: std.atomic.Value(u32) = std.atomic.Value(u32).init(0);
 
-/// 由 decoder.Info 填充 ZkMetaInfo（tags/封面指针指向句柄生命周期内存）
-fn fillMetaInfo(info: decoder.Info, tags: []engine.ZkTag) engine.ZkMetaInfo {
+/// 由 decoder.Info 填充 NekoEraASyncZkMetaInfo（tags/封面指针指向句柄生命周期内存）
+fn fillMetaInfo(info: decoder.Info, tags: []engine.NekoEraASyncZkTag) engine.NekoEraASyncZkMetaInfo {
     const m = info.metadata;
     const cover = if (info.pictures.len > 0) info.pictures[0] else null;
     return .{
@@ -970,9 +970,9 @@ fn fillMetaInfo(info: decoder.Info, tags: []engine.ZkTag) engine.ZkMetaInfo {
 }
 
 /// 打开元数据句柄（probe+open，不解码 PCM）。失败返回 null 并写 errbuf 状态码。
-export fn zk_metadata_open(
+export fn neko_eraasync_zk_metadata_open(
     path: [*:0]const u8,
-    out: *engine.ZkMetaInfo,
+    out: *engine.NekoEraASyncZkMetaInfo,
     errbuf: [*]u8,
     errbuf_size: c_int,
 ) ?*MetaHandle {
@@ -985,7 +985,7 @@ export fn zk_metadata_open(
     errdefer opened.deinit();
 
     const src = info.metadata.tags;
-    const tags = gpa.alloc(engine.ZkTag, src.len) catch {
+    const tags = gpa.alloc(engine.NekoEraASyncZkTag, src.len) catch {
         fillErrStatus(errbuf, if (errbuf_size > 0) @intCast(errbuf_size) else 0, @intFromEnum(err.Status.out_of_memory));
         return null;
     };
@@ -1008,7 +1008,7 @@ export fn zk_metadata_open(
 }
 
 /// 释放元数据句柄（含 probe-only 会话/回退解码器与 tags 数组）。
-export fn zk_metadata_close(h: ?*MetaHandle) void {
+export fn neko_eraasync_zk_metadata_close(h: ?*MetaHandle) void {
     const x = h orelse return;
     if (x.tags.len > 0) std.heap.c_allocator.free(x.tags);
     x.opened.deinit();
@@ -1016,12 +1016,12 @@ export fn zk_metadata_close(h: ?*MetaHandle) void {
 }
 
 /// scanner 按自身指标协商并发提示（0 = 未设/自动）。
-export fn zk_metadata_set_concurrency(n: c_int) void {
+export fn neko_eraasync_zk_metadata_set_concurrency(n: c_int) void {
     g_meta_concurrency.store(if (n < 0) 0 else @intCast(n), .release);
 }
 
 /// 回读当前并发提示（scanner 校验/内核调试用）。
-export fn zk_metadata_get_concurrency() c_int {
+export fn neko_eraasync_zk_metadata_get_concurrency() c_int {
     return @intCast(g_meta_concurrency.load(.acquire));
 }
 
@@ -1033,8 +1033,8 @@ export fn zk_metadata_get_concurrency() c_int {
 const Stream = struct {
     host: *khost.Host,
     s: *session.Session,
-    /// 原生 URL 流的网络句柄（非 URL 源为 null）。仅供 [zk_engine_abort] 解阻塞；
-    /// **不拥有生命周期**——所有权在会话 cb_owner，[zk_engine_close] 经
+    /// 原生 URL 流的网络句柄（非 URL 源为 null）。仅供 [neko_eraasync_zk_engine_abort] 解阻塞；
+    /// **不拥有生命周期**——所有权在会话 cb_owner，[neko_eraasync_zk_engine_close] 经
     /// `Session.destroy` 调用 `urlStreamDestroy` 关闭。
     http: ?*net.HttpStream = null,
 };
@@ -1047,13 +1047,13 @@ fn fillErrStatus(buf: [*]u8, buf_size: usize, status: c_int) void {
 /// 打开流式会话（在池 worker 上 probe+open 一次）。失败返回 NULL 并写 errbuf。
 /// F9：先经 `host.streamOpen()` 做 §6.3 max_streams 硬计数——已达上限直接返回 NULL
 /// （不改 errbuf；语义等同 InstanceLimit）。此后任一失败路径都会 `streamClose()` 回补；
-/// 成功返回的 Stream 持有一个计数，须由 `zk_engine_close` 归还。
+/// 成功返回的 Stream 持有一个计数，须由 `neko_eraasync_zk_engine_close` 归还。
 /// worker 亲和（1 流 pinned 1 worker）与 ring 直推仍属 C 壳接线期（§6.3），此处为
 /// 分块串行会话 + 硬计数簿记。
-export fn zk_engine_open(
+export fn neko_eraasync_zk_engine_open(
     h: ?*khost.Host,
     path: [*:0]const u8,
-    info: ?*engine.ZkInfo,
+    info: ?*engine.NekoEraASyncZkInfo,
     errbuf: [*]u8,
     errbuf_size: usize,
 ) ?*Stream {
@@ -1066,13 +1066,13 @@ export fn zk_engine_open(
     return streamAdopt(host, sess, info, errbuf, errbuf_size, false, null);
 }
 
-/// AS2：打开**专属 worker（pinned 1:1）**流式会话（契约同 [zk_engine_open]）。
+/// AS2：打开**专属 worker（pinned 1:1）**流式会话（契约同 [neko_eraasync_zk_engine_open]）。
 /// 会话所有步骤在该 worker 上串行执行、不进全局队列、不参与回收；无空闲 worker 时
-/// 自动回退全局队列模式（行为/可用性不变）。`zk_engine_stream_pinned` 可查询是否命中。
-export fn zk_engine_open_pinned(
+/// 自动回退全局队列模式（行为/可用性不变）。`neko_eraasync_zk_engine_stream_pinned` 可查询是否命中。
+export fn neko_eraasync_zk_engine_open_pinned(
     h: ?*khost.Host,
     path: [*:0]const u8,
-    info: ?*engine.ZkInfo,
+    info: ?*engine.NekoEraASyncZkInfo,
     errbuf: [*]u8,
     errbuf_size: usize,
 ) ?*Stream {
@@ -1085,13 +1085,13 @@ export fn zk_engine_open_pinned(
     return streamAdopt(host, sess, info, errbuf, errbuf_size, true, null);
 }
 
-/// 打开**内存源**流式会话（契约同 [zk_engine_open]）；`data` 所有权归调用方，
+/// 打开**内存源**流式会话（契约同 [neko_eraasync_zk_engine_open]）；`data` 所有权归调用方，
 /// 须覆盖会话生命周期。内存在池 worker 上经 `decoder.openMem` 解码。
-export fn zk_engine_open_mem(
+export fn neko_eraasync_zk_engine_open_mem(
     h: ?*khost.Host,
     data: [*]const u8,
     len: usize,
-    info: ?*engine.ZkInfo,
+    info: ?*engine.NekoEraASyncZkInfo,
     errbuf: [*]u8,
     errbuf_size: usize,
 ) ?*Stream {
@@ -1104,15 +1104,15 @@ export fn zk_engine_open_mem(
     return streamAdopt(host, sess, info, errbuf, errbuf_size, false, null);
 }
 
-/// 打开**宿主回调流**流式会话（契约同 [zk_engine_open]）。`ctx`/回调生命周期归
+/// 打开**宿主回调流**流式会话（契约同 [neko_eraasync_zk_engine_open]）。`ctx`/回调生命周期归
 /// 调用方；内核自持 peek 缓冲，close 时释放（不触碰 ctx）。
-export fn zk_engine_open_cb(
+export fn neko_eraasync_zk_engine_open_cb(
     h: ?*khost.Host,
     ctx: ?*anyopaque,
     on_read: ?engine.CReadFn,
     on_seek: ?engine.CSeekFn,
     size_hint: c_ulonglong,
-    info: ?*engine.ZkInfo,
+    info: ?*engine.NekoEraASyncZkInfo,
     errbuf: [*]u8,
     errbuf_size: usize,
 ) ?*Stream {
@@ -1145,28 +1145,28 @@ fn urlStreamDestroy(ctx: *anyopaque, allocator: std.mem.Allocator) void {
     (@as(*net.HttpStream, @ptrCast(@alignCast(ctx)))).close();
 }
 
-/// 打开**EraAudio 原生 HTTP(S)** 流式会话（契约同 [zk_engine_open]）。内核自研
+/// 打开**EraAudio 原生 HTTP(S)** 流式会话（契约同 [neko_eraasync_zk_engine_open]）。内核自研
 /// 请求/响应解析（net.zig）；URL 仅在本调用内被读取。会话复用回调 seam：ctx 即
 /// HttpStream，on_read/on_seek 指向其回调，cb_owner 在会话销毁时关闭网络流。
 /// 失败（非 http(s)/连接/TLS/状态码/重定向/格式未接管/OOM）返回 NULL，
-/// 调用方可回退 [zk_decoder_open_url]（再回退宿主 FFmpeg/AVIO）。
-export fn zk_engine_open_url(
+/// 调用方可回退 [neko_eraasync_zk_decoder_open_url]（再回退宿主 FFmpeg/AVIO）。
+export fn neko_eraasync_zk_engine_open_url(
     h: ?*khost.Host,
     url: [*:0]const u8,
-    info: ?*engine.ZkInfo,
+    info: ?*engine.NekoEraASyncZkInfo,
     errbuf: [*]u8,
     errbuf_size: usize,
 ) ?*Stream {
     return engineOpenUrl(h, std.mem.span(url), null, info, errbuf, errbuf_size);
 }
 
-/// 同 [zk_engine_open_url]，但附带自定义请求头（`\n`/`\r\n` 分行；空指针 = 无）。
+/// 同 [neko_eraasync_zk_engine_open_url]，但附带自定义请求头（`\n`/`\r\n` 分行；空指针 = 无）。
 /// 供宿主按源注入 `X-Neko-Client` / `User-Agent` 等标识。
-export fn zk_engine_open_url_headers(
+export fn neko_eraasync_zk_engine_open_url_headers(
     h: ?*khost.Host,
     url: [*:0]const u8,
     headers: ?[*:0]const u8,
-    info: ?*engine.ZkInfo,
+    info: ?*engine.NekoEraASyncZkInfo,
     errbuf: [*]u8,
     errbuf_size: usize,
 ) ?*Stream {
@@ -1178,7 +1178,7 @@ fn engineOpenUrl(
     h: ?*khost.Host,
     url: []const u8,
     headers: ?[]const u8,
-    info: ?*engine.ZkInfo,
+    info: ?*engine.NekoEraASyncZkInfo,
     errbuf: [*]u8,
     errbuf_size: usize,
 ) ?*Stream {
@@ -1211,7 +1211,7 @@ fn engineOpenUrl(
 /// 中断流式会话（供 stop/SIGTERM 路径）：原生 URL 源置位中断标志并尽力
 /// `shutdown` 连接以解除阻塞网络读（best-effort），同时标记会话取消；其它源为
 /// 空操作。线程安全：可与池 worker 的解码并发调用；st 为 NULL 时空操作。
-export fn zk_engine_abort(st: ?*Stream) void {
+export fn neko_eraasync_zk_engine_abort(st: ?*Stream) void {
     const s = st orelse return;
     if (s.http) |h| h.abort(); // 解阻塞网络读（HttpStream 自持连接锁）
     s.s.cancel(); // 标记会话：后续拉块步首观察到 → failed(error.Aborted)
@@ -1223,7 +1223,7 @@ export fn zk_engine_abort(st: ?*Stream) void {
 fn streamAdopt(
     host: *khost.Host,
     sess: *session.Session,
-    info: ?*engine.ZkInfo,
+    info: ?*engine.NekoEraASyncZkInfo,
     errbuf: [*]u8,
     errbuf_size: usize,
     pinned: bool,
@@ -1248,7 +1248,7 @@ fn streamAdopt(
     if (sess.state != session.SessState.playing) {
         sess.releasePin(host.rt); // AS2：pinned 启动失败时归还专属 worker
         if (info) |zi| {
-            zi.* = std.mem.zeroes(engine.ZkInfo);
+            zi.* = std.mem.zeroes(engine.NekoEraASyncZkInfo);
         }
         fillErrStatus(errbuf, errbuf_size, @intFromEnum(err.statusOf(sess.step.err orelse error.DecodeFailed)));
         sess.destroy();
@@ -1261,8 +1261,8 @@ fn streamAdopt(
 }
 
 /// 逐步拉块解码到 out（float32 交错，最多 max_frames 帧）。返回 >=0 帧数（0=EOF）；
-/// <0 = -ZkStatus。
-export fn zk_engine_read(
+/// <0 = -NekoEraASyncZkStatus。
+export fn neko_eraasync_zk_engine_read(
     h: ?*Stream,
     out: [*]f32,
     max_frames: usize,
@@ -1307,8 +1307,8 @@ export fn zk_engine_read(
     return @intCast(produced);
 }
 
-/// 跳到毫秒位置；0 = 成功，非 0 = ZkStatus。
-export fn zk_engine_seek_ms(st: ?*Stream, ms: i64) c_int {
+/// 跳到毫秒位置；0 = 成功，非 0 = NekoEraASyncZkStatus。
+export fn neko_eraasync_zk_engine_seek_ms(st: ?*Stream, ms: i64) c_int {
     const s = (st orelse return @intFromEnum(err.Status.io_error));
     if (s.host.isStopping()) return @intFromEnum(err.Status.io_error);
     const sess = s.s;
@@ -1321,14 +1321,14 @@ export fn zk_engine_seek_ms(st: ?*Stream, ms: i64) c_int {
 }
 
 /// 当前播放位置（毫秒）。
-export fn zk_engine_position_ms(st: ?*Stream) i64 {
+export fn neko_eraasync_zk_engine_position_ms(st: ?*Stream) i64 {
     const s = st orelse return 0;
     if (s.s.dec) |*d| return d.positionMs();
     return 0;
 }
 
 /// 当前解码位置（样本，自文件开头计）；-1 = 未提供（调用方不应裁剪）。
-export fn zk_engine_position_samples(st: ?*Stream) i64 {
+export fn neko_eraasync_zk_engine_position_samples(st: ?*Stream) i64 {
     const s = st orelse return -1;
     if (s.s.dec) |*d| return d.positionSamples();
     return -1;
@@ -1336,14 +1336,14 @@ export fn zk_engine_position_samples(st: ?*Stream) i64 {
 
 /// AS2：该流式会话是否命中专属 worker（pinned 1:1）；1 = 是，0 = 否/NULL。
 /// 供接线层/测试观测「无空闲 worker 时自动回退全局队列」的命中情况。
-export fn zk_engine_stream_pinned(st: ?*Stream) c_int {
+export fn neko_eraasync_zk_engine_stream_pinned(st: ?*Stream) c_int {
     const s = st orelse return 0;
     return if (s.s.isPinned()) 1 else 0;
 }
 
 /// 关闭会话（池内释放实例并 join 收尾）；st 为 NULL 时空操作。
 /// F9：归还打开时占用的流计数（`host.streamClose()`），须在销毁 Stream 前调用。
-export fn zk_engine_close(st: ?*Stream) void {
+export fn neko_eraasync_zk_engine_close(st: ?*Stream) void {
     const s = st orelse return;
     if (s.host.isStopping()) {
         // 停机后 rt 已不可提交任务：直接释放解码器与会话壳（不再走池任务）
@@ -1374,12 +1374,12 @@ export fn zk_engine_close(st: ?*Stream) void {
 // ---------------------------------------------------------------------------
 // 能力扩张 export 扩展：方向① D1/D2（参数化 EQ + 次声低频管理）
 //
-// 契约见 include/kernel_bridge.h（enum ZkBandKind / ZkDspPeq / ZkDspLowFreq）。
-// 非法参数返回 NULL / 空操作，与既有 zk_dsp_eq_* 风格一致。
+// 契约见 include/kernel_bridge.h（enum NekoEraASyncZkBandKind / NekoEraASyncZkDspPeq / NekoEraASyncZkDspLowFreq）。
+// 非法参数返回 NULL / 空操作，与既有 neko_eraasync_zk_dsp_eq_* 风格一致。
 // ---------------------------------------------------------------------------
 
-/// 参数化 EQ 句柄（C 侧 `ZkDspPeq`）；非法参数 / OOM 返回 NULL（C 壳回退）。
-export fn zk_dsp_peq_create(
+/// 参数化 EQ 句柄（C 侧 `NekoEraASyncZkDspPeq`）；非法参数 / OOM 返回 NULL（C 壳回退）。
+export fn neko_eraasync_zk_dsp_peq_create(
     sample_rate: c_int,
     channels: c_int,
     max_bands: c_int,
@@ -1394,8 +1394,8 @@ export fn zk_dsp_peq_create(
     ) catch null;
 }
 
-/// 设置单段（index < max_bands；kind 见 enum ZkBandKind，越界 kind 置为禁用）。
-export fn zk_dsp_peq_set_band(
+/// 设置单段（index < max_bands；kind 见 enum NekoEraASyncZkBandKind，越界 kind 置为禁用）。
+export fn neko_eraasync_zk_dsp_peq_set_band(
     eq: ?*dsp.parametric.EraParamEq,
     index: c_int,
     kind: c_int,
@@ -1410,25 +1410,25 @@ export fn zk_dsp_peq_set_band(
 }
 
 /// 启用（enabled != 0）/ 禁用整链。
-export fn zk_dsp_peq_set_enabled(eq: ?*dsp.parametric.EraParamEq, enabled: c_int) void {
+export fn neko_eraasync_zk_dsp_peq_set_enabled(eq: ?*dsp.parametric.EraParamEq, enabled: c_int) void {
     const e = eq orelse return;
     dsp.parametric.era_peq_set_enabled(e, enabled != 0);
 }
 
 /// 设置前级增益（dB）。
-export fn zk_dsp_peq_set_preamp(eq: ?*dsp.parametric.EraParamEq, preamp_db: f32) void {
+export fn neko_eraasync_zk_dsp_peq_set_preamp(eq: ?*dsp.parametric.EraParamEq, preamp_db: f32) void {
     const e = eq orelse return;
     dsp.parametric.era_peq_set_preamp(e, preamp_db);
 }
 
 /// 复位段表与滤波器状态（preamp 保留）。
-export fn zk_dsp_peq_clear(eq: ?*dsp.parametric.EraParamEq) void {
+export fn neko_eraasync_zk_dsp_peq_clear(eq: ?*dsp.parametric.EraParamEq) void {
     const e = eq orelse return;
     dsp.parametric.era_peq_clear(e);
 }
 
 /// 就地处理交错 float32 PCM（samples = 每声道帧数）。
-export fn zk_dsp_peq_process(eq: ?*dsp.parametric.EraParamEq, pcm: ?[*]f32, samples: c_int) void {
+export fn neko_eraasync_zk_dsp_peq_process(eq: ?*dsp.parametric.EraParamEq, pcm: ?[*]f32, samples: c_int) void {
     const e = eq orelse return;
     const p = pcm orelse return;
     if (samples <= 0) return;
@@ -1437,13 +1437,13 @@ export fn zk_dsp_peq_process(eq: ?*dsp.parametric.EraParamEq, pcm: ?[*]f32, samp
 }
 
 /// 释放参数化 EQ；NULL 空操作。
-export fn zk_dsp_peq_destroy(eq: ?*dsp.parametric.EraParamEq) void {
+export fn neko_eraasync_zk_dsp_peq_destroy(eq: ?*dsp.parametric.EraParamEq) void {
     const e = eq orelse return;
     dsp.parametric.era_peq_destroy(e);
 }
 
-/// 次声低频管理句柄（C 侧 `ZkDspLowFreq`）；非法参数 / OOM 返回 NULL。
-export fn zk_dsp_lowfreq_create(
+/// 次声低频管理句柄（C 侧 `NekoEraASyncZkDspLowFreq`）；非法参数 / OOM 返回 NULL。
+export fn neko_eraasync_zk_dsp_lowfreq_create(
     sample_rate: c_int,
     channels: c_int,
 ) ?*dsp.lowfreq.EraLowFreq {
@@ -1456,13 +1456,13 @@ export fn zk_dsp_lowfreq_create(
 }
 
 /// 整块启用（enabled != 0）/ 禁用（默认禁用 = 逐位旁通）。
-export fn zk_dsp_lowfreq_set_enabled(lf: ?*dsp.lowfreq.EraLowFreq, enabled: c_int) void {
+export fn neko_eraasync_zk_dsp_lowfreq_set_enabled(lf: ?*dsp.lowfreq.EraLowFreq, enabled: c_int) void {
     const x = lf orelse return;
     dsp.lowfreq.era_lowfreq_set_enabled(x, enabled != 0);
 }
 
 /// 设置 HPF（freq<=0 / 非有限 → 关闭）；order 夹取到 1 / 2。
-export fn zk_dsp_lowfreq_set_hpf(
+export fn neko_eraasync_zk_dsp_lowfreq_set_hpf(
     lf: ?*dsp.lowfreq.EraLowFreq,
     freq: f32,
     order: c_int,
@@ -1472,7 +1472,7 @@ export fn zk_dsp_lowfreq_set_hpf(
 }
 
 /// 设置 bass shelf（gain_db / freq）。
-export fn zk_dsp_lowfreq_set_bass(
+export fn neko_eraasync_zk_dsp_lowfreq_set_bass(
     lf: ?*dsp.lowfreq.EraLowFreq,
     gain_db: f32,
     freq: f32,
@@ -1482,7 +1482,7 @@ export fn zk_dsp_lowfreq_set_bass(
 }
 
 /// 就地处理交错 float32 PCM（samples = 每声道帧数）。
-export fn zk_dsp_lowfreq_process(lf: ?*dsp.lowfreq.EraLowFreq, pcm: ?[*]f32, samples: c_int) void {
+export fn neko_eraasync_zk_dsp_lowfreq_process(lf: ?*dsp.lowfreq.EraLowFreq, pcm: ?[*]f32, samples: c_int) void {
     const x = lf orelse return;
     const p = pcm orelse return;
     if (samples <= 0) return;
@@ -1491,34 +1491,34 @@ export fn zk_dsp_lowfreq_process(lf: ?*dsp.lowfreq.EraLowFreq, pcm: ?[*]f32, sam
 }
 
 /// 释放次声低频管理块；NULL 空操作。
-export fn zk_dsp_lowfreq_destroy(lf: ?*dsp.lowfreq.EraLowFreq) void {
+export fn neko_eraasync_zk_dsp_lowfreq_destroy(lf: ?*dsp.lowfreq.EraLowFreq) void {
     const x = lf orelse return;
     dsp.lowfreq.era_lowfreq_destroy(x);
 }
 
 // ---- N4 流式 Reader 缓冲预算 ABI（__KERNEL_STREAM_BUDGET__）----
 /// 当前所有 callback Reader peek 缓冲已用字节（N4 预算记账）。
-export fn zk_stream_mem_used() c_ulonglong {
+export fn neko_eraasync_zk_stream_mem_used() c_ulonglong {
     return @intCast(streambuf.usedBytes());
 }
 
 /// 设置流式缓冲目标预算；0 = 不限（默认）。仅影响之后新分配的缓冲。
-export fn zk_stream_mem_set_budget(bytes: c_ulonglong) void {
+export fn neko_eraasync_zk_stream_mem_set_budget(bytes: c_ulonglong) void {
     streambuf.setBudget(@intCast(bytes));
 }
 
 /// 设置每路 callback Reader 缓冲目标大小（夹取到 [16 KiB, 64 KiB]）。
-export fn zk_stream_peek_set_bytes(bytes: c_uint) void {
+export fn neko_eraasync_zk_stream_peek_set_bytes(bytes: c_uint) void {
     streambuf.setPeekBytes(bytes);
 }
 
 /// 当前每路 callback Reader 缓冲目标大小（默认 16 KiB）。
-export fn zk_stream_peek_bytes() c_uint {
+export fn neko_eraasync_zk_stream_peek_bytes() c_uint {
     return @intCast(streambuf.peek());
 }
 
 // ---- AS6 可观测聚合 + AS5 取消 ABI（__KERNEL_ENGINE_STATS__）----
-/// 与 include/kernel_bridge.h `ZkEngineStats` 逐字段对齐（extern struct 保证 C ABI）。
+/// 与 include/kernel_bridge.h `NekoEraASyncZkEngineStats` 逐字段对齐（extern struct 保证 C ABI）。
 const CEngineStats = extern struct {
     active: c_ulonglong,
     running: c_ulonglong,
@@ -1532,7 +1532,7 @@ const CEngineStats = extern struct {
 };
 
 /// AS6：聚合内核池计数（runtime.Stats）+ 流式会话数写入 out；h/out 为空时空操作。
-export fn zk_engine_stats(h: ?*khost.Host, out: ?*CEngineStats) void {
+export fn neko_eraasync_zk_engine_stats(h: ?*khost.Host, out: ?*CEngineStats) void {
     const host = h orelse return;
     const o = out orelse return;
     const st = host.stats();
@@ -1550,8 +1550,8 @@ export fn zk_engine_stats(h: ?*khost.Host, out: ?*CEngineStats) void {
 }
 
 /// AS5：请求取消池内结构化任务（t 为空时空操作）。任务体在 chunk 边界协作响应：
-/// `zk_task_wait` 返回 -ZkStatus.aborted、outcome=ERROR、status=-aborted。
-export fn zk_task_cancel(t: ?*SubmitTask) void {
+/// `neko_eraasync_zk_task_wait` 返回 -NekoEraASyncZkStatus.aborted、outcome=ERROR、status=-aborted。
+export fn neko_eraasync_zk_task_cancel(t: ?*SubmitTask) void {
     const d = t orelse return;
     d.task.cancel();
 }
@@ -1561,12 +1561,12 @@ const takeover = @import("takeover.zig");
 
 /// 静态接管位图：bit i（i = probe.Format 枚举序）= 该格式是否已接管。
 /// C 壳据此在 native open 前跳过「明确未接管」格式的无效尝试。
-export fn zk_takeover_bitmap() c_ulonglong {
+export fn neko_eraasync_zk_takeover_bitmap() c_ulonglong {
     return @intCast(takeover.bitmap);
 }
 
 /// 给定 probe.Format 枚举序 → 1（已接管）/ 0（未接管或越界）。
-export fn zk_takeover_of_format(fmt: c_int) c_int {
+export fn neko_eraasync_zk_takeover_of_format(fmt: c_int) c_int {
     if (fmt < 0 or fmt >= @as(c_int, @intCast(std.meta.fields(probe.Format).len))) return 0;
     const f: probe.Format = @enumFromInt(@as(u8, @intCast(fmt)));
     return if (takeover.ofFormat(f)) 1 else 0;
@@ -1574,17 +1574,17 @@ export fn zk_takeover_of_format(fmt: c_int) c_int {
 
 /// 给定扩展名（可带/不带 '.'，大小写不敏感）→ 1/0/-1（见 takeover.Verdict）。
 /// 空/未知扩展名返回 -1，让 C 壳保留 try-then-fallback。
-export fn zk_takeover_of_ext(ext: [*:0]const u8) c_int {
+export fn neko_eraasync_zk_takeover_of_ext(ext: [*:0]const u8) c_int {
     return @intFromEnum(takeover.ofExt(std.mem.span(ext)));
 }
 
 // ---------------------------------------------------------------------------
-// 结构化任务提交面测试（zk_submit_decode / zk_task_wait / zk_task_free）
+// 结构化任务提交面测试（neko_eraasync_zk_submit_decode / neko_eraasync_zk_task_wait / neko_eraasync_zk_task_free）
 // ---------------------------------------------------------------------------
 
 const testing = std.testing;
 
-test "zk_submit_decode: submit→wait 帧数/采样率与 sync 一致；重复 wait/free 安全" {
+test "neko_eraasync_zk_submit_decode: submit→wait 帧数/采样率与 sync 一致；重复 wait/free 安全" {
     var tmp = testing.tmpDir(.{});
     defer tmp.cleanup();
     const io_inst = std.Io.Threaded.global_single_threaded.io();
@@ -1598,10 +1598,10 @@ test "zk_submit_decode: submit→wait 帧数/采样率与 sync 一致；重复 w
     }
 
     var out: [16]f32 = undefined;
-    var info: engine.ZkInfo = undefined;
-    const t = zk_submit_decode(h, full.ptr, &out, 8, &info);
+    var info: engine.NekoEraASyncZkInfo = undefined;
+    const t = neko_eraasync_zk_submit_decode(h, full.ptr, &out, 8, &info);
     try testing.expect(t != null);
-    const n = zk_task_wait(t);
+    const n = neko_eraasync_zk_task_wait(t);
     try testing.expectEqual(@as(c_longlong, 8), n);
     try testing.expectEqual(@as(c_int, 8000), info.sample_rate);
     try testing.expectEqual(@as(c_int, 1), info.channels);
@@ -1613,48 +1613,48 @@ test "zk_submit_decode: submit→wait 帧数/采样率与 sync 一致；重复 w
             1e-6,
         );
     }
-    // 完工事件保持置位：重复 wait 幂等（与 zk_engine_decode_once 语义一致）
-    try testing.expectEqual(@as(c_longlong, 8), zk_task_wait(t));
-    zk_task_free(t);
-    zk_task_free(null); // NULL 空操作
+    // 完工事件保持置位：重复 wait 幂等（与 neko_eraasync_zk_engine_decode_once 语义一致）
+    try testing.expectEqual(@as(c_longlong, 8), neko_eraasync_zk_task_wait(t));
+    neko_eraasync_zk_task_free(t);
+    neko_eraasync_zk_task_free(null); // NULL 空操作
 }
 
-test "zk_submit_decode: 不存在的 path → 负状态码（与 decode_once 对齐）；未 wait 直接 free 安全" {
+test "neko_eraasync_zk_submit_decode: 不存在的 path → 负状态码（与 decode_once 对齐）；未 wait 直接 free 安全" {
     const h = try khost.Host.init(std.heap.c_allocator, .{ .min_workers = 1, .max_workers = 2, .cap_tasks = 4 });
     defer {
         h.shutdown();
         h.deinit();
     }
     var out: [8]f32 = undefined;
-    const t = zk_submit_decode(h, "/nonexistent/definitely-missing.wav", &out, 8, null);
+    const t = neko_eraasync_zk_submit_decode(h, "/nonexistent/definitely-missing.wav", &out, 8, null);
     try testing.expect(t != null);
-    const n = zk_task_wait(t);
+    const n = neko_eraasync_zk_task_wait(t);
     try testing.expectEqual(
         @as(c_longlong, -@as(c_longlong, @intFromEnum(err.Status.open_failed))),
         n,
     );
-    zk_task_free(t);
+    neko_eraasync_zk_task_free(t);
 
     // 未 wait 直接 free：free 内兜底 wait 收尾，不悬垂
-    const t2 = zk_submit_decode(h, "/nonexistent/definitely-missing-2.wav", &out, 8, null);
+    const t2 = neko_eraasync_zk_submit_decode(h, "/nonexistent/definitely-missing-2.wav", &out, 8, null);
     try testing.expect(t2 != null);
-    zk_task_free(t2);
+    neko_eraasync_zk_task_free(t2);
 }
 
-test "zk_submit_decode: 参数非法（h/path/out 空、max_frames=0）→ null" {
+test "neko_eraasync_zk_submit_decode: 参数非法（h/path/out 空、max_frames=0）→ null" {
     var out: [8]f32 = undefined;
-    try testing.expect(zk_submit_decode(null, "x.wav", &out, 8, null) == null);
+    try testing.expect(neko_eraasync_zk_submit_decode(null, "x.wav", &out, 8, null) == null);
     const h = try khost.Host.init(std.heap.c_allocator, .{ .min_workers = 1, .max_workers = 1, .cap_tasks = 1 });
     defer {
         h.shutdown();
         h.deinit();
     }
-    try testing.expect(zk_submit_decode(h, null, &out, 8, null) == null);
-    try testing.expect(zk_submit_decode(h, "x.wav", null, 8, null) == null);
-    try testing.expect(zk_submit_decode(h, "x.wav", &out, 0, null) == null);
+    try testing.expect(neko_eraasync_zk_submit_decode(h, null, &out, 8, null) == null);
+    try testing.expect(neko_eraasync_zk_submit_decode(h, "x.wav", null, 8, null) == null);
+    try testing.expect(neko_eraasync_zk_submit_decode(h, "x.wav", &out, 0, null) == null);
 }
 
-test "zk_submit_decode: 任务槽满（cap=1）→ null（InstanceLimit）；释放后可再提交" {
+test "neko_eraasync_zk_submit_decode: 任务槽满（cap=1）→ null（InstanceLimit）；释放后可再提交" {
     const h = try khost.Host.init(std.heap.c_allocator, .{ .min_workers = 1, .max_workers = 1, .cap_tasks = 1 });
     var gate = std.atomic.Value(bool).init(false);
     defer {
@@ -1675,8 +1675,8 @@ test "zk_submit_decode: 任务槽满（cap=1）→ null（InstanceLimit）；释
     try testing.expect(h.submit(&blocker.task) != null);
 
     var out: [8]f32 = undefined;
-    // 槽满：zk_submit_decode 分配载体后 submit 失败 → NULL（path 不会被触碰）
-    try testing.expect(zk_submit_decode(h, "/nonexistent/whatever.wav", &out, 8, null) == null);
+    // 槽满：neko_eraasync_zk_submit_decode 分配载体后 submit 失败 → NULL（path 不会被触碰）
+    try testing.expect(neko_eraasync_zk_submit_decode(h, "/nonexistent/whatever.wav", &out, 8, null) == null);
 
     // 放行 → 槽自动释放 → active 回落 0
     gate.store(true, .release);
@@ -1684,7 +1684,7 @@ test "zk_submit_decode: 任务槽满（cap=1）→ null（InstanceLimit）；释
     try testing.expectEqual(@as(usize, 0), h.active());
 }
 
-// ---- AS1 结构化提交面（zk_submit kind/source/format/hint）----
+// ---- AS1 结构化提交面（neko_eraasync_zk_submit kind/source/format/hint）----
 
 /// 黄金 WAV 字节（8kHz mono i16 0..7，与 engine.writeTestWav 同源）：供 mem/cb 源复用。
 fn goldWavBytes() [60]u8 {
@@ -1702,7 +1702,7 @@ fn goldWavBytes() [60]u8 {
     return b;
 }
 
-/// C 回调源（callconv(.c)，与 zk_read_cb/zk_seek_cb 契约一致）
+/// C 回调源（callconv(.c)，与 neko_eraasync_zk_read_cb/neko_eraasync_zk_seek_cb 契约一致）
 const SubmitCbCtx = struct {
     data: []const u8,
     pos: usize = 0,
@@ -1764,7 +1764,7 @@ fn expectGold(pcm: []const f32) !void {
     }
 }
 
-test "zk_submit: decode 三源（path/mem/cb）逐样本与 sync 一致；outcome/status/frames 对齐" {
+test "neko_eraasync_zk_submit: decode 三源（path/mem/cb）逐样本与 sync 一致；outcome/status/frames 对齐" {
     var tmp = testing.tmpDir(.{});
     defer tmp.cleanup();
     const io_inst = std.Io.Threaded.global_single_threaded.io();
@@ -1781,7 +1781,7 @@ test "zk_submit: decode 三源（path/mem/cb）逐样本与 sync 一致；outcom
     // path 源
     {
         var out: [16]f32 = undefined;
-        var info: engine.ZkInfo = undefined;
+        var info: engine.NekoEraASyncZkInfo = undefined;
         var oc: c_int = 0;
         var req = submitReq(0, 0);
         req.path = full.ptr;
@@ -1790,18 +1790,18 @@ test "zk_submit: decode 三源（path/mem/cb）逐样本与 sync 一致；outcom
         req.out_channels = &oc;
         req.info = &info;
         req.format_hint = 0x21; // 仅携带/校验，不影响自动探测
-        const t = zk_submit(h, &req);
+        const t = neko_eraasync_zk_submit(h, &req);
         try testing.expect(t != null);
-        try testing.expectEqual(@as(c_int, 0), zk_task_outcome(t)); // 未 wait → pending
-        try testing.expectEqual(@as(c_longlong, 8), zk_task_wait(t));
-        try testing.expectEqual(@as(c_int, 1), zk_task_outcome(t)); // done
-        try testing.expectEqual(@as(c_int, 0), zk_task_status(t));
-        try testing.expectEqual(@as(c_longlong, 8), zk_task_frames(t));
+        try testing.expectEqual(@as(c_int, 0), neko_eraasync_zk_task_outcome(t)); // 未 wait → pending
+        try testing.expectEqual(@as(c_longlong, 8), neko_eraasync_zk_task_wait(t));
+        try testing.expectEqual(@as(c_int, 1), neko_eraasync_zk_task_outcome(t)); // done
+        try testing.expectEqual(@as(c_int, 0), neko_eraasync_zk_task_status(t));
+        try testing.expectEqual(@as(c_longlong, 8), neko_eraasync_zk_task_frames(t));
         try testing.expectEqual(@as(c_int, 1), oc);
         try testing.expectEqual(@as(c_int, 8000), info.sample_rate);
         try expectGold(&out);
-        try testing.expectEqual(@as(c_int, 1), zk_task_wait_timeout(t, 1000)); // 已完工
-        zk_task_free(t);
+        try testing.expectEqual(@as(c_int, 1), neko_eraasync_zk_task_wait_timeout(t, 1000)); // 已完工
+        neko_eraasync_zk_task_free(t);
     }
 
     // mem 源
@@ -1812,12 +1812,12 @@ test "zk_submit: decode 三源（path/mem/cb）逐样本与 sync 一致；outcom
         req.len = gold.len;
         req.out = &out;
         req.max_frames = 8;
-        const t = zk_submit(h, &req);
+        const t = neko_eraasync_zk_submit(h, &req);
         try testing.expect(t != null);
-        try testing.expectEqual(@as(c_longlong, 8), zk_task_wait(t));
-        try testing.expectEqual(@as(c_int, 1), zk_task_outcome(t));
+        try testing.expectEqual(@as(c_longlong, 8), neko_eraasync_zk_task_wait(t));
+        try testing.expectEqual(@as(c_int, 1), neko_eraasync_zk_task_outcome(t));
         try expectGold(&out);
-        zk_task_free(t);
+        neko_eraasync_zk_task_free(t);
     }
 
     // cb 源
@@ -1831,16 +1831,16 @@ test "zk_submit: decode 三源（path/mem/cb）逐样本与 sync 一致；outcom
         req.size_hint = gold.len;
         req.out = &out;
         req.max_frames = 8;
-        const t = zk_submit(h, &req);
+        const t = neko_eraasync_zk_submit(h, &req);
         try testing.expect(t != null);
-        try testing.expectEqual(@as(c_longlong, 8), zk_task_wait(t));
-        try testing.expectEqual(@as(c_int, 1), zk_task_outcome(t));
+        try testing.expectEqual(@as(c_longlong, 8), neko_eraasync_zk_task_wait(t));
+        try testing.expectEqual(@as(c_int, 1), neko_eraasync_zk_task_outcome(t));
         try expectGold(&out);
-        zk_task_free(t);
+        neko_eraasync_zk_task_free(t);
     }
 }
 
-test "zk_submit: metadata kind 池内 probe+open 填 ZkMetaInfo；参数非法 → null + errbuf 状态" {
+test "neko_eraasync_zk_submit: metadata kind 池内 probe+open 填 NekoEraASyncZkMetaInfo；参数非法 → null + errbuf 状态" {
     var tmp = testing.tmpDir(.{});
     defer tmp.cleanup();
     const io_inst = std.Io.Threaded.global_single_threaded.io();
@@ -1853,37 +1853,37 @@ test "zk_submit: metadata kind 池内 probe+open 填 ZkMetaInfo；参数非法 �
         h.deinit();
     }
 
-    var meta: engine.ZkMetaInfo = std.mem.zeroes(engine.ZkMetaInfo);
-    var info: engine.ZkInfo = undefined;
+    var meta: engine.NekoEraASyncZkMetaInfo = std.mem.zeroes(engine.NekoEraASyncZkMetaInfo);
+    var info: engine.NekoEraASyncZkInfo = undefined;
     var req = submitReq(1, 0);
     req.path = full.ptr;
     req.meta = &meta;
     req.info = &info;
-    const t = zk_submit(h, &req);
+    const t = neko_eraasync_zk_submit(h, &req);
     try testing.expect(t != null);
-    try testing.expectEqual(@as(c_longlong, 0), zk_task_wait(t)); // metadata 无帧
-    try testing.expectEqual(@as(c_int, 1), zk_task_outcome(t));
-    try testing.expectEqual(@as(c_int, 0), zk_task_status(t));
+    try testing.expectEqual(@as(c_longlong, 0), neko_eraasync_zk_task_wait(t)); // metadata 无帧
+    try testing.expectEqual(@as(c_int, 1), neko_eraasync_zk_task_outcome(t));
+    try testing.expectEqual(@as(c_int, 0), neko_eraasync_zk_task_status(t));
     try testing.expectEqual(@as(c_int, 8000), meta.sample_rate);
     try testing.expectEqual(@as(c_int, 1), meta.channels);
     try testing.expectEqual(@as(c_int, 8000), info.sample_rate);
-    zk_task_free(t);
+    neko_eraasync_zk_task_free(t);
 
     // 参数非法：metadata 仅 path 源
     var req_bad = submitReq(1, 1);
     req_bad.meta = &meta;
-    try testing.expect(zk_submit(h, &req_bad) == null);
+    try testing.expect(neko_eraasync_zk_submit(h, &req_bad) == null);
     // flags 非 0 视为非法
     var req_flags = submitReq(0, 0);
     req_flags.path = full.ptr;
     req_flags.out = undefined;
     req_flags.max_frames = 0; // 同时非法也在 flags 前拦下
     req_flags.flags = 1;
-    try testing.expect(zk_submit(h, &req_flags) == null);
+    try testing.expect(neko_eraasync_zk_submit(h, &req_flags) == null);
     // 非法 kind
     var req_kind = submitReq(9, 0);
-    try testing.expect(zk_submit(h, &req_kind) == null);
-    // 失败时 errbuf 写 LE ZkStatus（io_error=8）
+    try testing.expect(neko_eraasync_zk_submit(h, &req_kind) == null);
+    // 失败时 errbuf 写 LE NekoEraASyncZkStatus（io_error=8）
     var req_eb = submitReq(0, 0);
     var eb: [8]u8 = undefined;
     @memset(&eb, 0);
@@ -1892,10 +1892,10 @@ test "zk_submit: metadata kind 池内 probe+open 填 ZkMetaInfo；参数非法 �
     req_eb.errbuf = &eb;
     req_eb.errbuf_size = eb.len;
     // out 为空 → 参数非法（不写 errbuf；此处仅证明返回 null）
-    try testing.expect(zk_submit(h, &req_eb) == null);
+    try testing.expect(neko_eraasync_zk_submit(h, &req_eb) == null);
 }
 
-test "zk_submit: 未完工任务 wait_timeout 超时返回 0，放行后返回 1" {
+test "neko_eraasync_zk_submit: 未完工任务 wait_timeout 超时返回 0，放行后返回 1" {
     const h = try khost.Host.init(std.heap.c_allocator, .{ .min_workers = 1, .max_workers = 1, .cap_tasks = 2 });
     var gate = std.atomic.Value(bool).init(false);
     defer {
@@ -1919,21 +1919,21 @@ test "zk_submit: 未完工任务 wait_timeout 超时返回 0，放行后返回 1
     req.path = "/nonexistent/queued.wav";
     req.out = &out;
     req.max_frames = 8;
-    const t = zk_submit(h, &req);
+    const t = neko_eraasync_zk_submit(h, &req);
     try testing.expect(t != null);
     // 唯一 worker 被占 → 短超时必须返回 0（未完工）
-    try testing.expectEqual(@as(c_int, 0), zk_task_wait_timeout(t, 30));
+    try testing.expectEqual(@as(c_int, 0), neko_eraasync_zk_task_wait_timeout(t, 30));
     gate.store(true, .release);
     task.wait(&blocker.task);
-    try testing.expectEqual(@as(c_int, 1), zk_task_wait_timeout(t, 5000));
+    try testing.expectEqual(@as(c_int, 1), neko_eraasync_zk_task_wait_timeout(t, 5000));
     // 排队任务已完工（不存在的路径 → open_failed 负码）
     try testing.expectEqual(
         @as(c_longlong, -@as(c_longlong, @intFromEnum(err.Status.open_failed))),
-        zk_task_frames(t),
+        neko_eraasync_zk_task_frames(t),
     );
-    try testing.expectEqual(@as(c_int, 2), zk_task_outcome(t)); // failed
-    try testing.expectEqual(@as(c_int, @intFromEnum(err.Status.open_failed)), zk_task_status(t));
-    zk_task_free(t);
+    try testing.expectEqual(@as(c_int, 2), neko_eraasync_zk_task_outcome(t)); // failed
+    try testing.expectEqual(@as(c_int, @intFromEnum(err.Status.open_failed)), neko_eraasync_zk_task_status(t));
+    neko_eraasync_zk_task_free(t);
 }
 
 test {
@@ -2101,7 +2101,7 @@ fn bigWavBytes(allocator: std.mem.Allocator, nframes: usize) ![]u8 {
     return b;
 }
 
-test "AS4 zk_submit format_hint: 正确提示免 probe；错误提示回退；均与 decode_once 逐位一致" {
+test "AS4 neko_eraasync_zk_submit format_hint: 正确提示免 probe；错误提示回退；均与 decode_once 逐位一致" {
     var tmp = testing.tmpDir(.{});
     defer tmp.cleanup();
     const io_inst = std.Io.Threaded.global_single_threaded.io();
@@ -2117,7 +2117,7 @@ test "AS4 zk_submit format_hint: 正确提示免 probe；错误提示回退；�
     // 参考：常规 probe（decode_once）
     var ref: [16]f32 = undefined;
     var rc: c_int = 0;
-    try testing.expectEqual(@as(isize, 8), zk_engine_decode_once(h, full.ptr, &ref, 8, &rc, null));
+    try testing.expectEqual(@as(isize, 8), neko_eraasync_zk_engine_decode_once(h, full.ptr, &ref, 8, &rc, null));
 
     // 正确提示（wav=1）→ 免 probe 直分派
     {
@@ -2129,12 +2129,12 @@ test "AS4 zk_submit format_hint: 正确提示免 probe；错误提示回退；�
         req.max_frames = 8;
         req.out_channels = &oc;
         req.format_hint = @intFromEnum(probe.FormatHint.wav);
-        const t = zk_submit(h, &req);
+        const t = neko_eraasync_zk_submit(h, &req);
         try testing.expect(t != null);
-        try testing.expectEqual(@as(c_longlong, 8), zk_task_wait(t));
-        try testing.expectEqual(@as(c_int, 1), zk_task_outcome(t));
+        try testing.expectEqual(@as(c_longlong, 8), neko_eraasync_zk_task_wait(t));
+        try testing.expectEqual(@as(c_int, 1), neko_eraasync_zk_task_outcome(t));
         for (0..8) |i| try testing.expectEqual(ref[i], out[i]);
-        zk_task_free(t);
+        neko_eraasync_zk_task_free(t);
     }
 
     // 错误提示（flac=2）→ 直分派失败 → 回退 probe → 仍逐位一致
@@ -2147,15 +2147,15 @@ test "AS4 zk_submit format_hint: 正确提示免 probe；错误提示回退；�
         req.max_frames = 8;
         req.out_channels = &oc;
         req.format_hint = @intFromEnum(probe.FormatHint.flac);
-        const t = zk_submit(h, &req);
+        const t = neko_eraasync_zk_submit(h, &req);
         try testing.expect(t != null);
-        try testing.expectEqual(@as(c_longlong, 8), zk_task_wait(t));
+        try testing.expectEqual(@as(c_longlong, 8), neko_eraasync_zk_task_wait(t));
         for (0..8) |i| try testing.expectEqual(ref[i], out[i]);
-        zk_task_free(t);
+        neko_eraasync_zk_task_free(t);
     }
 }
 
-test "AS5 zk_task_cancel: 排队任务未开工即取消 → wait=-aborted、outcome=ERROR、status=aborted" {
+test "AS5 neko_eraasync_zk_task_cancel: 排队任务未开工即取消 → wait=-aborted、outcome=ERROR、status=aborted" {
     const h = try khost.Host.init(std.heap.c_allocator, .{ .min_workers = 1, .max_workers = 1, .cap_tasks = 2 });
     var gate = std.atomic.Value(bool).init(false);
     defer {
@@ -2185,20 +2185,20 @@ test "AS5 zk_task_cancel: 排队任务未开工即取消 → wait=-aborted、out
     req.path = full.ptr;
     req.out = &out;
     req.max_frames = 8;
-    const t = zk_submit(h, &req);
+    const t = neko_eraasync_zk_submit(h, &req);
     try testing.expect(t != null);
-    zk_task_cancel(t); // 唯一 worker 被占 → 任务仍在排队
-    zk_task_cancel(null); // NULL 空操作
+    neko_eraasync_zk_task_cancel(t); // 唯一 worker 被占 → 任务仍在排队
+    neko_eraasync_zk_task_cancel(null); // NULL 空操作
 
     gate.store(true, .release);
     task.wait(&blocker.task);
     try testing.expectEqual(
         @as(c_longlong, -@as(c_longlong, @intFromEnum(err.Status.aborted))),
-        zk_task_wait(t),
+        neko_eraasync_zk_task_wait(t),
     );
-    try testing.expectEqual(@as(c_int, 2), zk_task_outcome(t)); // ERROR
-    try testing.expectEqual(@as(c_int, @intFromEnum(err.Status.aborted)), zk_task_status(t));
-    zk_task_free(t);
+    try testing.expectEqual(@as(c_int, 2), neko_eraasync_zk_task_outcome(t)); // ERROR
+    try testing.expectEqual(@as(c_int, @intFromEnum(err.Status.aborted)), neko_eraasync_zk_task_status(t));
+    neko_eraasync_zk_task_free(t);
 }
 
 test "AS5 decodeIntoSource: 取消标志在解码中被观察到 → -aborted（chunk 边界协作）" {
@@ -2288,30 +2288,30 @@ test "N4 流缓冲预算: 超预算 cb 源拒绝打开；变长缓冲真实生�
 
     // 预算不限 + 非默认缓冲大小（32 KiB）→ 真实分配该大小并记账
     streambuf.setBudget(0);
-    try testing.expectEqual(@as(c_uint, streambuf.default_peek_bytes), zk_stream_peek_bytes());
-    zk_stream_peek_set_bytes(32768);
-    try testing.expectEqual(@as(c_uint, 32768), zk_stream_peek_bytes());
+    try testing.expectEqual(@as(c_uint, streambuf.default_peek_bytes), neko_eraasync_zk_stream_peek_bytes());
+    neko_eraasync_zk_stream_peek_set_bytes(32768);
+    try testing.expectEqual(@as(c_uint, 32768), neko_eraasync_zk_stream_peek_bytes());
     var b = buildSource(&req) orelse return error.TestUnexpectedResult;
     try testing.expectEqual(@as(usize, 32768), b.cb_buffer.len);
-    try testing.expectEqual(base + 32768, zk_stream_mem_used());
+    try testing.expectEqual(base + 32768, neko_eraasync_zk_stream_mem_used());
     b.release();
-    try testing.expectEqual(base, zk_stream_mem_used());
+    try testing.expectEqual(base, neko_eraasync_zk_stream_mem_used());
 
     // 夹取：低于下限 → 16 KiB
-    zk_stream_peek_set_bytes(1024);
-    try testing.expectEqual(@as(c_uint, 16384), zk_stream_peek_bytes());
+    neko_eraasync_zk_stream_peek_set_bytes(1024);
+    try testing.expectEqual(@as(c_uint, 16384), neko_eraasync_zk_stream_peek_bytes());
 
     // 预算 0 = 不限：记账仍为基线
-    zk_stream_mem_set_budget(0);
-    try testing.expectEqual(base, zk_stream_mem_used());
+    neko_eraasync_zk_stream_mem_set_budget(0);
+    try testing.expectEqual(base, neko_eraasync_zk_stream_mem_used());
 }
 
 // ---------------------------------------------------------------------------
-// 离线 EBU R128 集成响度测量（zk_loudness_measure）端到端测试
+// 离线 EBU R128 集成响度测量（neko_eraasync_zk_loudness_measure）端到端测试
 // ---------------------------------------------------------------------------
 
 /// 造 `channels` 声道、16-bit、`sample_rate` 的同相正弦 WAV 字节（振幅 amp）。
-/// 调用方 free。仅供本文件 zk_loudness_measure 端到端测试（确定性）。
+/// 调用方 free。仅供本文件 neko_eraasync_zk_loudness_measure 端到端测试（确定性）。
 fn sineWavBytes(
     allocator: std.mem.Allocator,
     sample_rate: u32,
@@ -2350,7 +2350,7 @@ fn sineWavBytes(
     return b;
 }
 
-test "zk_loudness_measure: 解码立体声 1kHz 正弦 WAV → 有效响应/峰值；缺失路径负码" {
+test "neko_eraasync_zk_loudness_measure: 解码立体声 1kHz 正弦 WAV → 有效响应/峰值；缺失路径负码" {
     var tmp = testing.tmpDir(.{});
     defer tmp.cleanup();
     const io_inst = std.Io.Threaded.global_single_threaded.io();
@@ -2365,12 +2365,12 @@ test "zk_loudness_measure: 解码立体声 1kHz 正弦 WAV → 有效响应/峰�
     defer testing.allocator.free(full);
 
     var res: CLoudnessResult = undefined;
-    try testing.expectEqual(@as(c_int, 0), zk_loudness_measure(full.ptr, &res));
+    try testing.expectEqual(@as(c_int, 0), neko_eraasync_zk_loudness_measure(full.ptr, &res));
     try testing.expectEqual(@as(c_int, 1), res.valid);
     try testing.expectApproxEqAbs(@as(f64, -6.0206), res.integrated_lufs, 0.2);
     try testing.expectApproxEqAbs(@as(f64, 0.5), res.peak, 1e-3);
 
     // 缺失路径 / out 为空 → 负状态码。
-    try testing.expect(zk_loudness_measure("/nonexistent/loud.wav", &res) < 0);
-    try testing.expect(zk_loudness_measure("/nonexistent/loud.wav", null) < 0);
+    try testing.expect(neko_eraasync_zk_loudness_measure("/nonexistent/loud.wav", &res) < 0);
+    try testing.expect(neko_eraasync_zk_loudness_measure("/nonexistent/loud.wav", null) < 0);
 }

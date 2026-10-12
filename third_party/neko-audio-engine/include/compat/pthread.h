@@ -1,5 +1,5 @@
-// ArchoeraMusic Audio Framework
-// Copyright (C) 2026 Archoera && BetaStudio2
+// NekoMusic-EraASync
+// Copyright (C) 2026 NekoEraASync && BetaStudio2
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 /**
@@ -12,7 +12,7 @@
  *   - thread       → CreateThread / WaitForSingleObject（pthread_create / join）
  *   - nanosleep    → Sleep（供引擎线程 50ms 节流）
  *
- * 接入方式：仅在 MSVC 构建时为 archoera_mediaengine 目标添加本目录到
+ * 接入方式：仅在 MSVC 构建时为 neko_eraasync 目标添加本目录到
  * include 路径（见 CMakeLists.txt），源码里的 #include <pthread.h>
  * 不经改动即解析到本文件；GCC/Clang 走系统 pthread.h。
  * 非 MSVC 环境下本头直接透传系统 pthread.h，保证 include 路径误用时安全。

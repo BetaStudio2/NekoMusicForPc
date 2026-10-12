@@ -1,12 +1,12 @@
-// ArchoeraMusic Audio Framework
-// Copyright (C) 2026 Archoera && BetaStudio2
+// NekoMusic-EraASync
+// Copyright (C) 2026 NekoEraASync && BetaStudio2
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// EraSync — ArchoeraMusic 自研音频内核
+// NekoMusic-EraASync — 自研音频内核
 
 //! 离线 EBU R128 / ITU-R BS.1770-4 集成响度 + 采样峰值**测量**
 //! （docs/audio-kernel-zig.md §14；方向① D3/D6 扩张）。
 //!
-//! 与同目录 `loudness.zig`（静态增益补偿，`era_loudness_*` / `zk_dsp_loudness_*`）
+//! 与同目录 `loudness.zig`（静态增益补偿，`era_loudness_*` / `neko_eraasync_zk_dsp_loudness_*`）
 //! **互不影响**：本模块只负责**测量**，供 scanner 离线分析本地文件，把集成响度 +
 //! 线性采样峰值写入曲库（`loudness_lufs` / `loudness_peak`），作为无 ReplayGain
 //! 标签文件的兜底归一化增益来源（真正应用由播放侧运行时命令完成）。

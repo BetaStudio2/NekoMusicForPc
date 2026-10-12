@@ -1,22 +1,22 @@
-// ArchoeraMusic Audio Framework
-// Copyright (C) 2026 Archoera && BetaStudio2
+// NekoMusic-EraASync
+// Copyright (C) 2026 NekoEraASync && BetaStudio2
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 /**
- * main.c — archoera-audio-engine CLI 入口
+ * main.c — neko-audio-engine CLI 入口
  *
  * 用法：
  *   批量模式（默认）：
- *     archoera-audio-engine <输入文件/URL> [选项]
+ *     neko-audio-engine <输入文件/URL> [选项]
  *     一次性转码，stdout 输出 OGG/Opus 流
  *
  *   交互模式（Phase 3）：
- *     archoera-audio-engine <输入文件/URL> --interactive --control-fd 3 [--fft-fd 4] [选项]
+ *     neko-audio-engine <输入文件/URL> --interactive --control-fd 3 [--fft-fd 4] [选项]
  *     stdin 接收 JSON 控制命令，stdout 输出 OGG/Opus 流，control-fd 输出状态/响应的 JSON 行
  *     --fft-fd 指定的 fd 输出 FFT 频谱 JSON 行
  *
  *   播放模式（Phase 4，自写播放器，§10.8 替代 libmpv）：
- *     archoera-audio-engine <输入文件/URL> --interactive --control-uds <path> \
+ *     neko-audio-engine <输入文件/URL> --interactive --control-uds <path> \
  *         --stream-uds <path> --player-file <transcoded.wav> [选项]
  *     转码 PCM 落盘为 <transcoded.wav>，完成后经 miniaudio 播放（内置 dr_wav，
  *     本地完整文件 seek 即时）；播放中 stdin 仍接收 play/pause/seek/set_volume/get_status
@@ -69,7 +69,7 @@
 #include <time.h>
 
 /* 全局管线指针，供 SIGTERM 处理器优雅关闭 */
-static AudioPipeline *g_pipeline = NULL;
+static NekoEraASyncPipeline *g_pipeline = NULL;
 
 /* SIGTERM 已收到（keep-alive 等待循环据此退出） */
 static volatile sig_atomic_t g_sigterm_received = 0;
@@ -205,13 +205,13 @@ static void on_pcm_out(const float *pcm, int samples, int channels,
 /* SIGTERM 处理器：优雅关闭管线而非被终止。
  * 1. decoder_interrupt() 设置 AVIOInterruptCB 标志 — 若 av_read_frame()
  *    正阻塞在磁盘 I/O，FFmpeg 下次检查时立即返回 AVERROR_EXIT。
- * 2. pipeline_signal_shutdown() 设置管线退出标志 — 主循环检测后退出。 */
+ * 2. neko_eraasync_pipeline_signal_shutdown() 设置管线退出标志 — 主循环检测后退出。 */
 static void handle_sigterm(int sig) {
     (void)sig;
     g_sigterm_received = 1;
     decoder_interrupt();
     if (g_pipeline) {
-        pipeline_signal_shutdown(g_pipeline);
+        neko_eraasync_pipeline_signal_shutdown(g_pipeline);
     }
 }
 
@@ -431,17 +431,17 @@ static void print_usage(const char *prog)
 }
 
 /* ── 处理单条 stdin 控制命令 ───────────────────────────────────── */
-static void handle_command(AudioPipeline *p, const char *line) {
+static void handle_command(NekoEraASyncPipeline *p, const char *line) {
     char type[64] = {0};
     if (json_get_string(line, "type", type, sizeof(type)) < 0) return;
 
     if (strcmp(type, "set_eq") == 0) {
         float gains[EQ_BANDS] = {0};
         int n = json_get_float_array(line, "gains", gains, EQ_BANDS);
-        if (n > 0) pipeline_set_eq_gains(p, gains);
+        if (n > 0) neko_eraasync_pipeline_set_eq_gains(p, gains);
         double preamp = 0;
         if (json_get_number(line, "preamp", &preamp) == 0) {
-            pipeline_set_preamp(p, (float)preamp);
+            neko_eraasync_pipeline_set_preamp(p, (float)preamp);
         }
     } else if (strcmp(type, "set_peq") == 0) {
         /* 方向① D1：参数化 EQ（扁平 [kind,freq,q,gain,...]，长度须 % 4 == 0） */
@@ -449,31 +449,31 @@ static void handle_command(AudioPipeline *p, const char *line) {
         int n = json_get_float_array(line, "bands", bands,
                                      PARAMETRIC_EQ_MAX_BANDS * 4);
         if (n > 0 && n % 4 == 0) {
-            pipeline_set_peq_bands(p, bands, n / 4);
+            neko_eraasync_pipeline_set_peq_bands(p, bands, n / 4);
         }
         bool peq_enabled = true;
         if (json_get_bool(line, "enabled", &peq_enabled) == 0) {
-            pipeline_set_peq_enabled(p, peq_enabled);
+            neko_eraasync_pipeline_set_peq_enabled(p, peq_enabled);
         }
         double peq_preamp = 0;
         if (json_get_number(line, "preamp", &peq_preamp) == 0) {
-            pipeline_set_peq_preamp(p, (float)peq_preamp);
+            neko_eraasync_pipeline_set_peq_preamp(p, (float)peq_preamp);
         }
     } else if (strcmp(type, "set_lowfreq") == 0) {
         /* 方向① D2：次声/低频管理 */
         bool lf_enabled = true;
         if (json_get_bool(line, "enabled", &lf_enabled) == 0) {
-            pipeline_set_lowfreq_enabled(p, lf_enabled);
+            neko_eraasync_pipeline_set_lowfreq_enabled(p, lf_enabled);
         }
         double hpf_freq = -1.0, hpf_order = 2.0;
         if (json_get_number(line, "hpf_freq", &hpf_freq) == 0) {
             if (json_get_number(line, "hpf_order", &hpf_order) != 0) hpf_order = 2.0;
-            pipeline_set_lowfreq_hpf(p, (float)hpf_freq, (int)hpf_order);
+            neko_eraasync_pipeline_set_lowfreq_hpf(p, (float)hpf_freq, (int)hpf_order);
         }
         double bass_gain = 0.0, bass_freq = 100.0;
         if (json_get_number(line, "bass_gain", &bass_gain) == 0) {
             if (json_get_number(line, "bass_freq", &bass_freq) != 0) bass_freq = 100.0;
-            pipeline_set_lowfreq_bass(p, (float)bass_gain, (float)bass_freq);
+            neko_eraasync_pipeline_set_lowfreq_bass(p, (float)bass_gain, (float)bass_freq);
         }
     } else if (strcmp(type, "set_volume") == 0) {
         double vol = 1.0;
@@ -481,46 +481,46 @@ static void handle_command(AudioPipeline *p, const char *line) {
             if (g_player) {
                 player_command(g_player, "set_volume", NULL, &vol);
             } else {
-                pipeline_set_volume(p, (float)vol);
+                neko_eraasync_pipeline_set_volume(p, (float)vol);
             }
         }
     } else if (strcmp(type, "set_normalization") == 0) {
         bool enabled = true;
         if (json_get_bool(line, "enabled", &enabled) == 0) {
-            pipeline_set_normalization_enabled(p, enabled);
+            neko_eraasync_pipeline_set_normalization_enabled(p, enabled);
         }
     } else if (strcmp(type, "set_limiter") == 0) {
         bool enabled = true;
         if (json_get_bool(line, "enabled", &enabled) == 0) {
-            pipeline_set_limiter_enabled(p, enabled);
+            neko_eraasync_pipeline_set_limiter_enabled(p, enabled);
         }
     } else if (strcmp(type, "set_fft") == 0) {
         bool enabled = true;
         if (json_get_bool(line, "enabled", &enabled) == 0) {
-            pipeline_set_fft_enabled(p, enabled);
+            neko_eraasync_pipeline_set_fft_enabled(p, enabled);
         }
     } else if (strcmp(type, "set_tempo_speed") == 0) {
         double speed = 1.0;
         if (json_get_number(line, "speed", &speed) == 0) {
-            pipeline_set_tempo_speed(p, (float)speed);
+            neko_eraasync_pipeline_set_tempo_speed(p, (float)speed);
         }
     } else if (strcmp(type, "set_tempo_pitch") == 0) {
         double semitones = 0.0;
         if (json_get_number(line, "semitones", &semitones) == 0) {
-            pipeline_set_tempo_pitch(p, (float)semitones);
+            neko_eraasync_pipeline_set_tempo_pitch(p, (float)semitones);
         }
     } else if (strcmp(type, "set_tempo") == 0) {
         bool enabled = true;
         if (json_get_bool(line, "enabled", &enabled) == 0) {
-            pipeline_set_tempo_enabled(p, enabled);
+            neko_eraasync_pipeline_set_tempo_enabled(p, enabled);
         }
     } else if (strcmp(type, "get_status") == 0) {
         if (g_player) {
             player_command(g_player, "get_status", NULL, NULL);
         } else {
             char buf[256];
-            double pos = pipeline_get_position(p);
-            double dur = pipeline_get_duration(p);
+            double pos = neko_eraasync_pipeline_get_position(p);
+            double dur = neko_eraasync_pipeline_get_duration(p);
             snprintf(buf, sizeof(buf),
                 "{\"type\":\"status\",\"position_ms\":%.0f,\"duration_ms\":%.0f}",
                 pos * 1000.0, dur * 1000.0);
@@ -560,20 +560,20 @@ static void handle_command(AudioPipeline *p, const char *line) {
 #define FFT_PUSH_BINS 128
 
 /* 推送一帧 FFT 频谱到 fft_fd（JSON 行，双声道归一化 [0,1] bins） */
-static int push_fft_frame(AudioPipeline *p, int fft_fd)
+static int push_fft_frame(NekoEraASyncPipeline *p, int fft_fd)
 {
     if (fft_fd < 0) return 0;
-    if (pipeline_get_fft_size(p) <= 0) return 0;
+    if (neko_eraasync_pipeline_get_fft_size(p) <= 0) return 0;
     int bins = FFT_PUSH_BINS;
     float fft_data[FFT_PUSH_BINS];
     float fft_data_r[FFT_PUSH_BINS];
-    pipeline_get_fft_spectrum_norm_stereo(p, fft_data, fft_data_r, bins);
+    neko_eraasync_pipeline_get_fft_spectrum_norm_stereo(p, fft_data, fft_data_r, bins);
 
     /* 构造 JSON（双声道独立数据；offsetMs=起始偏移+已处理位置，供前端按播放位置取帧） */
     char fft_json[16384];
     int off = snprintf(fft_json, sizeof(fft_json),
         "{\"type\":\"fft\",\"bins\":%d,\"offsetMs\":%.0f,\"ldata\":[",
-        bins, (double)g_offset_ms + pipeline_get_fft_processed_seconds(p) * 1000.0);
+        bins, (double)g_offset_ms + neko_eraasync_pipeline_get_fft_processed_seconds(p) * 1000.0);
     for (int i = 0; i < bins; i++) {
         off += snprintf(fft_json + off, sizeof(fft_json) - off,
             "%.1f%s", fft_data[i], i < bins - 1 ? "," : "");
@@ -597,9 +597,9 @@ static void on_fft_frame(void *user_data, int fft_size)
 {
     (void)fft_size;
     if (g_fft_fd < 0) return;
-    AudioPipeline *p = (AudioPipeline *)user_data;
+    NekoEraASyncPipeline *p = (NekoEraASyncPipeline *)user_data;
     if (!p) return;
-    double pos = pipeline_get_fft_processed_seconds(p);
+    double pos = neko_eraasync_pipeline_get_fft_processed_seconds(p);
     if (g_last_fft_pos < 0) {
         g_last_fft_pos = pos;
         return;
@@ -615,10 +615,10 @@ static void on_fft_frame(void *user_data, int fft_size)
  * rel 相对会话起点（session offset = g_offset_ms）。返回 0 成功。 */
 static int cli_stream_rebuild(double rel_ms)
 {
-    double dur_ms = g_pipeline ? pipeline_get_duration(g_pipeline) * 1000.0 : 0.0;
+    double dur_ms = g_pipeline ? neko_eraasync_pipeline_get_duration(g_pipeline) * 1000.0 : 0.0;
     double abs_ms;
     EngineConfig cfg2;
-    AudioPipeline *np;
+    NekoEraASyncPipeline *np;
 
     if (!g_cli_source || !g_cli_player_file) return -1;
     if (rel_ms < 0) rel_ms = 0;
@@ -630,7 +630,7 @@ static int cli_stream_rebuild(double rel_ms)
         player_stream_set_pos_base(g_player, abs_ms - (double)g_offset_ms);
     }
     if (g_pipeline) {
-        pipeline_destroy(g_pipeline);
+        neko_eraasync_pipeline_destroy(g_pipeline);
         g_pipeline = NULL;
     }
     if (g_wav_file) {
@@ -640,22 +640,22 @@ static int cli_stream_rebuild(double rel_ms)
 
     cfg2 = g_cli_cfg;
     cfg2.start_offset_ms = (int64_t)abs_ms;
-    np = pipeline_create(g_cli_source, &cfg2,
+    np = neko_eraasync_pipeline_create(g_cli_source, &cfg2,
         g_stream_uds ? write_to_stream_uds : write_to_stdout, NULL);
     if (!np) return -1;
-    pipeline_set_playback_streaming(np, true);
+    neko_eraasync_pipeline_set_playback_streaming(np, true);
     if (g_cli_player_file) {
-        wav_begin(g_cli_player_file, pipeline_get_output_sample_rate(np),
+        wav_begin(g_cli_player_file, neko_eraasync_pipeline_get_output_sample_rate(np),
                   g_cli_cfg.output_channels);
     }
-    pipeline_set_pcm_out_cb(np, on_pcm_out, NULL);
-    pipeline_set_fft_frame_cb(np, on_fft_frame, np);
+    neko_eraasync_pipeline_set_pcm_out_cb(np, on_pcm_out, NULL);
+    neko_eraasync_pipeline_set_fft_frame_cb(np, on_fft_frame, np);
     g_last_fft_pos = -1.0;
     g_pipeline = np;
     return 0;
 }
 
-static int run_interactive(AudioPipeline *p, int fft_fd, int fft_interval_ms,
+static int run_interactive(NekoEraASyncPipeline *p, int fft_fd, int fft_interval_ms,
                            int keep_alive_ms, const char *player_file)
 {
     /* 发送就绪消息（经 control UDS / fd3）：
@@ -666,10 +666,10 @@ static int run_interactive(AudioPipeline *p, int fft_fd, int fft_interval_ms,
         "{\"type\":\"ready\",\"version\":\"%s\",\"duration_ms\":%.0f,"
         "\"sample_rate\":%d,\"channels\":%d,\"out_sample_rate\":%d}",
         audio_engine_version(),
-        pipeline_get_duration(p) * 1000.0,
-        pipeline_get_source_sample_rate(p),
-        pipeline_get_source_channels(p),
-        pipeline_get_output_sample_rate(p));
+        neko_eraasync_pipeline_get_duration(p) * 1000.0,
+        neko_eraasync_pipeline_get_source_sample_rate(p),
+        neko_eraasync_pipeline_get_source_channels(p),
+        neko_eraasync_pipeline_get_output_sample_rate(p));
     control_send_line(ready);
 
     /* 设置 stdin 为非阻塞 */
@@ -684,15 +684,15 @@ static int run_interactive(AudioPipeline *p, int fft_fd, int fft_interval_ms,
     g_fft_fd = fft_fd;
     g_fft_interval_sec = (fft_interval_ms > 0 ? fft_interval_ms : 100) / 1000.0;
     g_last_fft_pos = -1.0;
-    pipeline_set_fft_frame_cb(p, on_fft_frame, p);
+    neko_eraasync_pipeline_set_fft_frame_cb(p, on_fft_frame, p);
 
     /* ── 流式播放初始化（--player-file：首块 PCM 即出声，解码按设备消费节奏推进）。
      *    无声/设备不可用时回退旧路径（全速解码 → 文件播放器）。
-     *    ARCHOERA_STREAM_DISABLE=1：调试/对拍用，强制走旧路径。 */
+     *    NEKO_ERAASYNC_STREAM_DISABLE=1：调试/对拍用，强制走旧路径。 */
     int streaming = 0;
-    if (player_file && !getenv("ARCHOERA_STREAM_DISABLE")) {
-        int rate = pipeline_get_output_sample_rate(p);
-        int ch   = pipeline_get_output_channels(p);
+    if (player_file && !getenv("NEKO_ERAASYNC_STREAM_DISABLE")) {
+        int rate = neko_eraasync_pipeline_get_output_sample_rate(p);
+        int ch   = neko_eraasync_pipeline_get_output_channels(p);
         if (rate <= 0) rate = 48000;
         if (ch <= 0) ch = 2;
         player_start_options popts = PLAYER_START_OPTIONS_DEFAULT;
@@ -701,7 +701,7 @@ static int run_interactive(AudioPipeline *p, int fft_fd, int fft_interval_ms,
         if (g_player) {
             streaming = 1;
             g_stream_playback = 1;
-            pipeline_set_playback_streaming(p, true);
+            neko_eraasync_pipeline_set_playback_streaming(p, true);
             ERA_LOGI(NULL, "[audio-engine] 流式播放启动（首块 PCM 即出声）\n");
         } else {
             g_stream_playback = 0;
@@ -712,7 +712,7 @@ static int run_interactive(AudioPipeline *p, int fft_fd, int fft_interval_ms,
     /* 主循环：交替处理音频帧 + 检查 stdin 命令 */
     for (;;) {
         /* 处理若干音频帧 */
-        ssize_t n = pipeline_process(p);
+        ssize_t n = neko_eraasync_pipeline_process(p);
         if (n < 0) {
             char err_buf[128];
             snprintf(err_buf, sizeof(err_buf),
@@ -754,7 +754,7 @@ static int run_interactive(AudioPipeline *p, int fft_fd, int fft_interval_ms,
     }
 
     /* flush 残留 */
-    int ret = pipeline_run(p);
+    int ret = neko_eraasync_pipeline_run(p);
     control_send_line("{\"type\":\"done\"}");
 
     /* 转码后阶段：keep-alive（等待迟到消费者）与播放模式（自写播放器）。
@@ -915,7 +915,7 @@ static int run_interactive(AudioPipeline *p, int fft_fd, int fft_interval_ms,
                     nanosleep(&ts2, NULL);
                     continue;
                 }
-                ssize_t n = pipeline_process(p);
+                ssize_t n = neko_eraasync_pipeline_process(p);
                 if (n < 0) {
                     char err_buf[128];
                     snprintf(err_buf, sizeof(err_buf),
@@ -931,7 +931,7 @@ static int run_interactive(AudioPipeline *p, int fft_fd, int fft_interval_ms,
             if (decode_done && need_flush) {
                 need_flush = 0;
                 if (!g_sigterm_received && !g_want_exit) {
-                    int r2 = pipeline_run(p);
+                    int r2 = neko_eraasync_pipeline_run(p);
                     if (r2 < 0) {
                         char err_buf[128];
                         snprintf(err_buf, sizeof(err_buf),
@@ -1219,7 +1219,7 @@ int main(int argc, char *argv[])
     g_cli_cfg = cfg;
     g_cli_player_file = player_file;
 
-    AudioPipeline *p = pipeline_create(source, &cfg,
+    NekoEraASyncPipeline *p = neko_eraasync_pipeline_create(source, &cfg,
         g_stream_uds ? write_to_stream_uds : write_to_stdout, NULL);
     if (!p) {
         ERA_LOGE(NULL, "[audio-engine] 管线创建失败\n");
@@ -1231,13 +1231,13 @@ int main(int argc, char *argv[])
      *   - g_wav_file：--player-file 模式，转码 PCM 落盘 WAV 供 miniaudio 播放 */
     if (player_file) {
         /* WAV 头用实际输出采样率/声道（跟随源时即源采样率，原生直通） */
-        wav_begin(player_file, pipeline_get_output_sample_rate(p),
+        wav_begin(player_file, neko_eraasync_pipeline_get_output_sample_rate(p),
                   cfg.output_channels);
         ERA_LOGI(NULL, "[audio-engine] 播放模式: PCM 落盘 %s (%dHz)\n",
-                player_file, pipeline_get_output_sample_rate(p));
+                player_file, neko_eraasync_pipeline_get_output_sample_rate(p));
     }
     if (g_pcm_uds || g_wav_file) {
-        pipeline_set_pcm_out_cb(p, on_pcm_out, NULL);
+        neko_eraasync_pipeline_set_pcm_out_cb(p, on_pcm_out, NULL);
     }
 
     /* 注册全局指针，供 SIGTERM 处理器访问 */
@@ -1246,9 +1246,9 @@ int main(int argc, char *argv[])
     ERA_LOGI(NULL, "[audio-engine] 会话开始 t=%.0fms\n", now_mono_ms());
 
     ERA_LOGI(NULL, "[audio-engine] 源: %dHz / %dch / 时长 %.1fs\n",
-            pipeline_get_source_sample_rate(p),
-            pipeline_get_source_channels(p),
-            pipeline_get_duration(p));
+            neko_eraasync_pipeline_get_source_sample_rate(p),
+            neko_eraasync_pipeline_get_source_channels(p),
+            neko_eraasync_pipeline_get_duration(p));
 
     int ret;
     if (interactive) {
@@ -1256,7 +1256,7 @@ int main(int argc, char *argv[])
                               player_file);
     } else {
         /* 批量模式：阻塞处理 */
-        ret = pipeline_run(p);
+        ret = neko_eraasync_pipeline_run(p);
     }
 
     if (ret < 0) {
@@ -1264,7 +1264,7 @@ int main(int argc, char *argv[])
         if (g_pcm_uds) { pcm_uds_destroy(g_pcm_uds); g_pcm_uds = NULL; }
         if (g_stream_uds) { pcm_uds_destroy(g_stream_uds); g_stream_uds = NULL; }
         if (g_ctl_uds) { pcm_uds_destroy(g_ctl_uds); g_ctl_uds = NULL; }
-        if (g_pipeline) { pipeline_destroy(g_pipeline); g_pipeline = NULL; }
+        if (g_pipeline) { neko_eraasync_pipeline_destroy(g_pipeline); g_pipeline = NULL; }
         return 3;
     }
 
@@ -1272,6 +1272,6 @@ int main(int argc, char *argv[])
     if (g_pcm_uds) { pcm_uds_destroy(g_pcm_uds); g_pcm_uds = NULL; }
     if (g_stream_uds) { pcm_uds_destroy(g_stream_uds); g_stream_uds = NULL; }
     if (g_ctl_uds) { pcm_uds_destroy(g_ctl_uds); g_ctl_uds = NULL; }
-    if (g_pipeline) { pipeline_destroy(g_pipeline); g_pipeline = NULL; }
+    if (g_pipeline) { neko_eraasync_pipeline_destroy(g_pipeline); g_pipeline = NULL; }
     return 0;
 }

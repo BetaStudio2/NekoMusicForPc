@@ -1,5 +1,5 @@
-// ArchoeraMusic Audio Framework
-// Copyright (C) 2026 Archoera && BetaStudio2
+// NekoMusic-EraASync
+// Copyright (C) 2026 NekoEraASync && BetaStudio2
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 /**
@@ -13,8 +13,8 @@
  * 线程模型：ma_engine 回调在设备线程；player_command/player_poll 由主线程
  * （stdin 命令循环）调用，ma_engine API 内部线程安全。
  */
-#ifndef ARCHOERA_PLAYER_H
-#define ARCHOERA_PLAYER_H
+#ifndef NEKO_ERAASYNC_PLAYER_H
+#define NEKO_ERAASYNC_PLAYER_H
 
 #include <stddef.h>
 
@@ -99,7 +99,7 @@ typedef struct {
  *
  * @param ogg_path  待播放文件（WAV/OGG，miniaudio 内置解码）
  * @param sink_id   播放输出 sink 选择：
- *                    - NULL    ：沿用旧语义——读 env ARCHOERA_AUDIO_SINK，无则系统默认
+ *                    - NULL    ：沿用旧语义——读 env NEKO_ERAASYNC_AUDIO_SINK，无则系统默认
  *                    - 非空串  ：显式选中该设备（pulse/alsa id 或描述名子串，忽略 env）
  *                    - 空串 "" ：回系统默认（忽略 env，等价用户显式确认“用默认”）
  *                  对选中设备 native 为单声道或 <44.1kHz（如蓝牙 HFP 16k/1ch）时，
@@ -201,4 +201,4 @@ void player_stop(PlayerCtx *p);
 }
 #endif
 
-#endif /* ARCHOERA_PLAYER_H */
+#endif /* NEKO_ERAASYNC_PLAYER_H */

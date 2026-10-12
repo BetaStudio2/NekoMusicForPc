@@ -1,5 +1,5 @@
-// ArchoeraMusic Audio Framework
-// Copyright (C) 2026 Archoera && BetaStudio2
+// NekoMusic-EraASync
+// Copyright (C) 2026 NekoEraASync && BetaStudio2
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 /**
@@ -64,7 +64,7 @@
  * 提供（与 segstore.h 同一 struct 标签）；store 生命周期归调用方。 */
 #include "segstore.h"
 
-struct AudioPipeline {
+struct NekoEraASyncPipeline {
     Decoder     *dec;           /* FFmpeg 后端（native_active == false 时使用） */
     NativeDecoder *native;      /* 自研 Zig 内核（engine_mode==EraAudio 且接管成功）；
                                   非 NULL 时为本解码源（FFmpeg 不再打开） */
@@ -72,15 +72,15 @@ struct AudioPipeline {
     bool         native_http;   /* native 源是否为 EraAudio 原生 HTTP(S)（transport 口径） */
     const char  *headers;       /* 在线源额外请求头（借用宿主内存；可空） */
     const char  *backend;       /* 实际解码后端："zig" / "ffmpeg"（F5 ready 事件上报） */
-    int          native_status; /* native open 失败状态码（ZkStatus；成功=0） */
+    int          native_status; /* native open 失败状态码（NekoEraASyncZkStatus；成功=0） */
     char         native_err[256]; /* native open 失败诊断（仅日志） */
     float       *native_buf;    /* native 读缓冲（float 交错） */
     int          native_buf_frames; /* native_buf 帧容量 */
     Resampler   *resampler;
     Encoder     *encoder;
 
-    /* store 内存源模式（pipeline_create_store，docs/audio-memory-source.md §7）：
-     * decoder 经 decoder_open_mem 解码（不接管 avio），pipeline_destroy 在
+    /* store 内存源模式（neko_eraasync_pipeline_create_store，docs/audio-memory-source.md §7）：
+     * decoder 经 decoder_open_mem 解码（不接管 avio），neko_eraasync_pipeline_destroy 在
      * decoder_close 之后 avio_context_free。store 句柄所有权归调用方。 */
     AVIOContext *store_avio;   /* 为 store 构造的自定义 IO（空 = 非 store 模式） */
     SegStore    *store;        /* 内存源（整曲已驻留，可 seek） */
@@ -127,7 +127,7 @@ struct AudioPipeline {
     PcmOutCallback pcm_out_cb;
     void          *pcm_out_user;
 
-    /* 单次 pipeline_process 处理帧上限（batch=64；播放流式=小块便于命令轮询） */
+    /* 单次 neko_eraasync_pipeline_process 处理帧上限（batch=64；播放流式=小块便于命令轮询） */
     int            max_frames_per_call;
 
     bool         eof;        /* 解码器已到 EOF */
@@ -135,12 +135,12 @@ struct AudioPipeline {
 };
 
 /* —— store 内存源 AVIO 回调（语义复刻 tests/test_store_decode.c）——
- * opaque = AudioPipeline*（store/游标/总长即所在字段）。
+ * opaque = NekoEraASyncPipeline*（store/游标/总长即所在字段）。
  * 注意（FFmpeg 9）：read 到 EOF 必须返回 AVERROR_EOF（返回 0 会被
  * fill_buffer 当作“未填满”反复重读 → 空转）。 */
 static int store_avio_read(void *opaque, uint8_t *buf, int size)
 {
-    AudioPipeline *p = (AudioPipeline *)opaque;
+    NekoEraASyncPipeline *p = (NekoEraASyncPipeline *)opaque;
     intptr_t n = segstore_pread(p->store, buf, (size_t)size, (uint64_t)p->store_pos);
     if (n < 0) return AVERROR(EIO);
     if (n == 0) return AVERROR_EOF;
@@ -150,7 +150,7 @@ static int store_avio_read(void *opaque, uint8_t *buf, int size)
 
 static int64_t store_avio_seek(void *opaque, int64_t offset, int whence)
 {
-    AudioPipeline *p = (AudioPipeline *)opaque;
+    NekoEraASyncPipeline *p = (NekoEraASyncPipeline *)opaque;
     if (whence == AVSEEK_SIZE) return p->store_total;
     int64_t base;
     switch (whence) {
@@ -167,7 +167,7 @@ static int64_t store_avio_seek(void *opaque, int64_t offset, int whence)
 
 /* 为 store 构造 AVIOContext（av_malloc 读缓冲，avio 接管其释放）并存入 p。
  * @return 0 成功，-1 失败 */
-static int pipeline_store_avio_open(AudioPipeline *p, SegStore *store)
+static int neko_eraasync_pipeline_store_avio_open(NekoEraASyncPipeline *p, SegStore *store)
 {
     p->store = store;
     p->store_pos = 0;
@@ -189,9 +189,9 @@ static int pipeline_store_avio_open(AudioPipeline *p, SegStore *store)
  * N3 断流/超时/中断语义（内核侧契约不变：on_read 只有 0=EOF）：
  *   - 超时：avio_open2 传 rw_timeout 限制单次阻塞 IO；HTTP 断流自动重连
  *     （reconnect / reconnect_streamed / reconnect_delay_max）。
- *   - 中断：stop/SIGTERM → pipeline_signal_shutdown 置 aborted，AVIOInterruptCB 在
+ *   - 中断：stop/SIGTERM → neko_eraasync_pipeline_signal_shutdown 置 aborted，AVIOInterruptCB 在
  *     阻塞 IO 中轮询并打断 avio_read（对应内核 Reader.abort 的宿主侧）。
- *   - 错误：avio_read 返回的非 EOF 错误记入 io_error，pipeline_process 据其把
+ *   - 错误：avio_read 返回的非 EOF 错误记入 io_error，neko_eraasync_pipeline_process 据其把
  *     「内核读到的 0」改判为负状态码上报，避免网络错误被当成正常文件尾静默截断。 */
 typedef struct {
     AVIOContext *avio;
@@ -251,9 +251,9 @@ static int era_url_seek(void *ctx, long long off, int whence, size_t buffered)
     return 1;
 }
 
-/* 取出在线传输的待上报错误（无则 0）。由 pipeline_process 在 native 读到
+/* 取出在线传输的待上报错误（无则 0）。由 neko_eraasync_pipeline_process 在 native 读到
  * EOF 时调用：非 0 说明是传输错误而非正常文件尾。 */
-static int era_url_take_error(AudioPipeline *p)
+static int era_url_take_error(NekoEraASyncPipeline *p)
 {
     if (!p->era_url_cb) return 0;
     return ((EraUrlCb *)p->era_url_cb)->io_error;
@@ -261,14 +261,14 @@ static int era_url_take_error(AudioPipeline *p)
 
 /* 打开 URL → 优先 EraAudio 原生 HTTP(S)，失败回退 FFmpeg AVIO 宿主传输。
  * 成功置 p->native / p->native_active（+ native-http 时无 era_url_cb）；失败不残留资源。 */
-static int pipeline_era_url_open(AudioPipeline *p, const char *url)
+static int neko_eraasync_pipeline_era_url_open(NekoEraASyncPipeline *p, const char *url)
 {
     /* 0) EraAudio 原生 HTTP(S)：内核自研请求/响应解析（连接/TLS/Range/重定向），
      *    不经宿主 FFmpeg AVIO（docs/audio-kernel-zig.md §6.1/§7 增强）。
-     *    ARCHOERA_ERA_NATIVE_HTTP=0 可显式关闭（回退下方 AVIO），便于对照/排障。 */
-#if defined(HAS_ARCHOERA_KERNEL)
+     *    NEKO_ERAASYNC_NATIVE_HTTP=0 可显式关闭（回退下方 AVIO），便于对照/排障。 */
+#if defined(HAS_NEKO_ERAASYNC_KERNEL)
     {
-        const char *nv = getenv("ARCHOERA_ERA_NATIVE_HTTP");
+        const char *nv = getenv("NEKO_ERAASYNC_NATIVE_HTTP");
         const int enabled = !(nv && nv[0] == '0' && nv[1] == '\0');
         if (enabled) {
             NativeInfo ninfo;
@@ -302,7 +302,7 @@ static int pipeline_era_url_open(AudioPipeline *p, const char *url)
     /* 宿主传输超时/重连（N3）：rw_timeout 为通用协议选项；reconnect* 仅 HTTP
      * 识别，其它协议未识别者由 avio_open2 原样退回，不影响打开。
      * 重试**有界**（max_retries + delay_max）：瞬时断流自动续传，持续不可达则
-     * 最终返回错误由管线改判上报（-8 ZK_IO_ERROR），不会无限重连挂住。 */
+     * 最终返回错误由管线改判上报（-8 NEKO_ERAASYNC_ZK_IO_ERROR），不会无限重连挂住。 */
     AVDictionary *opts = NULL;
     av_dict_set(&opts, "rw_timeout", "15000000", 0); /* 15s 单次 IO 上限 */
     av_dict_set(&opts, "reconnect", "1", 0);
@@ -314,7 +314,7 @@ static int pipeline_era_url_open(AudioPipeline *p, const char *url)
     int oret = avio_open2(&cb->avio, url, AVIO_FLAG_READ, &cb->interrupt, &opts);
     av_dict_free(&opts);
     if (oret < 0) {
-        p->native_status = 8; /* ZK_IO_ERROR：宿主传输打开失败（非未接管） */
+        p->native_status = 8; /* NEKO_ERAASYNC_ZK_IO_ERROR：宿主传输打开失败（非未接管） */
         free(cb);
         return -1;
     }
@@ -343,7 +343,7 @@ static int pipeline_era_url_open(AudioPipeline *p, const char *url)
 /* 解析并下发响度归一化增益（创建时读标签后、运行时改开关/增益/口径后调用）。
  * 优先级：album 标签（按 norm_album）→ track 标签 → 兜底增益 → 0。
  * 标签路径按 peak 做削波保护（兜底增益由调用方预削波）。 */
-static void pipeline_apply_normalization(AudioPipeline *p)
+static void neko_eraasync_pipeline_apply_normalization(NekoEraASyncPipeline *p)
 {
     if (!p || !p->loudness) return;
     if (!p->norm_enabled) {
@@ -384,10 +384,10 @@ static void pipeline_apply_normalization(AudioPipeline *p)
             gain, limited ? " (峰限)" : "", effective ? "" : "（无增益，等效关闭）");
 }
 
-/* pipeline_create / pipeline_create_store 共用实现：store 非空 → SegStore
+/* neko_eraasync_pipeline_create / neko_eraasync_pipeline_create_store 共用实现：store 非空 → SegStore
  * 内存源（整曲已驻留，可 seek），经 AVIO + decoder_open_mem 解码；store 为空
  * → 磁盘/URL 源，完全走现状（engine_mode==EraAudio 优先自研内核，回退 FFmpeg）。 */
-static AudioPipeline* pipeline_create_impl(const char *source,
+static NekoEraASyncPipeline* neko_eraasync_pipeline_create_impl(const char *source,
                                             const char *headers,
                                             SegStore *store,
                                             const EngineConfig *cfg,
@@ -397,7 +397,7 @@ static AudioPipeline* pipeline_create_impl(const char *source,
     if (!cfg || !output) return NULL;
     if (!store && !source) return NULL;
 
-    AudioPipeline *p = calloc(1, sizeof(*p));
+    NekoEraASyncPipeline *p = calloc(1, sizeof(*p));
     if (!p) return NULL;
 
     p->cfg = *cfg;
@@ -437,7 +437,7 @@ static AudioPipeline* pipeline_create_impl(const char *source,
                         "%s EraAudio: 内存源非连续（分段）→ 回退 FFmpeg-mem\n", LOG_TAG);
             }
         }
-        if (!p->native_active && pipeline_store_avio_open(p, store) != 0) {
+        if (!p->native_active && neko_eraasync_pipeline_store_avio_open(p, store) != 0) {
             ERA_LOGE(NULL, "%s SegStore 内存源 AVIO 构造失败\n", LOG_TAG);
             goto fail;
         }
@@ -447,9 +447,9 @@ static AudioPipeline* pipeline_create_impl(const char *source,
         if (source_is_url(source)) {
             /* F5 门控：扩展名对应格式在内核开关下明确未接管 → 跳过无效 native open。 */
             if (native_decoder_taken_over_by_ext(source) == 0) {
-                p->native_status = 1; /* ZK_UNSUPPORTED */
+                p->native_status = 1; /* NEKO_ERAASYNC_ZK_UNSUPPORTED */
                 ERA_LOGW(NULL, "%s EraAudio: 扩展名未接管 → 直接 FFmpeg\n", LOG_TAG);
-            } else if (pipeline_era_url_open(p, source) != 0) {
+            } else if (neko_eraasync_pipeline_era_url_open(p, source) != 0) {
                 ERA_LOGW(NULL, "%s EraAudio: 在线源不可用/未接管"
                                 " (status=%d %s) → 回退 FFmpeg（将重新发起 HTTP 请求）\n",
                         LOG_TAG, p->native_status,
@@ -458,7 +458,7 @@ static AudioPipeline* pipeline_create_impl(const char *source,
         } else if (native_decoder_taken_over_by_ext(source) == 0) {
             /* F5 门控：扩展名明确未接管 → 跳过无效 native open，直接 FFmpeg。
              * 返回 -1（未知扩展名）时保留 try-then-fallback（probe 按内容判定）。 */
-            p->native_status = 1; /* ZK_UNSUPPORTED */
+            p->native_status = 1; /* NEKO_ERAASYNC_ZK_UNSUPPORTED */
             ERA_LOGW(NULL, "%s EraAudio: 扩展名未接管 → 直接 FFmpeg\n", LOG_TAG);
         } else {
             NativeInfo ninfo;
@@ -593,7 +593,7 @@ static AudioPipeline* pipeline_create_impl(const char *source,
         p->rg_album_gain_db = ag;
         p->rg_album_peak = ap;
     }
-    pipeline_apply_normalization(p);
+    neko_eraasync_pipeline_apply_normalization(p);
 
     /* 3.3 限幅器 */
     p->limiter = limiter_create(out_rate, out_channels);
@@ -701,41 +701,41 @@ static AudioPipeline* pipeline_create_impl(const char *source,
     return p;
 
 fail:
-    pipeline_destroy(p);
+    neko_eraasync_pipeline_destroy(p);
     return NULL;
 }
 
 /* 磁盘/URL 源（现状路径，store == NULL） */
-AudioPipeline* pipeline_create(const char *source,
+NekoEraASyncPipeline* neko_eraasync_pipeline_create(const char *source,
                                 const EngineConfig *cfg,
                                 OutputCallback output,
                                 void *user)
 {
-    return pipeline_create_impl(source, NULL, NULL, cfg, output, user);
+    return neko_eraasync_pipeline_create_impl(source, NULL, NULL, cfg, output, user);
 }
 
-AudioPipeline* pipeline_create_with_headers(const char *source,
+NekoEraASyncPipeline* neko_eraasync_pipeline_create_with_headers(const char *source,
                                             const char *headers,
                                             const EngineConfig *cfg,
                                             OutputCallback output,
                                             void *user)
 {
-    return pipeline_create_impl(source, headers, NULL, cfg, output, user);
+    return neko_eraasync_pipeline_create_impl(source, headers, NULL, cfg, output, user);
 }
 
 /* SegStore 内存源（docs/audio-memory-source.md §7）：整曲已在 store、可 seek；
- * 语义对齐 pipeline_create，仅解码源改为 store → AVIO → decoder_open_mem。 */
-AudioPipeline* pipeline_create_store(SegStore *store,
+ * 语义对齐 neko_eraasync_pipeline_create，仅解码源改为 store → AVIO → decoder_open_mem。 */
+NekoEraASyncPipeline* neko_eraasync_pipeline_create_store(SegStore *store,
                                       const EngineConfig *cfg,
                                       OutputCallback output,
                                       void *user)
 {
-    return pipeline_create_impl(NULL, NULL, store, cfg, output, user);
+    return neko_eraasync_pipeline_create_impl(NULL, NULL, store, cfg, output, user);
 }
 
 /* 处理链前段（不含 tempo/fft）：低频管理 → 参数化 EQ → 固定 EQ → 响度 → 限幅。
- * 供 process_dsp_chain 与 pipeline_run 的 flush 路径共用，保证两条路径一致。 */
-static void process_pre_tempo(AudioPipeline *p, float *pcm, int samples)
+ * 供 process_dsp_chain 与 neko_eraasync_pipeline_run 的 flush 路径共用，保证两条路径一致。 */
+static void process_pre_tempo(NekoEraASyncPipeline *p, float *pcm, int samples)
 {
     lowfreq_process(p->lowfreq, pcm, samples);
     parametric_eq_process(p->peq, pcm, samples);
@@ -748,7 +748,7 @@ static void process_pre_tempo(AudioPipeline *p, float *pcm, int samples)
  * limiter → tempo → fft → PCM 流出回调 → 编码器。返回编码器写入帧数或
  * out_samples（skip_encoder 时）。pcm 为 out_rate/out_channels 的重采样输出；
  * samples 为其帧数。 */
-static int process_dsp_chain(AudioPipeline *p, float *pcm, int samples)
+static int process_dsp_chain(NekoEraASyncPipeline *p, float *pcm, int samples)
 {
     process_pre_tempo(p, pcm, samples);
 
@@ -788,7 +788,7 @@ static int process_dsp_chain(AudioPipeline *p, float *pcm, int samples)
 }
 
 /* 处理单帧 PCM 数据（FFmpeg 后端：AVFrame → swr 重采样 → DSP 链） */
-static int process_frame(AudioPipeline *p, AVFrame *frame)
+static int process_frame(NekoEraASyncPipeline *p, AVFrame *frame)
 {
     /* 延迟初始化重采样器 */
     if (!resampler_is_initialized(p->resampler)) {
@@ -825,7 +825,7 @@ static int process_frame(AudioPipeline *p, AVFrame *frame)
 /* 原生路径：读一段 float 交错 PCM（自研内核已输出 f32 交错，native_buf），
  * 以 AV_SAMPLE_FMT_FLT 输入重采样器（复用现有 swr/采样链路，播放语义不变）。
  * @return 1 处理了数据，0 EOF，<0 错误 */
-static int native_process_chunk(AudioPipeline *p)
+static int native_process_chunk(NekoEraASyncPipeline *p)
 {
     int src_ch = native_decoder_channels(p->native);
     if (src_ch <= 0) return -1;
@@ -833,7 +833,7 @@ static int native_process_chunk(AudioPipeline *p)
     int ch = 0;
     int frames = native_decoder_read(p->native, p->native_buf,
                                      p->native_buf_frames, &ch);
-    /* 透传内核真实错误码（负值 = -ZkStatus；勿吞成 -1，否则无法定位根因）。 */
+    /* 透传内核真实错误码（负值 = -NekoEraASyncZkStatus；勿吞成 -1，否则无法定位根因）。 */
     if (frames < 0) return frames;
     if (frames == 0) return 0; /* EOF */
     if (ch <= 0 || ch > src_ch) ch = src_ch; /* 容错：首帧声道缺失用源声道数 */
@@ -867,7 +867,7 @@ static int native_process_chunk(AudioPipeline *p)
     return r < 0 ? r : 1;
 }
 
-/* 内核负状态码（-ZkStatus，见 include/kernel_bridge.h）的可读释义。 */
+/* 内核负状态码（-NekoEraASyncZkStatus，见 include/kernel_bridge.h）的可读释义。 */
 static const char *era_zk_status_hint(int ret) {
     switch (ret) {
         case -1: return "参数错误";
@@ -882,7 +882,7 @@ static const char *era_zk_status_hint(int ret) {
     }
 }
 
-ssize_t pipeline_process(AudioPipeline *p)
+ssize_t neko_eraasync_pipeline_process(NekoEraASyncPipeline *p)
 {
     if (!p || p->eof) return 0;
 
@@ -897,7 +897,7 @@ ssize_t pipeline_process(AudioPipeline *p)
             if (ret <= 0) {
                 if (ret < 0) {
                     if (ret == -5) {
-                        /* -5 = ZK_ABORTED：stop/SIGTERM/切歌/跳转重建触发的主动中止，
+                        /* -5 = NEKO_ERAASYNC_ZK_ABORTED：stop/SIGTERM/切歌/跳转重建触发的主动中止，
                          * 属**预期收尾**，非解码错误——不打 FATAL、不产生 error 事件。 */
                         ERA_LOGI(NULL, "%s EraAudio 会话中止（预期）\n", LOG_TAG);
                         p->eof = true;
@@ -915,7 +915,7 @@ ssize_t pipeline_process(AudioPipeline *p)
                     char eb[AV_ERROR_MAX_STRING_SIZE];
                     av_strerror(ioerr, eb, sizeof(eb));
                     ERA_LOGE(NULL, "%s EraAudio 在线流中断/超时: %s\n", LOG_TAG, eb);
-                    return -8; /* ZK_IO_ERROR（见 include/kernel_bridge.h） */
+                    return -8; /* NEKO_ERAASYNC_ZK_IO_ERROR（见 include/kernel_bridge.h） */
                 }
                 p->eof = true; /* 0 = EOF */
                 break;
@@ -945,12 +945,12 @@ ssize_t pipeline_process(AudioPipeline *p)
     return frames_this_call;
 }
 
-int pipeline_run(AudioPipeline *p)
+int neko_eraasync_pipeline_run(NekoEraASyncPipeline *p)
 {
     if (!p) return -1;
 
     for (;;) {
-        ssize_t n = pipeline_process(p);
+        ssize_t n = neko_eraasync_pipeline_process(p);
         if (n <= 0) {
             if (n < 0) return (int)n;
             break;
@@ -988,64 +988,64 @@ int pipeline_run(AudioPipeline *p)
     return 0;
 }
 
-double pipeline_get_position(const AudioPipeline *p)
+double neko_eraasync_pipeline_get_position(const NekoEraASyncPipeline *p)
 {
     if (!p || !p->resampler) return 0.0;
     long long processed = resampler_get_output_samples(p->resampler);
     return (double)processed / (double)p->cfg.output_sample_rate;
 }
 
-void pipeline_set_eq_gains(AudioPipeline *p, const float gains[EQ_BANDS])
+void neko_eraasync_pipeline_set_eq_gains(NekoEraASyncPipeline *p, const float gains[EQ_BANDS])
 {
     if (!p || !p->equalizer) return;
     equalizer_set_gains(p->equalizer, gains);
 }
 
-void pipeline_set_preamp(AudioPipeline *p, float preamp_db)
+void neko_eraasync_pipeline_set_preamp(NekoEraASyncPipeline *p, float preamp_db)
 {
     if (!p || !p->equalizer) return;
     equalizer_set_preamp(p->equalizer, preamp_db);
 }
 
 /* 方向① D1：参数化 EQ（运行时命令；默认旁通）。flat = [kind,freq,q,gain,...] */
-void pipeline_set_peq_bands(AudioPipeline *p, const float *bands, int count)
+void neko_eraasync_pipeline_set_peq_bands(NekoEraASyncPipeline *p, const float *bands, int count)
 {
     if (!p || !p->peq) return;
     parametric_eq_set_bands(p->peq, bands, count);
 }
 
-void pipeline_set_peq_enabled(AudioPipeline *p, bool enabled)
+void neko_eraasync_pipeline_set_peq_enabled(NekoEraASyncPipeline *p, bool enabled)
 {
     if (!p || !p->peq) return;
     parametric_eq_set_enabled(p->peq, enabled);
 }
 
-void pipeline_set_peq_preamp(AudioPipeline *p, float preamp_db)
+void neko_eraasync_pipeline_set_peq_preamp(NekoEraASyncPipeline *p, float preamp_db)
 {
     if (!p || !p->peq) return;
     parametric_eq_set_preamp(p->peq, preamp_db);
 }
 
 /* 方向① D2：次声/低频管理（运行时命令；默认旁通）。 */
-void pipeline_set_lowfreq_enabled(AudioPipeline *p, bool enabled)
+void neko_eraasync_pipeline_set_lowfreq_enabled(NekoEraASyncPipeline *p, bool enabled)
 {
     if (!p || !p->lowfreq) return;
     lowfreq_set_enabled(p->lowfreq, enabled);
 }
 
-void pipeline_set_lowfreq_hpf(AudioPipeline *p, float freq, int order)
+void neko_eraasync_pipeline_set_lowfreq_hpf(NekoEraASyncPipeline *p, float freq, int order)
 {
     if (!p || !p->lowfreq) return;
     lowfreq_set_hpf(p->lowfreq, freq, order);
 }
 
-void pipeline_set_lowfreq_bass(AudioPipeline *p, float gain_db, float freq)
+void neko_eraasync_pipeline_set_lowfreq_bass(NekoEraASyncPipeline *p, float gain_db, float freq)
 {
     if (!p || !p->lowfreq) return;
     lowfreq_set_bass(p->lowfreq, gain_db, freq);
 }
 
-void pipeline_set_volume(AudioPipeline *p, float volume)
+void neko_eraasync_pipeline_set_volume(NekoEraASyncPipeline *p, float volume)
 {
     if (!p || !p->limiter) return;
     /* 音量作为绝对增益叠加在限幅器基准阈值上（非累加当前阈值）：
@@ -1056,54 +1056,54 @@ void pipeline_set_volume(AudioPipeline *p, float volume)
     limiter_set_threshold(p->limiter, p->cfg.limiter_threshold_db + gain_db);
 }
 
-void pipeline_set_pcm_out_cb(AudioPipeline *p, PcmOutCallback cb, void *user_data)
+void neko_eraasync_pipeline_set_pcm_out_cb(NekoEraASyncPipeline *p, PcmOutCallback cb, void *user_data)
 {
     if (!p) return;
     p->pcm_out_cb = cb;
     p->pcm_out_user = user_data;
 }
 
-void pipeline_set_normalization_enabled(AudioPipeline *p, bool enabled)
+void neko_eraasync_pipeline_set_normalization_enabled(NekoEraASyncPipeline *p, bool enabled)
 {
     if (!p) return;
     p->norm_enabled = enabled;
-    pipeline_apply_normalization(p);
+    neko_eraasync_pipeline_apply_normalization(p);
 }
 
-void pipeline_set_normalization_gain(AudioPipeline *p, float gain_db)
+void neko_eraasync_pipeline_set_normalization_gain(NekoEraASyncPipeline *p, float gain_db)
 {
     if (!p) return;
     p->norm_fallback_db = gain_db;
-    pipeline_apply_normalization(p);
+    neko_eraasync_pipeline_apply_normalization(p);
 }
 
-void pipeline_set_normalization_album(AudioPipeline *p, int album)
+void neko_eraasync_pipeline_set_normalization_album(NekoEraASyncPipeline *p, int album)
 {
     if (!p) return;
     p->norm_album = album ? 1 : 0;
-    pipeline_apply_normalization(p);
+    neko_eraasync_pipeline_apply_normalization(p);
 }
 
-void pipeline_set_limiter_enabled(AudioPipeline *p, bool enabled)
+void neko_eraasync_pipeline_set_limiter_enabled(NekoEraASyncPipeline *p, bool enabled)
 {
     if (!p || !p->limiter) return;
     limiter_set_enabled(p->limiter, enabled);
 }
 
-void pipeline_set_fft_enabled(AudioPipeline *p, bool enabled)
+void neko_eraasync_pipeline_set_fft_enabled(NekoEraASyncPipeline *p, bool enabled)
 {
     if (!p || !p->fft) return;
     fft_set_enabled(p->fft, enabled);
 }
 
-int pipeline_get_fft_spectrum(AudioPipeline *p, float *out_db, int bins, float min_db)
+int neko_eraasync_pipeline_get_fft_spectrum(NekoEraASyncPipeline *p, float *out_db, int bins, float min_db)
 {
     if (!p || !p->fft || !out_db || bins <= 0) return -1;
     fft_get_spectrum_db(p->fft, out_db, bins, min_db);
     return 0;
 }
 
-int pipeline_get_fft_spectrum_stereo(AudioPipeline *p,
+int neko_eraasync_pipeline_get_fft_spectrum_stereo(NekoEraASyncPipeline *p,
                                      float *out_db_l, float *out_db_r,
                                      int bins, float min_db)
 {
@@ -1112,7 +1112,7 @@ int pipeline_get_fft_spectrum_stereo(AudioPipeline *p,
     return 0;
 }
 
-int pipeline_get_fft_spectrum_norm_stereo(AudioPipeline *p,
+int neko_eraasync_pipeline_get_fft_spectrum_norm_stereo(NekoEraASyncPipeline *p,
                                           float *out_l, float *out_r,
                                           int bins)
 {
@@ -1121,12 +1121,12 @@ int pipeline_get_fft_spectrum_norm_stereo(AudioPipeline *p,
     return 0;
 }
 
-int pipeline_get_fft_size(const AudioPipeline *p)
+int neko_eraasync_pipeline_get_fft_size(const NekoEraASyncPipeline *p)
 {
     return p && p->fft ? fft_get_size(p->fft) : 0;
 }
 
-void pipeline_set_fft_frame_cb(AudioPipeline *p, AudioFftFrameCb cb, void *user_data)
+void neko_eraasync_pipeline_set_fft_frame_cb(NekoEraASyncPipeline *p, AudioFftFrameCb cb, void *user_data)
 {
     if (!p || !p->fft) return;
     /* AudioFftFrameCb 与 fft_frame_cb 签名一致，直接透传 */
@@ -1134,37 +1134,37 @@ void pipeline_set_fft_frame_cb(AudioPipeline *p, AudioFftFrameCb cb, void *user_
 }
 
 /** FFT 已处理音频时间（秒，样本级粒度，供频谱推送驱动） */
-double pipeline_get_fft_processed_seconds(const AudioPipeline *p)
+double neko_eraasync_pipeline_get_fft_processed_seconds(const NekoEraASyncPipeline *p)
 {
     return p && p->fft ? fft_get_processed_seconds(p->fft) : 0.0;
 }
 
 /* Phase 4: 变速变调 */
-void pipeline_set_tempo_speed(AudioPipeline *p, float speed)
+void neko_eraasync_pipeline_set_tempo_speed(NekoEraASyncPipeline *p, float speed)
 {
     if (!p || !p->tempo) return;
     tempo_set_speed(p->tempo, speed);
 }
 
-void pipeline_set_tempo_pitch(AudioPipeline *p, float semitones)
+void neko_eraasync_pipeline_set_tempo_pitch(NekoEraASyncPipeline *p, float semitones)
 {
     if (!p || !p->tempo) return;
     tempo_set_pitch(p->tempo, semitones);
 }
 
-void pipeline_set_tempo_pitch_sync(AudioPipeline *p, bool sync)
+void neko_eraasync_pipeline_set_tempo_pitch_sync(NekoEraASyncPipeline *p, bool sync)
 {
     if (!p || !p->tempo) return;
     tempo_set_pitch_sync(p->tempo, sync);
 }
 
-void pipeline_set_tempo_enabled(AudioPipeline *p, bool enabled)
+void neko_eraasync_pipeline_set_tempo_enabled(NekoEraASyncPipeline *p, bool enabled)
 {
     if (!p || !p->tempo) return;
     tempo_set_enabled(p->tempo, enabled);
 }
 
-void pipeline_signal_shutdown(AudioPipeline *p)
+void neko_eraasync_pipeline_signal_shutdown(NekoEraASyncPipeline *p)
 {
     if (!p) return;
     p->eof = true;
@@ -1179,7 +1179,7 @@ void pipeline_signal_shutdown(AudioPipeline *p)
     }
 }
 
-double pipeline_get_duration(const AudioPipeline *p)
+double neko_eraasync_pipeline_get_duration(const NekoEraASyncPipeline *p)
 {
     if (!p) return 0.0;
     if (p->native_active) {
@@ -1188,45 +1188,45 @@ double pipeline_get_duration(const AudioPipeline *p)
     return p->dec ? decoder_duration_us(p->dec) / 1000000.0 : 0.0;
 }
 
-void pipeline_set_playback_streaming(AudioPipeline *p, bool streaming)
+void neko_eraasync_pipeline_set_playback_streaming(NekoEraASyncPipeline *p, bool streaming)
 {
     if (!p) return;
-    /* 流式播放：每次 pipeline_process 处理小块（命令轮询及时）；
+    /* 流式播放：每次 neko_eraasync_pipeline_process 处理小块（命令轮询及时）；
        批量/转码路径保持 64 块/次（全速）。 */
     p->max_frames_per_call = streaming ? 2 : 64;
 }
 
-int pipeline_get_source_sample_rate(const AudioPipeline *p)
+int neko_eraasync_pipeline_get_source_sample_rate(const NekoEraASyncPipeline *p)
 {
     if (!p) return 0;
     if (p->native_active) return native_decoder_sample_rate(p->native);
     return p->dec ? decoder_sample_rate(p->dec) : 0;
 }
 
-int pipeline_get_output_sample_rate(const AudioPipeline *p)
+int neko_eraasync_pipeline_get_output_sample_rate(const NekoEraASyncPipeline *p)
 {
     return p ? p->cfg.output_sample_rate : 0;
 }
 
-const char *pipeline_backend(const AudioPipeline *p)
+const char *neko_eraasync_pipeline_backend(const NekoEraASyncPipeline *p)
 {
     if (!p || !p->backend) return "unknown";
     return p->backend;
 }
 
-int pipeline_get_output_channels(const AudioPipeline *p)
+int neko_eraasync_pipeline_get_output_channels(const NekoEraASyncPipeline *p)
 {
     return p ? p->cfg.output_channels : 0;
 }
 
-int pipeline_get_source_channels(const AudioPipeline *p)
+int neko_eraasync_pipeline_get_source_channels(const NekoEraASyncPipeline *p)
 {
     if (!p) return 0;
     if (p->native_active) return native_decoder_channels(p->native);
     return p->dec ? decoder_channels(p->dec) : 0;
 }
 
-void pipeline_destroy(AudioPipeline *p)
+void neko_eraasync_pipeline_destroy(NekoEraASyncPipeline *p)
 {
     if (!p) return;
     /* 先请求中断：若 native 关闭/AVIO 关闭会等待在途阻塞 IO，中断标志让其尽快返回 */

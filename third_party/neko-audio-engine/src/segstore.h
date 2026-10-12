@@ -1,5 +1,5 @@
-// ArchoeraMusic Audio Framework
-// Copyright (C) 2026 Archoera && BetaStudio2
+// NekoMusic-EraASync
+// Copyright (C) 2026 NekoEraASync && BetaStudio2
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 /* segstore.h — 在线纯内存播放的源字节存储（M1，docs/audio-memory-source.md §4）
@@ -34,13 +34,13 @@
  * 错误码：>=0 读取字节；-1 aborted；-2 io/参数/越序/oom/读已释放区。
  */
 
-#ifndef ARCHOERASEGSTORE_H
-#define ARCHOERASEGSTORE_H
+#ifndef NEKO_ERAASYNC_SEGSTORE_H
+#define NEKO_ERAASYNC_SEGSTORE_H
 
 #include <stddef.h>
 #include <stdint.h>
 
-/* 导出标记：主库（archoera_mediaengine.so）以 -fvisibility=hidden 编译，segstore
+/* 导出标记：主库（neko_eraasync.so）以 -fvisibility=hidden 编译，segstore
  * 函数须标 default 可见性，Dart 侧 DynamicLibrary.lookup('segstore_new/...') 才能
  * 命中；静态/CLI 链接不受影响。Windows 走 .def 导出表，无需 dllexport。 */
 #if defined(_WIN32)
@@ -120,4 +120,4 @@ SEGSTORE_API uint64_t segstore_pool_reuses(void);         /* 观测：进程池�
 }
 #endif
 
-#endif /* ARCHOERASEGSTORE_H */
+#endif /* NEKO_ERAASYNC_SEGSTORE_H */
