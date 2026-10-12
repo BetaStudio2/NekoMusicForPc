@@ -29,7 +29,7 @@
 #include <QLabel>
 #include <QComboBox>
 #include <QLineEdit>
-#include <QNetworkAccessManager>
+#include "core/nekonetworkaccessmanager.h"
 #include <QNetworkReply>
 #include <QNetworkRequest>
 #include <QPainter>
@@ -85,7 +85,7 @@ SettingsPage::SettingsPage(ApiClient *apiClient, QWidget *parent)
 {
     setAttribute(Qt::WA_StyledBackground, false);
     setAutoFillBackground(false);
-    m_nam = new QNetworkAccessManager(this);
+    m_nam = new NekoNetworkAccessManager(this);
     setupUi();
     connect(&Theme::ThemeManager::instance(), &Theme::ThemeManager::themeChanged, this,
             [this](Theme::ThemeMode mode) {
@@ -405,6 +405,28 @@ void SettingsPage::setupUi()
     generalDivider->setFrameShape(QFrame::HLine);
     generalDivider->setObjectName("settingsDivider");
     generalLay->addWidget(generalDivider);
+
+    // 系统通知：消息中心收到新消息时额外弹一条桌面通知
+    auto *sysNotifyRow = new QHBoxLayout();
+    m_sysNotifyLabel = new QLabel(I18n::instance().tr("systemNotifyEnable"), generalBody);
+    m_sysNotifyLabel->setObjectName("settingsLabel");
+    sysNotifyRow->addWidget(m_sysNotifyLabel);
+    sysNotifyRow->addStretch();
+
+    m_sysNotifyToggle = new ToggleSwitch(generalBody);
+    m_sysNotifyToggle->setChecked(
+        settings.value(QStringLiteral("notifications/system"), true).toBool());
+    connect(m_sysNotifyToggle, &QAbstractButton::toggled, this, [](bool on) {
+        QSettings store;
+        store.setValue(QStringLiteral("notifications/system"), on);
+    });
+    sysNotifyRow->addWidget(m_sysNotifyToggle);
+    generalLay->addLayout(sysNotifyRow);
+
+    m_sysNotifyHintLabel = new QLabel(I18n::instance().tr("systemNotifyHint"), generalBody);
+    m_sysNotifyHintLabel->setObjectName("settingsInfo");
+    m_sysNotifyHintLabel->setWordWrap(true);
+    generalLay->addWidget(m_sysNotifyHintLabel);
 
     // 麦克风同步（快捷键可在「快捷键」设置中修改）
     m_micSyncSectionLabel = new QLabel(I18n::instance().tr("micSyncSection"), generalBody);
@@ -973,6 +995,10 @@ void SettingsPage::retranslate()
         m_accountLoginBtn->setText(I18n::instance().tr(QStringLiteral("goToLogin")));
     refreshAccountSection();
     m_langLabel->setText(I18n::instance().languageLabel());
+    if (m_sysNotifyLabel)
+        m_sysNotifyLabel->setText(I18n::instance().tr(QStringLiteral("systemNotifyEnable")));
+    if (m_sysNotifyHintLabel)
+        m_sysNotifyHintLabel->setText(I18n::instance().tr(QStringLiteral("systemNotifyHint")));
     m_langCombo->setItemText(0, I18n::instance().languageChinese());
     m_langCombo->setItemText(1, I18n::instance().languageNya());
     m_langCombo->setItemText(2, I18n::instance().languageEnglish());

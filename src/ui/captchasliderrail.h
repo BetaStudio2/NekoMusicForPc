@@ -6,6 +6,8 @@
  */
 
 #include <QWidget>
+#include <QElapsedTimer>
+#include <QVariantList>
 
 class CaptchaSliderRail final : public QWidget
 {
@@ -18,6 +20,7 @@ public:
     void setChallenge(int bgWidth, int pieceWidth);
     int offset() const { return m_offset; }
     void setOffset(int x);
+    QVariantList dragTrace() const { return m_dragTrace; }
     void setInteractive(bool on);
     void setVerifying(bool on);
 
@@ -37,6 +40,7 @@ private:
     int thumbLeftForOffset(int off) const;
     int offsetForThumbLeft(int thumbLeft) const;
     void applyThumbLeft(int thumbLeft);
+    void recordTraceSample();
 
     int m_bgWidth = 300;
     int m_pieceW = 52;
@@ -45,4 +49,6 @@ private:
     bool m_verifying = false;
     bool m_dragging = false;
     int m_dragDx = 0;
+    QElapsedTimer m_dragTimer;
+    QVariantList m_dragTrace;
 };

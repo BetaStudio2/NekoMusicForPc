@@ -1,13 +1,33 @@
 cmake_minimum_required(VERSION 3.20)
 
 project(NekoMusic
-        VERSION 2026.105.48
+        VERSION 2026.109.54
         LANGUAGES CXX
 )
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+
+# ── 客户端标识标头守卫 ────────────────────────────────────────────────
+# 所有 HTTP 请求都必须经 NekoNetworkAccessManager 统一注入
+# X-Neko-Client / User-Agent。这里在配置阶段扫描源码，一旦发现直接使用
+# QNetworkAccessManager 就让配置失败，避免以后新增请求漏掉标头。
+file(GLOB_RECURSE NEKO_NET_SOURCES
+        "${CMAKE_SOURCE_DIR}/src/*.h"
+        "${CMAKE_SOURCE_DIR}/src/*.cpp")
+foreach(neko_net_src ${NEKO_NET_SOURCES})
+    if(NOT neko_net_src MATCHES "nekonetworkaccessmanager\\.(h|cpp)$")
+        file(READ "${neko_net_src}" neko_net_content)
+        string(FIND "${neko_net_content}" "QNetworkAccessManager" neko_net_hit)
+        if(NOT neko_net_hit EQUAL -1)
+            message(FATAL_ERROR
+                    "禁止直接使用 QNetworkAccessManager（会漏掉 X-Neko-Client / User-Agent）：\n"
+                    "  ${neko_net_src}\n"
+                    "请改用 src/core/nekonetworkaccessmanager.h 里的 NekoNetworkAccessManager。")
+        endif()
+    endif()
+endforeach()
 
 # 交叉编译时勿用 UNIX/WIN32 混判；以目标系统名为准（Linux→Windows 时 UNIX 仍可能为真）
 if(CMAKE_SYSTEM_NAME STREQUAL "Windows"
@@ -160,12 +180,17 @@ set(SOURCES
         src/ui/localmusicbadgelabel.cpp
         src/ui/songlistwidget.cpp
         src/ui/songcontextmenu.cpp
+        src/ui/songmenubuilder.cpp
         src/ui/coverlistcard.cpp
         src/ui/artistdetailpage.cpp
         src/ui/roundcoverlabel.cpp
         src/core/mcpserver.cpp
         src/core/mcpbridge.cpp
         src/core/apiclient.cpp
+        src/core/nekonetworkaccessmanager.cpp
+        src/core/replaynonce.cpp
+        src/core/notificationcenter.cpp
+        src/core/musicurlresolver.cpp
         src/core/i18n.cpp
         src/core/legaltext.cpp
         src/core/appshortcuts.cpp
@@ -179,6 +204,7 @@ set(SOURCES
         src/core/qrcodegen.cpp
         src/core/vipqrcode.cpp
         src/core/musicdownloader.cpp
+        src/core/httpmediadevice.cpp
         src/core/musicdownloadmanager.cpp
         src/core/playlistdb.cpp
         src/core/localmusicmeta.cpp
@@ -195,6 +221,7 @@ set(SOURCES
         src/ui/lineinputdialog.cpp
         src/ui/playlistpanel.cpp
         src/ui/commentpanel.cpp
+        src/ui/notificationpanel.cpp
         src/ui/updatedialog.cpp
         src/ui/defaultmusicplayerdialog.cpp
         src/ui/searchpage.cpp
@@ -241,12 +268,18 @@ set(HEADERS
         src/ui/localmusicbadgelabel.h
         src/ui/songlistwidget.h
         src/ui/songcontextmenu.h
+        src/ui/songmenubuilder.h
         src/ui/coverlistcard.h
         src/ui/roundcoverlabel.h
         src/core/playerengine.h
         src/core/mcpserver.h
         src/core/mcpbridge.h
         src/core/apiclient.h
+        src/core/nekonetworkaccessmanager.h
+        src/core/replaynonce.h
+        src/core/notificationcenter.h
+        src/core/systemnotifier.h
+        src/core/musicurlresolver.h
         src/core/httpprotocollabel.h
         src/core/i18n.h
         src/core/legaltext.h
@@ -276,6 +309,7 @@ set(HEADERS
         src/ui/lineinputdialog.h
         src/ui/playlistpanel.h
         src/ui/commentpanel.h
+        src/ui/notificationpanel.h
         src/ui/updatedialog.h
         src/ui/defaultmusicplayerdialog.h
         src/ui/searchpage.h
@@ -294,6 +328,7 @@ if(NEKO_TARGET_WINDOWS)
     list(APPEND SOURCES src/core/defaultmusicappchecker_win.cpp)
     list(APPEND SOURCES src/core/globalshortcutcontroller_win.cpp)
     list(APPEND SOURCES src/core/micsynccontroller_win.cpp)
+    list(APPEND SOURCES src/core/systemnotifier_stub.cpp)
     set_source_files_properties(
         src/core/globalshortcutportal_linux.h
         src/core/globalshortcutportal_linux.cpp
@@ -304,16 +339,19 @@ elseif(NEKO_TARGET_APPLE)
     list(APPEND SOURCES src/core/systemmediacontroller_mac.mm)
     list(APPEND SOURCES src/core/defaultmusicappchecker_mac.mm)
     list(APPEND SOURCES src/core/micsynccontroller_stub.cpp)
+    list(APPEND SOURCES src/core/systemnotifier_stub.cpp)
 elseif(NEKO_TARGET_UNIX)
     list(APPEND SOURCES src/core/systemmediacontroller_linux.cpp)
     list(APPEND SOURCES src/core/defaultmusicappchecker_linux.cpp)
     list(APPEND SOURCES src/core/globalshortcutportal_linux.cpp)
     list(APPEND SOURCES src/core/globalshortcutcontroller_linux.cpp)
     list(APPEND SOURCES src/core/micsynccontroller_linux.cpp)
+    list(APPEND SOURCES src/core/systemnotifier_linux.cpp)
 else()
     list(APPEND SOURCES src/core/systemmediacontroller_stub.cpp)
     list(APPEND SOURCES src/core/defaultmusicappchecker_stub.cpp)
     list(APPEND SOURCES src/core/micsynccontroller_stub.cpp)
+    list(APPEND SOURCES src/core/systemnotifier_stub.cpp)
 endif()
 
 # ── NekoMusic-EraASync 原生音频引擎（无缝播放；FFmpeg-only，无 Zig 内核）──────

@@ -6,8 +6,9 @@
  */
 
 #include <QObject>
-#include <QNetworkAccessManager>
 #include <functional>
+
+#include "core/nekonetworkaccessmanager.h"
 
 class QNetworkReply;
 
@@ -106,7 +107,8 @@ public:
 
     using SliderCaptchaVerifyCb =
         std::function<void(bool ok, const QString &message, const QString &captchaPassToken)>;
-    void verifySliderCaptcha(const QString &captchaToken, int captchaOffsetX, SliderCaptchaVerifyCb cb);
+    void verifySliderCaptcha(const QString &captchaToken, int captchaOffsetX,
+                             const QVariantList &dragTrace, SliderCaptchaVerifyCb cb);
 
     // ─── 忘记密码 ────────────────────────────────────
     void sendResetCode(const QString &email, std::function<void(bool, const QString&)> cb);
@@ -233,6 +235,7 @@ public:
     struct QrLoginSession {
         QString sessionId;
         QString qrImage;     // data:image/png;base64,...（服务端渲染，中心已合成软件图标）
+        QString deliveryKey; // 一次性投递密钥：领取 token 时回传，不写进二维码
         int expiresIn = 0;
     };
     using QrLoginCreateCb =
@@ -242,18 +245,25 @@ public:
 
     struct QrLoginStatus {
         QString status;      // pending / scanned / confirmed / canceled / expired
-        QString token;       // 仅 confirmed 帧携带
-        QVariantMap user;    // 仅 confirmed 帧携带
+        QString token;       // 仅 claim 成功（confirmed）时携带
+        QVariantMap user;    // 仅 claim 成功（confirmed）时携带
     };
     struct QrLoginSseCallbacks {
         std::function<void(const QrLoginStatus &)> onStatus;
         std::function<void(const QString &)> onError;
     };
+    using QrLoginClaimCb = std::function<void(const QrLoginStatus &)>;
     /**
-     * 订阅扫码状态（SSE 长连接）：状态一变就回调，confirmed 帧带一次性 token 与用户信息。
+     * 订阅扫码状态（SSE 长连接）：状态一变就回调，confirmed 帧只播状态、不带 token。
      * 终态推送后服务端主动关闭连接。返回底层请求，可用于取消。
      */
     QNetworkReply *watchQrLoginStatus(const QString &sessionId, QrLoginSseCallbacks callbacks);
+
+    /**
+     * 领取一次性登录 token：收到 confirmed 后由创建方回调本接口，必须带创建时的 deliveryKey。
+     * 结果复用 QrLoginStatus，成功时 status = "confirmed" 且带 token / user，否则为 expired 等终态。
+     */
+    void claimQrLoginToken(const QString &sessionId, const QString &deliveryKey, QrLoginClaimCb cb);
 
     struct BatchSearchItem {
         QString title;
@@ -286,7 +296,28 @@ public:
     void postComment(int musicId, const QString &content, int parentId, CommentsCb cb);
     void deleteComment(int commentId, CommentsCb cb);
 
+    // ─── 站内消息（/api/user/notifications/*） ────────────
+    /**
+     * 收件箱列表。`since > 0` 补拉更新的消息，`before > 0` 翻更早的历史，`limit <= 0` 用服务端默认值。
+     * data: { items: QVariantList, unread, hasMore, latestId }
+     */
+    using NotificationsCb = std::function<void(bool ok, const QString &message, const QVariantMap &data)>;
+    void fetchNotifications(int since, int before, int limit, NotificationsCb cb);
+    /** 标记已读：`ids` 为空表示全部已读。data: { updated, unread } */
+    void markNotificationsRead(const QList<int> &ids, NotificationsCb cb);
+    /**
+     * 订阅站内消息实时推送（SSE 长连接）。
+     *
+     * 连上先回调 `onReady(unread, latestId)`，此后每来一条新消息回调 `onMessage(item)`
+     * （结构与列表里的单条一致）。连接由服务端到点主动关闭，调用方负责重连；
+     * 该路径不需要 nonce（浏览器 EventSource 无法带请求头，服务端同样豁免）。
+     * 返回底层请求，可用于取消。
+     */
+    using NotificationsReadyCb = std::function<void(int unread, int latestId)>;
+    using NotificationsMessageCb = std::function<void(const QVariantMap &item)>;
+    QNetworkReply *streamNotifications(NotificationsReadyCb onReady, NotificationsMessageCb onMessage);
+
 private:
-    QNetworkAccessManager m_nam;
+    NekoNetworkAccessManager m_nam;
     QString getAuthToken() const;
 };

@@ -648,6 +648,7 @@ void FavoritesPage::loadFavorites()
             info.artist = fav.value(QStringLiteral("artist")).toString();
             info.album = fav.value(QStringLiteral("album")).toString();
             info.duration = fav.value(QStringLiteral("duration")).toInt();
+            info.maxQuality = fav.value(QStringLiteral("maxQuality")).toString();
             info.coverUrl = QString::fromUtf8("%1/api/music/cover/%2").arg(Theme::kApiBase).arg(info.id);
             m_allFavorites.append(info);
         }

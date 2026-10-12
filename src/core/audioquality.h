@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QByteArray>
+#include <QColor>
 #include <QString>
 
 namespace AudioQuality {
@@ -25,6 +26,8 @@ struct ProbeResult {
 /** 统一为 bps（部分后端上报 kbps） */
 int normalizeBitrateBps(int rawBps);
 Tier tierFromBitrateBps(int bitrateBps);
+/** 后端 maxQuality 字符串（standard/hq/sq/hires）转档位；未知返回 Tier::Unknown */
+Tier tierFromApiQuality(const QString &apiQuality);
 
 /** 同步读取文件头（≤64KB）推断音质，本地/缓存曲用 */
 ProbeResult probeFile(const QString &filePath);
@@ -45,5 +48,8 @@ ProbeResult ensureVisibleTier(ProbeResult result);
 bool isDefinitiveProbe(const ProbeResult &result);
 /** 切歌时先显示的预估档位 */
 ProbeResult guessInitialTier(bool isLocalFile, const QString &localPath);
+
+/** 音质标识配色（与 Web 端 QualityBadge 同一套色相）；Unknown 返回无效颜色 */
+QColor tierColor(Tier tier, bool dark);
 
 } // namespace AudioQuality

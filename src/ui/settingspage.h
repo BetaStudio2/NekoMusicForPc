@@ -13,7 +13,7 @@ class QCheckBox;
 class QComboBox;
 class QLabel;
 class QLineEdit;
-class QNetworkAccessManager;
+#include "core/nekonetworkaccessmanager.h"
 class QNetworkReply;
 class QPixmap;
 class QPushButton;
@@ -119,7 +119,7 @@ private:
     QPushButton *m_backdropPickColorBtn = nullptr;
     QLabel *m_backdropColorSwatch = nullptr;
     ApiClient *m_apiClient = nullptr;
-    QNetworkAccessManager *m_nam = nullptr;
+    NekoNetworkAccessManager *m_nam = nullptr;
     QNetworkReply *m_avatarReply = nullptr;
 
     QLabel *m_accountSectionLabel = nullptr;
@@ -143,6 +143,9 @@ private:
     QPushButton *m_accountLoginBtn = nullptr;
     bool m_accountSaving = false;
     QLabel *m_langLabel = nullptr;
+    QLabel *m_sysNotifyLabel = nullptr;
+    QLabel *m_sysNotifyHintLabel = nullptr;
+    ToggleSwitch *m_sysNotifyToggle = nullptr;
     QLabel *m_micSyncSectionLabel = nullptr;
     QLabel *m_micSyncEnableLabel = nullptr;
     ToggleSwitch *m_micSyncToggle = nullptr;

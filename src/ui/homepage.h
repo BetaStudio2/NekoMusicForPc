@@ -10,7 +10,7 @@
  */
 
 #include <QWidget>
-#include <QNetworkAccessManager>
+#include "core/nekonetworkaccessmanager.h"
 #include <QMouseEvent>
 #include <QMetaObject>
 #include "playlistcard.h"
@@ -75,5 +75,5 @@ private:
     bool m_playlistReady = false;
     bool m_latestReady = false;
 
-    QNetworkAccessManager m_nam;
+    NekoNetworkAccessManager m_nam;
 };

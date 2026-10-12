@@ -12,8 +12,9 @@
 
 class QLineEdit;
 class QLabel;
+class QPushButton;
 class QResizeEvent;
-class QNetworkAccessManager;
+#include "core/nekonetworkaccessmanager.h"
 class QNetworkReply;
 class VipPillButton;
 
@@ -26,12 +27,15 @@ public:
     ~TitleBar() override;
     void retranslate();
     QPoint avatarPos() const;
+    /** 站内消息未读数：0 隐藏红点，>99 显示 99+ */
+    void setUnreadCount(int unread);
 
 signals:
     void searchRequested(const QString &query);
     void settingsClicked();
     void avatarClicked();
     void vipClicked();
+    void notificationsClicked();
 
 protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
@@ -46,9 +50,10 @@ private:
     void elideNickname();
     void updateChevronPixmap();
     void refreshSearchGlyph();
+    void updateNotifyBadge();
     void loadAvatarAsync(const QString &url, int userId);
 
-    QNetworkAccessManager *m_nam = nullptr;
+    NekoNetworkAccessManager *m_nam = nullptr;
     QNetworkReply *m_avatarReply = nullptr;
     QWidget *m_searchWrap = nullptr;
     QLabel *m_searchGlyph = nullptr;
@@ -60,4 +65,8 @@ private:
     QLabel *m_nicknameLabel = nullptr;
     QLabel *m_dropdownIcon = nullptr;
     VipPillButton *m_vipPill = nullptr;
+    QPushButton *m_notifyBtn = nullptr;
+    QLabel *m_notifyBadge = nullptr;
+    QPushButton *m_settingsBtn = nullptr;
+    int m_unreadCount = 0;
 };

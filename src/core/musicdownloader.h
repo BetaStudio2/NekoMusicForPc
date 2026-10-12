@@ -1,7 +1,7 @@
 #pragma once
 
 #include <QObject>
-#include <QNetworkAccessManager>
+#include "core/nekonetworkaccessmanager.h"
 #include <QFile>
 #include <QUrl>
 
@@ -31,12 +31,15 @@ signals:
     void downloadError(const QString &error);
 
 private:
+    /** 真正的下载流程；[download] 会先把音质接口地址解析成固定媒体地址。 */
+    void startDownload(const QUrl &url, int musicId, const QString &quality);
+
     void onDownloadProgress(qint64 bytesReceived, qint64 bytesTotal);
     void onReplyFinished();
     void onReadyRead();
     void abortOversizeDownload();
 
-    QNetworkAccessManager m_nam;
+    NekoNetworkAccessManager m_nam;
     QNetworkReply *m_reply = nullptr;
     QFile *m_file = nullptr;
     QString m_tempPath;

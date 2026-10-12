@@ -18,6 +18,7 @@
 #include "ui/lineinputdialog.h"
 #include "ui/toast.h"
 #include "ui/songcontextmenu.h"
+#include "ui/songmenubuilder.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -34,7 +35,6 @@
 #include <QMenu>
 #include <QAction>
 #include <QDialog>
-#include <QNetworkAccessManager>
 #include <QNetworkReply>
 
 namespace {
@@ -780,12 +780,20 @@ void PlaylistDetailPage::showSongContextMenu(const MusicInfo &info, const QPoint
 
     QList<SongContextMenuPopup::Entry> entries;
 
-    SongContextMenuPopup::Entry nextEntry;
-    nextEntry.iconName = "PlayNext";
-    nextEntry.label = I18n::instance().tr(QStringLiteral("playNext"));
-    nextEntry.action = [this, info]() { emit playNextRequested(info); };
-    entries.append(nextEntry);
+    // 统一菜单（设计稿）：下一首播放 / 收藏 / 播放队列 / 下载
+    SongMenuBuilder::State state;
+    state.favorited = m_favoritedIds.contains(info.id);
+    state.downloaded = MusicDownloadManager::instance().isDownloaded(info.id);
+    state.inPlayQueue = SongMenuBuilder::queueContains(info.id);
 
+    SongMenuBuilder::Handlers handlers;
+    handlers.playNext = [this, info]() { emit playNextRequested(info); };
+    handlers.toggleFavorite = [this, info]() { emit favoriteRequested(info.id); };
+    handlers.toggleQueue = [info]() { SongMenuBuilder::toggleQueue(info); };
+    handlers.download = [this, info]() { emit downloadRequested(info); };
+    entries += SongMenuBuilder::buildStandard(info, state, handlers);
+
+    // 本页特有项②：从歌单中移除（仅用户自建歌单）
     if (m_isUserPlaylist && m_playlistId > 0 && info.id > 0) {
         SongContextMenuPopup::Entry removeEntry;
         removeEntry.iconName = "Delete";
@@ -913,6 +921,7 @@ void PlaylistDetailPage::loadPlaylist(int playlistId)
                                                     info.artist = m.value(QStringLiteral("artist")).toString();
                                                     info.album = m.value(QStringLiteral("album")).toString();
                                                     info.duration = m.value(QStringLiteral("duration")).toInt();
+                                                    info.maxQuality = m.value(QStringLiteral("maxQuality")).toString();
                                                     info.coverUrl = m.value(QStringLiteral("coverUrl")).toString();
                                                     if (info.coverUrl.isEmpty())
                                                         info.coverUrl = m.value(QStringLiteral("coverPath")).toString();

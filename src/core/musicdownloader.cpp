@@ -1,4 +1,5 @@
 #include "musicdownloader.h"
+#include "core/musicurlresolver.h"
 #include "linuxtmpfscache.h"
 
 #include <QNetworkReply>
@@ -93,6 +94,19 @@ void MusicDownloader::abortOversizeDownload()
 }
 
 void MusicDownloader::download(const QUrl &url, int musicId, const QString &quality)
+{
+    // 音质接口现在返回 200 + JSON，必须先解析成固定媒体地址再下载
+    if (MusicUrlResolver::isMusicFileApiUrl(url)) {
+        MusicUrlResolver::instance().resolve(url, this,
+            [this, url, musicId, quality](bool ok, const QUrl &resolved) {
+                startDownload(ok ? resolved : url, musicId, quality);
+            });
+        return;
+    }
+    startDownload(url, musicId, quality);
+}
+
+void MusicDownloader::startDownload(const QUrl &url, int musicId, const QString &quality)
 {
     cancel();
     m_bufferEmitted = false;

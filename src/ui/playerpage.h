@@ -6,7 +6,7 @@
 #include <QPushButton>
 #include <QScrollArea>
 #include <QVBoxLayout>
-#include <QNetworkAccessManager>
+#include "core/nekonetworkaccessmanager.h"
 #include <QNetworkReply>
 #include <QPropertyAnimation>
 #include <QGraphicsOpacityEffect>
@@ -260,7 +260,7 @@ private:
     QSize m_underlayBlurTarget;
     bool m_openTransitionActive = false;
 
-    QNetworkAccessManager *m_qualityNam = nullptr;
+    NekoNetworkAccessManager *m_qualityNam = nullptr;
     QNetworkReply *m_qualityReply = nullptr;
     int m_qualityProbeGen = 0;
     AudioQuality::ProbeResult m_lastQuality;

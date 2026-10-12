@@ -259,7 +259,7 @@ void SliderCaptchaDialog::onSliderReleased()
     applyDialogTheme();
 
     const int off = m_rail->offset();
-    m_api->verifySliderCaptcha(m_captchaToken, off, [this](bool ok, const QString &message, const QString &pass) {
+    m_api->verifySliderCaptcha(m_captchaToken, off, m_rail->dragTrace(), [this](bool ok, const QString &message, const QString &pass) {
         QTimer::singleShot(0, this, [this, ok, message, pass]() {
             m_verifying = false;
             if (ok && !pass.isEmpty()) {

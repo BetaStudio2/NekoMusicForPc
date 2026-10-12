@@ -56,7 +56,6 @@ protected:
     void paintEvent(QPaintEvent *event) override;
     void enterEvent(QEnterEvent *event) override;
     void leaveEvent(QEvent *event) override;
-    void resizeEvent(QResizeEvent *event) override;
     void mouseDoubleClickEvent(QMouseEvent *event) override;
 
 private:
@@ -69,14 +68,15 @@ private:
     void updateHoverOverlays();
     void updateHeartIcon();
     void updateDownloadIcon();
+    void updateMoreIcon();
     void updateCancelIcon();
     void updateDownloadTaskUi();
     void updateOverlayIcons();
-    void elideTexts();
     void loadCover();
     void updateSecondaryColumn();
     void updateLocalBadge();
     void updateLrcBadge();
+    void updateQualityBadge();
     QString secondaryColumnText() const;
     QString formatDuration(int seconds) const;
 
@@ -106,6 +106,7 @@ private:
     QLabel *m_localBadge = nullptr;
     QLabel *m_titleLbl = nullptr;
     QLabel *m_lrcBadge = nullptr;
+    QLabel *m_qualityBadge = nullptr;
     QLabel *m_artistLbl = nullptr;
     QLabel *m_albumLbl = nullptr;
     QWidget *m_progressCol = nullptr;
@@ -114,6 +115,8 @@ private:
     QLabel *m_timeLbl = nullptr;
     QPushButton *m_heartBtn = nullptr;
     QPushButton *m_downloadBtn = nullptr;
+    /** 行右侧三点菜单按钮（设计稿入口），点击后走同一套 onContextMenu 回调 */
+    QPushButton *m_moreBtn = nullptr;
     int m_durationWidth = 50;
 
     QMetaObject::Connection m_coverConn;

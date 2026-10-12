@@ -106,6 +106,20 @@ void CaptchaSliderRail::applyThumbLeft(int thumbLeft)
     setOffset(offsetForThumbLeft(thumbLeft));
 }
 
+void CaptchaSliderRail::recordTraceSample()
+{
+    if (!m_dragTimer.isValid())
+        return;
+    const qint64 elapsed = m_dragTimer.elapsed();
+    if (!m_dragTrace.isEmpty()
+        && elapsed <= m_dragTrace.constLast().toMap().value(QStringLiteral("t")).toLongLong())
+        return;
+    QVariantMap sample;
+    sample.insert(QStringLiteral("t"), elapsed);
+    sample.insert(QStringLiteral("x"), m_offset);
+    m_dragTrace.append(sample);
+}
+
 void CaptchaSliderRail::paintEvent(QPaintEvent *)
 {
     QPainter p(this);
@@ -179,11 +193,12 @@ void CaptchaSliderRail::mousePressEvent(QMouseEvent *event)
         m_dragging = true;
         m_dragDx = x - tl;
     } else {
-        const int thumbLeft = qBound(0, x, thumbMaxTravel());
-        applyThumbLeft(thumbLeft);
-        m_dragging = true;
-        m_dragDx = x - thumbLeftForOffset(m_offset);
+        event->ignore();
+        return;
     }
+    m_dragTrace.clear();
+    m_dragTimer.restart();
+    recordTraceSample();
     grabMouse();
     event->accept();
 }
@@ -195,6 +210,7 @@ void CaptchaSliderRail::mouseMoveEvent(QMouseEvent *event)
     const int x = event->pos().x();
     const int thumbLeft = qBound(0, x - m_dragDx, thumbMaxTravel());
     applyThumbLeft(thumbLeft);
+    recordTraceSample();
     event->accept();
 }
 
@@ -203,6 +219,7 @@ void CaptchaSliderRail::mouseReleaseEvent(QMouseEvent *event)
     if (event->button() != Qt::LeftButton)
         return;
     if (m_dragging) {
+        recordTraceSample();
         m_dragging = false;
         releaseMouse();
         if (m_interactive && !m_verifying)

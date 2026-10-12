@@ -12,6 +12,8 @@
 #include <QEvent>
 #include <QUrl>
 #include <QList>
+#include <QVariantMap>
+#include <QVariantList>
 #include <QStackedWidget>
 #include <QSystemTrayIcon>
 #include <QPixmap>
@@ -40,6 +42,7 @@ class PlaylistDetailPage;
 class AddToPlaylistDialog;
 class PlaylistPanel;
 class CommentPanel;
+class NotificationPanel;
 class SearchPage;
 class ArtistDetailPage;
 class VipPage;
@@ -105,6 +108,20 @@ private:
     void togglePlaylistPanel();
     void toggleCommentDrawer(int musicId);
     void hideCommentDrawer();
+    void showCommentDrawerFor(int musicId);
+    void toggleNotificationDrawer();
+    void hideNotificationDrawer();
+    void syncNotificationDrawerGeometry();
+    /** 消息中心点击一条消息：按 link 跳到对应内容 */
+    void openNotificationTarget(const QVariantMap &item);
+    /** 新消息到达时弹一条系统通知（可在设置里关闭） */
+    void showSystemNotification(const QVariantMap &item);
+    /** 断线重连后补拉到的漏推消息：一条正常弹，多条只弹一条汇总 */
+    void showMissedNotifications(const QVariantList &items);
+    /** 系统通知的实际出口：Linux 走 D-Bus，其余平台回退托盘气泡 */
+    void popSystemNotification(const QString &title, const QString &body);
+    /** 点击系统通知：唤起窗口并打开消息中心 */
+    void onSystemNotificationClicked();
     void showPlaylistDrawer();
     void hidePlaylistDrawer();
     QWidget *playlistDrawerHost() const;
@@ -152,6 +169,9 @@ private:
      *  @param resumeMs 起播后跳转到的位置（ms，<0/0 = 从头；音质切换断点续传用）。 */
     void startRemotePlaybackWithBackgroundCache(int musicId, quint64 playSeq, const QUrl &remoteUrl,
                                                 bool pauseWhenReady = false, qint64 resumeMs = -1);
+    /** 已拿到固定媒体地址后的起播实现；[startRemotePlaybackWithBackgroundCache] 负责先做音质解析。 */
+    void startResolvedRemotePlayback(int musicId, quint64 playSeq, const QUrl &remoteUrl,
+                                     bool pauseWhenReady, qint64 resumeMs);
     void refreshPlayerMaxQuality(int musicId);
     void startBackgroundCacheDownload(int musicId, quint64 playSeq, const QUrl &url);
     void attachStreamPlaybackGuards(int musicId, quint64 playSeq);
@@ -183,6 +203,7 @@ private:
     VipPage *m_vipPage = nullptr;
     PlaylistPanel *m_playlistPanel = nullptr;
     CommentPanel *m_commentPanel = nullptr;
+    NotificationPanel *m_notificationPanel = nullptr;
     QWidget *m_playlistScrim = nullptr;
     PlayerBar *m_playerBar = nullptr;
     QWidget *m_midWidget = nullptr;

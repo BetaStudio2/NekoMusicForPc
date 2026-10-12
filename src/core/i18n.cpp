@@ -369,6 +369,7 @@ static QMap<QString, QString> zhCN()
     m["addToPlaylist"] = QStringLiteral("添加到歌单");
     m["addToLocalPlaylist"] = QStringLiteral("添加到本地歌单");
     m["addToQueue"] = QStringLiteral("添加到播放队列");
+    m["removeFromQueue"] = QStringLiteral("从播放队列移除");
     m["playNext"] = QStringLiteral("下一首播放");
     m["playNextAdded"] = QStringLiteral("已添加到下一首播放");
     m["addToPlaylistTitle"] = QStringLiteral("添加到歌单");
@@ -681,6 +682,20 @@ static QMap<QString, QString> zhCN()
     m["writeToFileFailedSkipCache"] = QStringLiteral("写入文件失败，跳过缓存");
     m["parseRecentPlayListFailed"] = QStringLiteral("解析最近播放列表失败");
     m["parseMusicFailed"] = QStringLiteral("解析音乐失败");
+
+    // --- 站内消息 ---
+    m["notificationsTitle"] = QStringLiteral("消息中心");
+    m["notificationsTooltip"] = QStringLiteral("消息中心（%1 条未读）");
+    m["notificationsUnreadFmt"] = QStringLiteral("%1 条未读");
+    m["notificationsAllRead"] = QStringLiteral("没有未读消息");
+    m["notificationsEmptyHint"] = QStringLiteral("暂无消息\n有人回复你的评论时，会在这里提醒你");
+    m["notificationsLoginHint"] = QStringLiteral("登录后即可查看消息");
+    m["markAllRead"] = QStringLiteral("全部已读");
+    m["loadEarlierMessages"] = QStringLiteral("加载更早的消息");
+    m["notifyActionView"] = QStringLiteral("查看");
+    m["systemNotifyEnable"] = QStringLiteral("系统通知");
+    m["systemNotifyHint"] = QStringLiteral("有人回复你的评论时，除应用内提醒外也弹出桌面通知");
+    m["systemNotifyMissedFmt"] = QStringLiteral("断线期间收到 %1 条新消息");
 
     return m;
 }
@@ -1081,6 +1096,20 @@ static QMap<QString, QString> nyaCN()
     m["addToPlaylistFailed"] = QStringLiteral("添加到歌单失败了喵...");
     m["importSuccess"] = QStringLiteral("导入成功喵！添加了 %1 首，共 %2 首，%3 首没找到喵~");
 
+    // --- 站内消息喵~ ---
+    m["notificationsTitle"] = QStringLiteral("消息小屋喵~");
+    m["notificationsTooltip"] = QStringLiteral("消息小屋里有 %1 条没看的喵~");
+    m["notificationsUnreadFmt"] = QStringLiteral("有 %1 条还没看喵~");
+    m["notificationsAllRead"] = QStringLiteral("全都看完啦喵~");
+    m["notificationsEmptyHint"] = QStringLiteral("什么消息都没有喵...\n有人回复你的评论就会跑来这里告诉你喵~");
+    m["notificationsLoginHint"] = QStringLiteral("先登录才看得到消息喵~");
+    m["markAllRead"] = QStringLiteral("全部看完喵~");
+    m["loadEarlierMessages"] = QStringLiteral("把更早的消息翻出来喵~");
+    m["notifyActionView"] = QStringLiteral("看看喵~");
+    m["systemNotifyEnable"] = QStringLiteral("电脑通知喵~");
+    m["systemNotifyHint"] = QStringLiteral("有人回你评论的时候，桌面上也会弹出来喵~");
+    m["systemNotifyMissedFmt"] = QStringLiteral("刚才没连上，攒了 %1 条新消息喵~");
+
     // --- QQ 音乐歌单导入喵~ ---
     m["importQqPlaylist"] = QStringLiteral("导入QQ音乐歌单喵~");
     m["importQqDesc"] = QStringLiteral("把 QQ 音乐歌单链接或 ID 告诉人家，人家帮你搬过来喵~");
@@ -1470,6 +1499,7 @@ static QMap<QString, QString> enUS()
     m["addToPlaylist"] = "Add to Playlist";
     m["addToLocalPlaylist"] = "Add to Local Playlist";
     m["addToQueue"] = "Add to Queue";
+    m["removeFromQueue"] = "Remove from Queue";
     m["playNext"] = "Play Next";
     m["playNextAdded"] = "Added to play next";
     m["addToPlaylistTitle"] = "Add to Playlist";
@@ -1785,6 +1815,20 @@ static QMap<QString, QString> enUS()
     m["invalidKugouLink"] = "Invalid playlist link or ID";
     m["emptyKugouPlaylist"] = "Playlist is empty";
     m["kugouPlaylistInfo"] = "Playlist: %1 (%2 songs)";
+
+    // --- In-app notifications ---
+    m["notificationsTitle"] = "Notifications";
+    m["notificationsTooltip"] = "Notifications (%1 unread)";
+    m["notificationsUnreadFmt"] = "%1 unread";
+    m["notificationsAllRead"] = "You're all caught up";
+    m["notificationsEmptyHint"] = "No messages yet\nReplies to your comments will show up here";
+    m["notificationsLoginHint"] = "Sign in to view your messages";
+    m["markAllRead"] = "Mark all read";
+    m["loadEarlierMessages"] = "Load earlier messages";
+    m["notifyActionView"] = "View";
+    m["systemNotifyEnable"] = "Desktop notifications";
+    m["systemNotifyHint"] = "Also pop a desktop notification when someone replies to your comment";
+    m["systemNotifyMissedFmt"] = "%1 new messages arrived while reconnecting";
 
     return m;
 }

@@ -4,9 +4,10 @@
 #include <QList>
 
 #include "core/musicinfo.h"
+#include <QUrl>
 
 class ApiClient;
-class QNetworkAccessManager;
+#include "core/nekonetworkaccessmanager.h"
 class QNetworkReply;
 class QFile;
 
@@ -55,6 +56,8 @@ private:
     void finishCurrent(bool success, const QString &error = {});
     void copyCachedToDownload(const MusicInfo &music, const QString &cachePath);
     void startNetworkDownload(const MusicInfo &music);
+    /** 真正的网络下载；[startNetworkDownload] 会先把音质接口地址解析成固定媒体地址。 */
+    void startNetworkDownloadResolved(const MusicInfo &music, const QUrl &url);
     void onNetworkProgress(qint64 bytesReceived, qint64 bytesTotal);
     void onNetworkFinished();
     bool finalizeDownload(const MusicInfo &music, const QString &sourcePath,
@@ -62,7 +65,7 @@ private:
     void saveLyrics(const MusicInfo &music);
 
     ApiClient *m_apiClient = nullptr;
-    QNetworkAccessManager *m_nam = nullptr;
+    NekoNetworkAccessManager *m_nam = nullptr;
     QNetworkReply *m_reply = nullptr;
     QFile *m_file = nullptr;
 

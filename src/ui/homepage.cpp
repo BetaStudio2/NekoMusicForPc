@@ -610,6 +610,7 @@ void HomePage::fetchHotMusic()
                 info.artist = obj.value("artist").toString();
                 info.album = obj.value("album").toString();
                 info.duration = obj.value("duration").toInt();
+                info.maxQuality = obj.value("maxQuality").toString();
                 info.coverUrl = QString::fromUtf8("%1/api/music/cover/%2")
                                     .arg(Theme::kApiBase).arg(info.id);
                 result.append(info);
@@ -703,6 +704,7 @@ void HomePage::fetchLatestMusic()
                 info.artist = obj.value("artist").toString();
                 info.album = obj.value("album").toString();
                 info.duration = obj.value("duration").toInt();
+                info.maxQuality = obj.value("maxQuality").toString();
                 info.coverUrl = QString::fromUtf8("%1/api/music/cover/%2")
                                     .arg(Theme::kApiBase).arg(info.id);
                 result.append(info);
