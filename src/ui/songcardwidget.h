@@ -36,6 +36,14 @@ public:
     void setShowDownloadButton(bool show);
     void setDownloadTaskMode(bool enabled);
     void setDownloadTaskState(bool active, qint64 received, qint64 total);
+    /**
+     * 批量编辑模式：左侧「编号」列换成复选框，整行单击 = 切换选中，
+     * 此时不播放、不弹菜单、不触发下载/收藏等行内按钮。
+     * 行被卡片池复用，选中状态由 SongListWidget 按 music_id 保存后回灌（setBatchChecked）。
+     */
+    void setBatchMode(bool enabled);
+    void setBatchChecked(bool checked);
+    bool batchChecked() const { return m_batchChecked; }
     /** 与列表表头「时长」列保持一致的宽度，避免英文等较长文案被裁切。 */
     void setDurationColumnWidth(int width);
     void applyTheme();
@@ -49,6 +57,8 @@ public:
     std::function<void(int)> onCancelDownload;
     std::function<void()> onTogglePlayPause;
     std::function<void(const MusicInfo &, const QPoint &)> onContextMenu;
+    /** 批量模式下整行单击：把该曲目的选中态取反（由列表按 music_id 记录） */
+    std::function<void(const MusicInfo &)> onBatchToggle;
 
 protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
@@ -72,6 +82,7 @@ private:
     void updateCancelIcon();
     void updateDownloadTaskUi();
     void updateOverlayIcons();
+    void updateBatchBox();
     void loadCover();
     void updateSecondaryColumn();
     void updateLocalBadge();
@@ -92,6 +103,10 @@ private:
     bool m_downloaded = false;
     bool m_showDownloadButton = true;
     bool m_downloadTaskMode = false;
+    bool m_batchMode = false;
+    bool m_batchChecked = false;
+    /** 批量模式下本次按下是否落在整行上（松手时才算切换，避免误触） */
+    bool m_batchPressRow = false;
     bool m_downloadActive = false;
     qint64 m_progressReceived = 0;
     qint64 m_progressTotal = 0;
@@ -100,6 +115,8 @@ private:
     QWidget *m_content = nullptr;
     QWidget *m_numCol = nullptr;
     QLabel *m_indexLbl = nullptr;
+    /** 批量模式下的左侧复选框（与「编号」标签同位置，二者互斥显示） */
+    QPushButton *m_batchBox = nullptr;
     QPushButton *m_playOverlay = nullptr;
     QPushButton *m_statusOverlay = nullptr;
     QLabel *m_coverLbl = nullptr;

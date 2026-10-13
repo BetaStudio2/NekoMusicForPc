@@ -452,8 +452,9 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
 
     qApp->installEventFilter(this);
 
-    // 延迟检查版本更新
-    QTimer::singleShot(2000, this, [this]() { checkForUpdates(false); });
+    // 启动时不再自动检查版本更新（本机为开发版，更新需手动卸载后去官网重下，
+    // 开屏弹更新框没有意义）。仍保留设置页里的「检查更新」手动入口。
+    // QTimer::singleShot(2000, this, [this]() { checkForUpdates(false); });
     QTimer::singleShot(3500, this, [this]() { maybePromptDefaultMusicPlayer(); });
 }
 
@@ -1088,6 +1089,44 @@ void MainWindow::setupUi()
     connect(m_hotMusicPage, &MusicListPage::favoriteRequested, this, &MainWindow::toggleFavorite);
     connect(m_latestMusicPage, &MusicListPage::favoriteRequested, this, &MainWindow::toggleFavorite);
     connect(m_dailyMusicPage, &MusicListPage::favoriteRequested, this, &MainWindow::toggleFavorite);
+
+    // ── 单曲列表批量编辑模式：批量入歌单 / 批量下载 / 批量取消收藏 ──
+    // 批量移出歌单由 PlaylistDetailPage 自己直接调接口，不走主窗口
+    const auto onBatchAddToPlaylist = [this](const QList<MusicInfo> &songs) {
+        showAddToPlaylistDialogForSongs(songs);
+    };
+    const auto onBatchDownload = [this](const QList<MusicInfo> &songs) { downloadMusicBatch(songs); };
+    const auto onBatchUnfavorite = [this](const QList<int> &ids) { unfavoriteMusicBatch(ids); };
+
+    connect(m_favoritesPage, &FavoritesPage::batchAddToPlaylistRequested, this, onBatchAddToPlaylist);
+    connect(m_favoritesPage, &FavoritesPage::batchDownloadRequested, this, onBatchDownload);
+    connect(m_favoritesPage, &FavoritesPage::batchFavoriteToggleRequested, this, onBatchUnfavorite);
+    connect(m_recentPage, &RecentPage::batchAddToPlaylistRequested, this, onBatchAddToPlaylist);
+    connect(m_recentPage, &RecentPage::batchDownloadRequested, this, onBatchDownload);
+    connect(m_recentPage, &RecentPage::batchFavoriteToggleRequested, this, onBatchUnfavorite);
+    connect(m_downloadPage, &DownloadPage::batchAddToPlaylistRequested, this, onBatchAddToPlaylist);
+    connect(m_downloadPage, &DownloadPage::batchFavoriteToggleRequested, this, onBatchUnfavorite);
+    connect(m_artistDetailPage, &ArtistDetailPage::batchAddToPlaylistRequested, this,
+            onBatchAddToPlaylist);
+    connect(m_artistDetailPage, &ArtistDetailPage::batchDownloadRequested, this, onBatchDownload);
+    connect(m_artistDetailPage, &ArtistDetailPage::batchFavoriteToggleRequested, this,
+            onBatchUnfavorite);
+    connect(m_searchPage, &SearchPage::batchAddToPlaylistRequested, this, onBatchAddToPlaylist);
+    connect(m_searchPage, &SearchPage::batchDownloadRequested, this, onBatchDownload);
+    connect(m_searchPage, &SearchPage::batchFavoriteToggleRequested, this, onBatchUnfavorite);
+    connect(m_playlistDetailPage, &PlaylistDetailPage::batchAddToPlaylistRequested, this,
+            onBatchAddToPlaylist);
+    connect(m_playlistDetailPage, &PlaylistDetailPage::batchDownloadRequested, this, onBatchDownload);
+    connect(m_hotMusicPage, &MusicListPage::batchAddToPlaylistRequested, this, onBatchAddToPlaylist);
+    connect(m_hotMusicPage, &MusicListPage::batchDownloadRequested, this, onBatchDownload);
+    connect(m_hotMusicPage, &MusicListPage::batchFavoriteToggleRequested, this, onBatchUnfavorite);
+    connect(m_latestMusicPage, &MusicListPage::batchAddToPlaylistRequested, this,
+            onBatchAddToPlaylist);
+    connect(m_latestMusicPage, &MusicListPage::batchDownloadRequested, this, onBatchDownload);
+    connect(m_latestMusicPage, &MusicListPage::batchFavoriteToggleRequested, this, onBatchUnfavorite);
+    connect(m_dailyMusicPage, &MusicListPage::batchAddToPlaylistRequested, this, onBatchAddToPlaylist);
+    connect(m_dailyMusicPage, &MusicListPage::batchDownloadRequested, this, onBatchDownload);
+    connect(m_dailyMusicPage, &MusicListPage::batchFavoriteToggleRequested, this, onBatchUnfavorite);
     connect(m_hotMusicPage, &MusicListPage::playPauseRequested, this,
             &MainWindow::togglePlaybackForSystemUi);
     connect(m_latestMusicPage, &MusicListPage::playPauseRequested, this,
@@ -1247,6 +1286,17 @@ void MainWindow::setupUi()
         if (m_playlistPanel)
             m_playlistPanel->refresh();
     });
+
+    // 播放队列抽屉的行内菜单：收藏态查主窗口的收藏缓存（不猜），下载走既有链路
+    m_playlistPanel->isFavorited = [this](int musicId) { return checkIsFavorited(musicId); };
+    m_playlistPanel->onToggleFavorite = [this](const MusicInfo &info) { toggleFavorite(info.id); };
+    m_playlistPanel->onDownload = [this](const MusicInfo &info) { downloadMusic(info); };
+    connect(m_playlistPanel, &PlaylistPanel::batchAddToPlaylistRequested, this,
+            [this](const QList<MusicInfo> &songs) { showAddToPlaylistDialogForSongs(songs); });
+    connect(m_playlistPanel, &PlaylistPanel::batchDownloadRequested, this,
+            [this](const QList<MusicInfo> &songs) { downloadMusicBatch(songs); });
+    connect(m_playlistPanel, &PlaylistPanel::batchUnfavoriteRequested, this,
+            [this](const QList<int> &ids) { unfavoriteMusicBatch(ids); });
 
     connect(m_vipPage, &VipPage::loginRequested, this, [this]() {
         LoginDialog dlg(this);
@@ -1659,6 +1709,34 @@ void MainWindow::showAddToPlaylistDialog(const MusicInfo &music)
     }
 
     auto *overlay = new AddToPlaylistDialog(music, m_apiClient, host);
+    m_addToPlaylistOverlay = overlay;
+    connect(overlay, &AddToPlaylistDialog::playlistsChanged, this, [this]() {
+        if (m_sidebar)
+            m_sidebar->refreshPlaylists();
+    });
+    connect(overlay, &AddToPlaylistDialog::closed, this, [this]() {
+        m_addToPlaylistOverlay = nullptr;
+    });
+    overlay->openOn(host);
+    overlay->raise();
+}
+
+/** 批量版：一次把多首曲目加入同一个歌单（浮层内部逐首调用接口并报进度） */
+void MainWindow::showAddToPlaylistDialogForSongs(const QList<MusicInfo> &songs)
+{
+    if (songs.isEmpty())
+        return;
+
+    QWidget *host = centralWidget();
+    if (!host)
+        return;
+
+    if (m_addToPlaylistOverlay) {
+        m_addToPlaylistOverlay->close();
+        m_addToPlaylistOverlay = nullptr;
+    }
+
+    auto *overlay = new AddToPlaylistDialog(songs, m_apiClient, host);
     m_addToPlaylistOverlay = overlay;
     connect(overlay, &AddToPlaylistDialog::playlistsChanged, this, [this]() {
         if (m_sidebar)
@@ -2708,6 +2786,93 @@ void MainWindow::downloadAllMusic(const QList<MusicInfo> &songs)
                 Toast::Success);
 }
 
+/** 批量编辑：批量下载直接复用「下载全部」的一次入队实现（内部已去重 + 一次 downloadsChanged） */
+void MainWindow::downloadMusicBatch(const QList<MusicInfo> &songs)
+{
+    if (songs.isEmpty())
+        return;
+    downloadAllMusic(songs);
+}
+
+/**
+ * 批量取消收藏：逐首 DELETE，收尾刷新一次收藏缓存。
+ *
+ * 刻意不复用 toggleFavorite —— 那是「开关」语义，对一首没收藏的歌会变成「添加收藏」，
+ * 批量场景下点「取消收藏」却把歌加进收藏是错的，所以这里只处理确实已收藏的曲目。
+ */
+void MainWindow::unfavoriteMusicBatch(const QList<int> &musicIds)
+{
+    if (musicIds.isEmpty())
+        return;
+
+    if (!m_apiClient || !UserManager::instance().isLoggedIn()) {
+        Toast::show(this, I18n::instance().tr(QStringLiteral("pleaseLoginFirst")), Toast::Info);
+        return;
+    }
+
+    QList<int> targets;
+    targets.reserve(musicIds.size());
+    for (int id : musicIds) {
+        if (id > 0 && m_favoritesCache.contains(id) && !targets.contains(id))
+            targets.append(id);
+    }
+
+    if (targets.isEmpty()) {
+        Toast::show(this, I18n::instance().tr(QStringLiteral("batchUnfavoriteNone")), Toast::Info);
+        return;
+    }
+
+    const int total = targets.size();
+    auto okCount = std::make_shared<int>(0);
+    auto failCount = std::make_shared<int>(0);
+    auto step = std::make_shared<std::function<void(int)>>();
+    QPointer<MainWindow> self(this);
+
+    *step = [this, self, targets, total, okCount, failCount, step](int index) {
+        if (!self)
+            return;
+        if (index >= total) {
+            // 全部结束后统一刷新一次收藏态，避免逐首刷新列表
+            loadFavoritesCache();
+            if (m_favoritesPage)
+                m_favoritesPage->refresh();
+            if (*failCount > 0) {
+                Toast::show(this,
+                            I18n::instance()
+                                .tr(QStringLiteral("batchPartialDone"))
+                                .arg(*okCount)
+                                .arg(*failCount),
+                            Toast::Info);
+            } else {
+                Toast::show(this, I18n::instance().tr(QStringLiteral("batchDone")).arg(*okCount),
+                            Toast::Success);
+            }
+            return;
+        }
+
+        const int musicId = targets.at(index);
+        QUrl url(QString::fromUtf8("%1/api/user/favorites/%2").arg(Theme::kApiBase).arg(musicId));
+        QNetworkRequest req(url);
+        req.setRawHeader("Authorization", UserManager::instance().token().toUtf8());
+
+        auto *nam = new NekoNetworkAccessManager(this);
+        auto *reply = nam->deleteResource(req);
+        QObject::connect(reply, &QNetworkReply::finished, this,
+                         [this, reply, nam, musicId, okCount, failCount, step, index]() {
+                             reply->deleteLater();
+                             nam->deleteLater();
+                             if (reply->error() == QNetworkReply::NoError) {
+                                 m_favoritesCache.removeAll(musicId);
+                                 ++(*okCount);
+                             } else {
+                                 ++(*failCount);
+                             }
+                             (*step)(index + 1);
+                         });
+    };
+    (*step)(0);
+}
+
 MusicInfo MainWindow::musicInfoForPlayerAction(int musicId) const
 {
     if (musicId <= 0)
@@ -2911,6 +3076,9 @@ void MainWindow::loadFavoritesCache()
 void MainWindow::syncListPageFavoriteIds()
 {
     const QSet<int> ids(m_favoritesCache.begin(), m_favoritesCache.end());
+    // 播放队列抽屉的行内菜单也要按同一份收藏缓存显示「收藏 / 取消收藏」
+    if (m_playlistPanel)
+        m_playlistPanel->refreshFavoriteDisplay();
     if (m_playlistDetailPage)
         m_playlistDetailPage->setFavoritedMusicIds(ids);
     if (m_recentPage)

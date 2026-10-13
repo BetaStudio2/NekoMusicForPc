@@ -15,6 +15,7 @@
 class QLabel;
 class QPushButton;
 class SongListWidget;
+class BatchActionBar;
 
 class ArtistDetailPage : public QWidget
 {
@@ -38,6 +39,10 @@ signals:
     void favoriteRequested(int musicId);
     void playPauseRequested();
     void backRequested();
+    /** 批量操作：加入歌单 / 批量下载 / 批量取消收藏 */
+    void batchAddToPlaylistRequested(const QList<MusicInfo> &songs);
+    void batchDownloadRequested(const QList<MusicInfo> &songs);
+    void batchFavoriteToggleRequested(const QList<int> &musicIds);
 
 protected:
     void showEvent(QShowEvent *event) override;
@@ -48,6 +53,13 @@ private:
     void updateHeaderMeta();
     int currentPlayingMusicId() const;
     static QList<MusicInfo> tracksFromArtistMap(const QVariantMap &artist);
+    /** 批量编辑模式：按钮排 ↔ 批量操作条切换 */
+    void setupBatchBar();
+    void enterBatchMode();
+    void exitBatchMode();
+    void onBatchSelectionChanged(int count);
+    /** 一键把当前歌手的全部曲目加入本地播放队列 */
+    void addAllToQueue();
 
     QWidget *m_topBar = nullptr;
     QPushButton *m_backBtn = nullptr;
@@ -56,6 +68,10 @@ private:
     QLabel *m_countLbl = nullptr;
     QPushButton *m_playBtn = nullptr;
     QPushButton *m_downloadAllBtn = nullptr;
+    QWidget *m_menuRow = nullptr;
+    QPushButton *m_addAllToQueueBtn = nullptr;
+    QPushButton *m_batchManageBtn = nullptr;
+    BatchActionBar *m_batchBar = nullptr;
     SongListWidget *m_songList = nullptr;
 
     QString m_artistName;

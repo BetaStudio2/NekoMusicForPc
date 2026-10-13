@@ -12,6 +12,7 @@ class RoundCoverLabel;
 class QVariantAnimation;
 class SongListWidget;
 class ApiClient;
+class BatchActionBar;
 
 /** 「我喜欢的音乐」— 1:1 SPlayer liked.vue (ListDetail + SongList + SongCard) */
 class FavoritesPage : public QWidget
@@ -34,6 +35,10 @@ signals:
     void downloadAllRequested(const QList<MusicInfo> &results);
     void unfavoriteRequested(int musicId);
     void playPauseRequested();
+    /** 批量操作：加入歌单 / 批量下载 / 批量收藏切换（该页语义为取消收藏） */
+    void batchAddToPlaylistRequested(const QList<MusicInfo> &songs);
+    void batchDownloadRequested(const QList<MusicInfo> &songs);
+    void batchFavoriteToggleRequested(const QList<int> &musicIds);
 
 protected:
     void paintEvent(QPaintEvent *) override;
@@ -52,6 +57,13 @@ private:
     int currentPlayingMusicId() const;
     void showPageStatus(const QString &text, const char *iconName = nullptr);
     void hidePageStatus();
+    /** 批量编辑模式：按钮排 ↔ 批量操作条切换 */
+    void setupBatchBar();
+    void enterBatchMode();
+    void exitBatchMode();
+    void onBatchSelectionChanged(int count);
+    /** 一键把当前列表的全部曲目加入本地播放队列 */
+    void addAllToQueue();
 
     ApiClient *m_apiClient = nullptr;
 
@@ -70,6 +82,11 @@ private:
     QPushButton *m_moreBtn = nullptr;
     QLineEdit *m_searchEdit = nullptr;
     QWidget *m_searchWrap = nullptr;
+    /** 批量模式：「播放 / 全部下载 / 更多」那排按钮整体让位给批量操作条 */
+    QWidget *m_menuRow = nullptr;
+    QPushButton *m_addAllToQueueBtn = nullptr;
+    QPushButton *m_batchManageBtn = nullptr;
+    BatchActionBar *m_batchBar = nullptr;
 
     SongListWidget *m_songList = nullptr;
     QWidget *m_emptyWrap = nullptr;

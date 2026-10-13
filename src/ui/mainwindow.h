@@ -135,6 +135,12 @@ private:
     void toggleFavorite(int musicId);
     void downloadMusic(const MusicInfo &info);
     void downloadAllMusic(const QList<MusicInfo> &songs);
+    /** 批量编辑：批量下载（复用「下载全部」的一次入队实现） */
+    void downloadMusicBatch(const QList<MusicInfo> &songs);
+    /** 批量编辑：批量加入歌单（浮层支持一次多首） */
+    void showAddToPlaylistDialogForSongs(const QList<MusicInfo> &songs);
+    /** 批量编辑：批量取消收藏（只取消已收藏的，不会误把没收藏的加进去） */
+    void unfavoriteMusicBatch(const QList<int> &musicIds);
     void syncListPageDownloadState();
     void copyCurrentTrackShare();
     /** @param showNoUpdateToast 为 true 时表示用户从设置页手动检查，已是最新版本时弹出 Toast */

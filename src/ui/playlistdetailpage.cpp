@@ -6,6 +6,7 @@
 #include "playlistdetailpage.h"
 #include "songlistwidget.h"
 #include "roundcoverlabel.h"
+#include "batchactionbar.h"
 #include "core/apiclient.h"
 #include "core/i18n.h"
 #include "core/covercache.h"
@@ -36,6 +37,8 @@
 #include <QAction>
 #include <QDialog>
 #include <QNetworkReply>
+#include <QPointer>
+#include <memory>
 
 namespace {
 
@@ -183,6 +186,7 @@ void PlaylistDetailPage::setupUi()
 
     auto *menuRow = new QWidget(dataCol);
     menuRow->setFixedHeight(40);
+    m_menuRow = menuRow;
     auto *menuLay = new QHBoxLayout(menuRow);
     menuLay->setContentsMargins(0, 0, 0, 0);
     menuLay->setSpacing(12);
@@ -204,6 +208,13 @@ void PlaylistDetailPage::setupUi()
             emit downloadAllRequested(m_displaySongs);
     });
     menuLay->addWidget(m_downloadAllBtn);
+
+    // 一键把整个歌单加入播放队列（本地队列，不去重时会给出实际新增数）
+    m_addAllToQueueBtn = new QPushButton(I18n::instance().tr(QStringLiteral("addAllToQueue")), menuRow);
+    m_addAllToQueueBtn->setCursor(Qt::PointingHandCursor);
+    m_addAllToQueueBtn->setFixedHeight(40);
+    connect(m_addAllToQueueBtn, &QPushButton::clicked, this, &PlaylistDetailPage::addAllToQueue);
+    menuLay->addWidget(m_addAllToQueueBtn);
 
     m_editPlaylistBtn = new QPushButton(I18n::instance().tr(QStringLiteral("editPlaylist")), menuRow);
     m_editPlaylistBtn->setCursor(Qt::PointingHandCursor);
@@ -243,6 +254,13 @@ void PlaylistDetailPage::setupUi()
             reloadPlaylist();
     });
     menuLay->addWidget(m_moreBtn);
+
+    // 批量管理入口：进入后这排按钮整体让位给 BatchActionBar
+    m_batchManageBtn = new QPushButton(I18n::instance().tr(QStringLiteral("batchManage")), menuRow);
+    m_batchManageBtn->setCursor(Qt::PointingHandCursor);
+    m_batchManageBtn->setFixedHeight(40);
+    connect(m_batchManageBtn, &QPushButton::clicked, this, &PlaylistDetailPage::enterBatchMode);
+    menuLay->addWidget(m_batchManageBtn);
 
     menuLay->addStretch();
 
@@ -308,6 +326,8 @@ void PlaylistDetailPage::setupUi()
     m_emptyWrap->hide();
     root->addWidget(m_emptyWrap);
 
+    setupBatchBar();
+
     m_headerAnim = new QVariantAnimation(this);
     m_headerAnim->setDuration(300);
     m_headerAnim->setEasingCurve(QEasingCurve::OutCubic);
@@ -320,6 +340,192 @@ void PlaylistDetailPage::setupUi()
     });
 
     applyPageStyle();
+}
+
+/** 批量编辑模式：顶部按钮排 ↔ 批量操作条 的公共接线 */
+void PlaylistDetailPage::setupBatchBar()
+{
+    if (!m_menuRow || !m_songList)
+        return;
+
+    m_batchBar = new BatchActionBar(m_menuRow->parentWidget());
+    // 歌单详情页多一个「移出歌单」，但该页不提供取消收藏（收藏入口在菜单里是切换语义）
+    m_batchBar->setCapabilities(true, true, true, false, true);
+    m_batchBar->hide();
+    if (auto *lay = qobject_cast<QBoxLayout *>(m_menuRow->parentWidget()->layout()))
+        lay->insertWidget(lay->indexOf(m_menuRow), m_batchBar);
+
+    connect(m_batchBar, &BatchActionBar::exitRequested, this, &PlaylistDetailPage::exitBatchMode);
+    connect(m_batchBar, &BatchActionBar::selectAllToggled, this, [this]() {
+        if (m_songList)
+            m_songList->setBatchSelectAll(!m_songList->batchAllSelected());
+    });
+    connect(m_batchBar, &BatchActionBar::addToPlaylistRequested, this, [this]() {
+        const QList<MusicInfo> picked = m_songList ? m_songList->batchSelectedSongs() : QList<MusicInfo>();
+        if (picked.isEmpty())
+            return;
+        emit batchAddToPlaylistRequested(picked);
+        exitBatchMode(); // 动作已派发：立刻退出并清空选择，避免重复点重复请求
+    });
+    connect(m_batchBar, &BatchActionBar::downloadRequested, this, [this]() {
+        const QList<MusicInfo> picked = m_songList ? m_songList->batchSelectedSongs() : QList<MusicInfo>();
+        if (picked.isEmpty())
+            return;
+        emit batchDownloadRequested(picked);
+        exitBatchMode();
+    });
+    connect(m_batchBar, &BatchActionBar::unfavoriteRequested, this, [this]() {
+        QList<int> ids;
+        if (m_songList) {
+            const QList<MusicInfo> picked = m_songList->batchSelectedSongs();
+            for (const MusicInfo &info : picked)
+                ids.append(info.id);
+        }
+        if (ids.isEmpty())
+            return;
+        emit batchFavoriteToggleRequested(ids);
+        exitBatchMode();
+    });
+    connect(m_batchBar, &BatchActionBar::addToQueueRequested, this, [this]() {
+        if (!m_songList)
+            return;
+        const QList<MusicInfo> picked = m_songList->batchSelectedSongs();
+        if (picked.isEmpty())
+            return;
+        PlaylistManager::instance().addAllToPlaylist(picked);
+        Toast::show(this, I18n::instance().tr(QStringLiteral("batchQueueAdded")).arg(picked.size()),
+                    Toast::Success);
+        exitBatchMode();
+    });
+    connect(m_batchBar, &BatchActionBar::removeFromPlaylistRequested, this, [this]() {
+        const QList<MusicInfo> picked = m_songList ? m_songList->batchSelectedSongs() : QList<MusicInfo>();
+        if (picked.isEmpty())
+            return;
+        emit batchRemoveFromPlaylistRequested(picked);
+        exitBatchMode();
+    });
+    connect(m_songList, &SongListWidget::batchSelectionChanged, this,
+            &PlaylistDetailPage::onBatchSelectionChanged);
+}
+
+void PlaylistDetailPage::enterBatchMode()
+{
+    if (!m_songList || !m_batchBar || m_displaySongs.isEmpty())
+        return;
+
+    m_songList->clearBatchSelection();
+    m_songList->setBatchMode(true);
+    m_batchBar->reset();
+    m_menuRow->hide();
+    m_batchBar->show();
+}
+
+void PlaylistDetailPage::exitBatchMode()
+{
+    if (!m_songList || !m_batchBar)
+        return;
+
+    m_songList->setBatchMode(false);
+    m_batchBar->reset();
+    m_batchBar->hide();
+    if (m_menuRow)
+        m_menuRow->show();
+}
+
+void PlaylistDetailPage::onBatchSelectionChanged(int count)
+{
+    if (!m_batchBar || !m_songList)
+        return;
+    m_batchBar->setSelectedCount(count);
+    m_batchBar->setAllSelected(m_songList->batchAllSelected());
+}
+
+/** 一键把当前歌单的全部曲目加入本地播放队列 */
+void PlaylistDetailPage::addAllToQueue()
+{
+    const QList<MusicInfo> &songs = m_allSongs;
+    if (songs.isEmpty()) {
+        Toast::show(this, I18n::instance().tr(QStringLiteral("queueAddAllEmpty")), Toast::Info);
+        return;
+    }
+
+    auto &mgr = PlaylistManager::instance();
+    const int before = mgr.count();
+    mgr.addAllToPlaylist(songs);
+    const int added = qMax(0, mgr.count() - before);
+
+    // addAllToPlaylist 会去重，实际新增数可能小于曲目数；两者都给出来更准确
+    if (added <= 0)
+        Toast::show(this, I18n::instance().tr(QStringLiteral("queueAddAllNone")), Toast::Info);
+    else
+        Toast::show(this, I18n::instance().tr(QStringLiteral("addAllToQueueDone")).arg(added),
+                    Toast::Success);
+}
+
+/** 批量移出歌单：接口只吃单曲，按序串行请求，收尾统一报结果 */
+void PlaylistDetailPage::removeSongsFromPlaylistBatch(const QList<MusicInfo> &songs)
+{
+    if (!m_apiClient || m_playlistId <= 0 || songs.isEmpty())
+        return;
+
+    QList<int> ids;
+    ids.reserve(songs.size());
+    for (const MusicInfo &info : songs) {
+        if (info.id > 0)
+            ids.append(info.id);
+    }
+    if (ids.isEmpty())
+        return;
+
+    Toast::show(this, I18n::instance().tr(QStringLiteral("batchRemovingFromPlaylist")).arg(ids.size()),
+                Toast::Info);
+
+    auto counter = std::make_shared<int>(0);
+    auto okCount = std::make_shared<int>(0);
+    auto failCount = std::make_shared<int>(0);
+
+    auto step = std::make_shared<std::function<void(int)>>();
+    QPointer<PlaylistDetailPage> guard(this);
+    *step = [this, guard, ids, counter, okCount, failCount, step](int index) {
+        if (!guard)
+            return;
+        if (index >= ids.size()) {
+            // 全部请求结束：一次性刷新列表与头部元信息，避免逐首重建
+            for (int i = m_allSongs.size() - 1; i >= 0; --i) {
+                if (ids.contains(m_allSongs[i].id))
+                    m_allSongs.removeAt(i);
+            }
+            applyFilter();
+            updateHeaderMeta();
+            updateCoverImage();
+            if (*failCount > 0) {
+                Toast::show(this,
+                            I18n::instance()
+                                .tr(QStringLiteral("batchPartialDone"))
+                                .arg(*okCount)
+                                .arg(*failCount),
+                            Toast::Info);
+            } else {
+                Toast::show(this,
+                            I18n::instance().tr(QStringLiteral("batchDone")).arg(*okCount),
+                            Toast::Success);
+            }
+            return;
+        }
+
+        m_apiClient->removeMusicFromPlaylist(
+            m_playlistId, ids.at(index), [this, guard, index, okCount, failCount, step](bool success,
+                                                                                        const QString &) {
+                if (!guard)
+                    return;
+                if (success)
+                    ++(*okCount);
+                else
+                    ++(*failCount);
+                (*step)(index + 1);
+            });
+    };
+    (*step)(0);
 }
 
 void PlaylistDetailPage::applyPageStyle()
@@ -380,6 +586,19 @@ void PlaylistDetailPage::applyPageStyle()
         m_editPlaylistBtn->setIconSize(QSize(18, 18));
         m_editPlaylistBtn->setStyleSheet(secondaryStyle);
     }
+    // 批量操作相关按钮沿用同一套次级按钮样式
+    if (m_addAllToQueueBtn) {
+        m_addAllToQueueBtn->setIcon(Icons::renderNamed("MusicList", 18, secondaryIc));
+        m_addAllToQueueBtn->setIconSize(QSize(18, 18));
+        m_addAllToQueueBtn->setStyleSheet(secondaryStyle);
+    }
+    if (m_batchManageBtn) {
+        m_batchManageBtn->setIcon(Icons::renderNamed("Batch", 18, secondaryIc));
+        m_batchManageBtn->setIconSize(QSize(18, 18));
+        m_batchManageBtn->setStyleSheet(secondaryStyle);
+    }
+    if (m_batchBar)
+        m_batchBar->applyTheme();
     if (m_collectPlaylistBtn)
         updateCollectPlaylistButton();
     if (m_moreBtn) {
@@ -399,8 +618,7 @@ void PlaylistDetailPage::applyPageStyle()
             ico->setPixmap(Icons::renderNamed("Search", 18, ic));
         }
     }
-    if (m_searchEdit) {
-        m_searchEdit->setStyleSheet(QStringLiteral(
+    if (m_searchEdit) {        m_searchEdit->setStyleSheet(QStringLiteral(
             "QLineEdit { background: transparent; border: none; font-size: 14px; color: %1; }")
                                         .arg(titleFg));
     }
@@ -423,6 +641,12 @@ void PlaylistDetailPage::retranslate()
         m_playBtn->setText(I18n::instance().tr(QStringLiteral("play")));
     if (m_downloadAllBtn)
         m_downloadAllBtn->setText(I18n::instance().tr(QStringLiteral("downloadAll")));
+    if (m_addAllToQueueBtn)
+        m_addAllToQueueBtn->setText(I18n::instance().tr(QStringLiteral("addAllToQueue")));
+    if (m_batchManageBtn)
+        m_batchManageBtn->setText(I18n::instance().tr(QStringLiteral("batchManage")));
+    if (m_batchBar)
+        m_batchBar->retranslate();
     if (m_editPlaylistBtn)
         m_editPlaylistBtn->setText(I18n::instance().tr(QStringLiteral("editPlaylist")));
     updateCollectPlaylistButton();
@@ -512,6 +736,19 @@ void PlaylistDetailPage::updateHeaderMeta()
         m_playBtn->setEnabled(!m_displaySongs.isEmpty());
     if (m_downloadAllBtn)
         m_downloadAllBtn->setEnabled(!m_displaySongs.isEmpty());
+    // 「全部加入队列」以整个歌单为准（不受搜索过滤影响），空歌单置灰
+    if (m_addAllToQueueBtn)
+        m_addAllToQueueBtn->setEnabled(!m_allSongs.isEmpty());
+    // 没有曲目就没有可批量的对象：入口置灰，已经进去了就退出来
+    const bool hasSongs = !m_displaySongs.isEmpty();
+    const bool batchActive = m_songList && m_songList->batchMode();
+    if (m_batchManageBtn)
+        m_batchManageBtn->setEnabled(hasSongs);
+    if (!hasSongs && batchActive)
+        exitBatchMode();
+    // 批量模式下按钮排已让位给批量操作条，别被这里又显示出来
+    else if (m_menuRow && batchActive)
+        m_menuRow->hide();
 }
 
 void PlaylistDetailPage::refreshDownloadDisplay()

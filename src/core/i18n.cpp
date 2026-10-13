@@ -5,6 +5,7 @@
 
 #include "i18n.h"
 #include <QMap>
+#include <QSet>
 
 I18n &I18n::instance()
 {
@@ -228,6 +229,36 @@ static QMap<QString, QString> zhCN()
     m["downloadAll"] = QStringLiteral("下载全部");
     m["batchDownloadStarted"] = QStringLiteral("已开始下载 %1 首歌曲");
     m["allSongsDownloaded"] = QStringLiteral("所有歌曲均已下载");
+
+    // --- 批量编辑模式（单曲列表）---
+    m["batchManage"] = QStringLiteral("批量管理");
+    m["batchSelected"] = QStringLiteral("已选 %1 首");
+    m["batchSelectAll"] = QStringLiteral("全选");
+    m["batchCancelSelectAll"] = QStringLiteral("取消全选");
+    m["batchExit"] = QStringLiteral("退出");
+    m["batchAddToPlaylist"] = QStringLiteral("加入歌单");
+    m["batchAddToQueue"] = QStringLiteral("加入播放队列");
+    m["batchDownload"] = QStringLiteral("批量下载");
+    m["batchUnfavorite"] = QStringLiteral("取消收藏");
+    m["batchRemoveFromPlaylist"] = QStringLiteral("移出歌单");
+    m["batchRowHint"] = QStringLiteral("点击整行选中/取消选中");
+    m["batchQueueAdded"] = QStringLiteral("已加入播放队列 %1 首");
+    m["batchAddToPlaylistTitle"] = QStringLiteral("加入歌单（%1 首）");
+    m["batchAddingToPlaylist"] = QStringLiteral("正在添加 %1 首到歌单...");
+    m["batchAddProgress"] = QStringLiteral("正在添加 %1/%2 首...");
+    m["batchDone"] = QStringLiteral("成功 %1 首");
+    m["batchFailed"] = QStringLiteral("失败 %1 首");
+    m["batchPartialDone"] = QStringLiteral("成功 %1 首 / 失败 %2 首");
+    m["batchRemovingFromPlaylist"] = QStringLiteral("正在移出 %1 首...");
+    m["batchUnfavoriteNone"] = QStringLiteral("选中的歌曲都不在收藏里");
+    m["batchRemoveFromQueue"] = QStringLiteral("移出播放队列");
+    m["batchQueueRemoved"] = QStringLiteral("已移出播放队列 %1 首");
+    m["batchActions"] = QStringLiteral("批量操作");
+    m["batchActionsCount"] = QStringLiteral("批量操作 (%1) ▾");
+    m["addAllToQueue"] = QStringLiteral("全部加入队列");
+    m["addAllToQueueDone"] = QStringLiteral("已加入播放队列：%1 首");
+    m["queueAddAllNone"] = QStringLiteral("这些歌都已经在播放队列里了");
+    m["queueAddAllEmpty"] = QStringLiteral("当前列表还没有歌曲");
     m["localMusicBadge"] = QStringLiteral("本地");
     m["hasLyrics"] = QStringLiteral("有歌词");
     m["ranking"] = QStringLiteral("排行榜");
@@ -697,6 +728,13 @@ static QMap<QString, QString> zhCN()
     m["systemNotifyHint"] = QStringLiteral("有人回复你的评论时，除应用内提醒外也弹出桌面通知");
     m["systemNotifyMissedFmt"] = QStringLiteral("断线期间收到 %1 条新消息");
 
+    // --- 扫码登录补漏（此前只有英表有，简中/猫娘会显示键名）---
+    m["qrLoginExpired"] = QStringLiteral("二维码已过期，请点击刷新");
+    m["qrLoginFailed"] = QStringLiteral("二维码生成失败，请点击刷新");
+    m["qrLoginRefresh"] = QStringLiteral("刷新二维码");
+    // --- 登录提示（此前三张表都没有，会直接显示 loginRequired）---
+    m["loginRequired"] = QStringLiteral("请先登录");
+
     return m;
 }
 
@@ -805,6 +843,36 @@ static QMap<QString, QString> nyaCN()
     m["downloadAll"] = QStringLiteral("全部抱回家喵");
     m["batchDownloadStarted"] = QStringLiteral("已经开始帮你搬 %1 首歌啦喵~");
     m["allSongsDownloaded"] = QStringLiteral("这些歌都已经下载过啦喵~");
+
+    // --- 批量编辑模式（单曲列表）---
+    m["batchManage"] = QStringLiteral("一起挑选喵~");
+    m["batchSelected"] = QStringLiteral("已经挑中 %1 首喵");
+    m["batchSelectAll"] = QStringLiteral("全都选上喵");
+    m["batchCancelSelectAll"] = QStringLiteral("都不选了喵");
+    m["batchExit"] = QStringLiteral("先不挑了喵");
+    m["batchAddToPlaylist"] = QStringLiteral("放进歌单喵");
+    m["batchAddToQueue"] = QStringLiteral("排进播放队列喵");
+    m["batchDownload"] = QStringLiteral("一起搬回家喵");
+    m["batchUnfavorite"] = QStringLiteral("取消收藏喵");
+    m["batchRemoveFromPlaylist"] = QStringLiteral("从歌单里拿出去喵");
+    m["batchRowHint"] = QStringLiteral("点一下整行就能选中/取消喵~");
+    m["batchQueueAdded"] = QStringLiteral("已经把 %1 首排进播放队列啦喵~");
+    m["batchAddToPlaylistTitle"] = QStringLiteral("放进歌单喵（%1 首）");
+    m["batchAddingToPlaylist"] = QStringLiteral("正在把 %1 首放进歌单喵...");
+    m["batchAddProgress"] = QStringLiteral("正在放第 %1/%2 首喵...");
+    m["batchDone"] = QStringLiteral("成功放进 %1 首喵~");
+    m["batchFailed"] = QStringLiteral("有 %1 首没放进去喵...");
+    m["batchPartialDone"] = QStringLiteral("成功 %1 首，失败 %2 首喵~");
+    m["batchRemovingFromPlaylist"] = QStringLiteral("正在把 %1 首拿出去喵...");
+    m["batchUnfavoriteNone"] = QStringLiteral("挑中的歌本来就没在收藏里喵~");
+    m["batchRemoveFromQueue"] = QStringLiteral("从队列里拿走喵");
+    m["batchQueueRemoved"] = QStringLiteral("已经从队列里拿走 %1 首喵~");
+    m["batchActions"] = QStringLiteral("批量小动作喵");
+    m["batchActionsCount"] = QStringLiteral("批量小动作 (%1) ▾");
+    m["addAllToQueue"] = QStringLiteral("全都排队去喵");
+    m["addAllToQueueDone"] = QStringLiteral("已经排进播放队列啦：%1 首喵~");
+    m["queueAddAllNone"] = QStringLiteral("这些歌早就在队列里排着啦喵~");
+    m["queueAddAllEmpty"] = QStringLiteral("现在这里一首歌都没有喵...");
     m["localMusicBadge"] = QStringLiteral("家里的音乐喵~");
     m["hasLyrics"] = QStringLiteral("有歌词喵~");
     m["ranking"] = QStringLiteral("最厉害的排行喵~");
@@ -1131,7 +1199,12 @@ static QMap<QString, QString> nyaCN()
     m["invalidKugouLink"] = QStringLiteral("这个链接看不懂喵...给个正确的嘛~");
     m["emptyKugouPlaylist"] = QStringLiteral("歌单空空的没有歌喵...");
     m["kugouPlaylistInfo"] = QStringLiteral("歌单：%1（共 %2 首歌曲喵）");
-    
+
+    // --- 扫码登录补漏 ---
+    m["qrLoginExpired"] = QStringLiteral("喵码过期啦，点一下换新的喵");
+    // --- 登录提示 ---
+    m["loginRequired"] = QStringLiteral("要先登录才行喵~");
+
     return m;
 }
 
@@ -1354,6 +1427,36 @@ static QMap<QString, QString> enUS()
     m["downloadAll"] = "Download All";
     m["batchDownloadStarted"] = "Started downloading %1 songs";
     m["allSongsDownloaded"] = "All songs are already downloaded";
+
+    // --- Batch edit mode (song lists) ---
+    m["batchManage"] = "Batch Manage";
+    m["batchSelected"] = "%1 selected";
+    m["batchSelectAll"] = "Select All";
+    m["batchCancelSelectAll"] = "Deselect All";
+    m["batchExit"] = "Exit";
+    m["batchAddToPlaylist"] = "Add to Playlist";
+    m["batchAddToQueue"] = "Add to Queue";
+    m["batchDownload"] = "Batch Download";
+    m["batchUnfavorite"] = "Remove Favorite";
+    m["batchRemoveFromPlaylist"] = "Remove from Playlist";
+    m["batchRowHint"] = "Click a row to select or deselect";
+    m["batchQueueAdded"] = "%1 songs added to the play queue";
+    m["batchAddToPlaylistTitle"] = "Add to Playlist (%1 songs)";
+    m["batchAddingToPlaylist"] = "Adding %1 songs to playlist...";
+    m["batchAddProgress"] = "Adding %1/%2...";
+    m["batchDone"] = "%1 succeeded";
+    m["batchFailed"] = "%1 failed";
+    m["batchPartialDone"] = "%1 succeeded / %2 failed";
+    m["batchRemovingFromPlaylist"] = "Removing %1 songs...";
+    m["batchUnfavoriteNone"] = "None of the selected songs are favorited";
+    m["batchRemoveFromQueue"] = "Remove from Queue";
+    m["batchQueueRemoved"] = "Removed %1 songs from the queue";
+    m["batchActions"] = "Batch Actions";
+    m["batchActionsCount"] = "Batch Actions (%1) ▾";
+    m["addAllToQueue"] = "Add All to Queue";
+    m["addAllToQueueDone"] = "Added to play queue: %1";
+    m["queueAddAllNone"] = "These songs are already in the play queue";
+    m["queueAddAllEmpty"] = "There are no songs in this list yet";
     m["localMusicBadge"] = "Local";
     m["hasLyrics"] = "Has lyrics";
     m["ranking"] = "Ranking";
@@ -1830,6 +1933,9 @@ static QMap<QString, QString> enUS()
     m["systemNotifyHint"] = "Also pop a desktop notification when someone replies to your comment";
     m["systemNotifyMissedFmt"] = "%1 new messages arrived while reconnecting";
 
+    // --- Sign-in prompt (was missing from every table) ---
+    m["loginRequired"] = "Please sign in first";
+
     return m;
 }
 
@@ -1840,7 +1946,49 @@ QString I18n::tr(const QString &key) const
     auto it = map.constFind(key);
     if (it != map.constEnd())
         return it.value();
+
+    // 兜底：非简中表里缺键时退回简中，避免直接把标识符（如 duration）暴露到界面上。
+    // 简中表本身也缺时才返回键名（此时只能靠 missingKeys() 报出来补）。
+    if (m_lang != ZhCN) {
+        const auto &zh = zhCN();
+        auto zhIt = zh.constFind(key);
+        if (zhIt != zh.constEnd())
+            return zhIt.value();
+    }
     return key;
+}
+
+QStringList I18n::missingKeys()
+{
+    // 简中表是基准：enUS 与 nyaCN 都必须能覆盖它的每一个键
+    // （nyaCN() 本身以 zhCN() 为底，正常情况下不会缺；缺了就说明有人改坏了那一行）
+    const QStringList base = zhCN().keys();
+    const QSet<QString> baseSet(base.begin(), base.end());
+    const QStringList enKeys = enUS().keys();
+    const QSet<QString> enSet(enKeys.begin(), enKeys.end());
+    const QStringList nyaKeys = nyaCN().keys();
+    const QSet<QString> nyaSet(nyaKeys.begin(), nyaKeys.end());
+
+    QStringList missing;
+    for (const QString &key : base) {
+        if (!enSet.contains(key))
+            missing.append(QStringLiteral("enUS:") + key);
+        if (!nyaSet.contains(key))
+            missing.append(QStringLiteral("nyaCN:") + key);
+    }
+    // 反向：英文/猫娘有而简中没的键，在 tr() 里等于「简中兜底兜不住」
+    for (const QString &key : enKeys) {
+        if (!baseSet.contains(key))
+            missing.append(QStringLiteral("zhCN:") + key);
+    }
+    for (const QString &key : nyaKeys) {
+        if (!baseSet.contains(key))
+            missing.append(QStringLiteral("zhCN:") + key);
+    }
+
+    missing.removeDuplicates();
+    missing.sort();
+    return missing;
 }
 
 QString I18n::settingsTitle() const { return tr("settings"); }

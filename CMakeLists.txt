@@ -181,6 +181,7 @@ set(SOURCES
         src/ui/songlistwidget.cpp
         src/ui/songcontextmenu.cpp
         src/ui/songmenubuilder.cpp
+        src/ui/batchactionbar.cpp
         src/ui/coverlistcard.cpp
         src/ui/artistdetailpage.cpp
         src/ui/roundcoverlabel.cpp
@@ -270,6 +271,7 @@ set(HEADERS
         src/ui/songlistwidget.h
         src/ui/songcontextmenu.h
         src/ui/songmenubuilder.h
+        src/ui/batchactionbar.h
         src/ui/coverlistcard.h
         src/ui/roundcoverlabel.h
         src/core/playerengine.h

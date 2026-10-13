@@ -106,6 +106,13 @@ int main(int argc, char *argv[])
     int lang = settings.value("language", static_cast<int>(I18n::ZhCN)).toInt();
     I18n::instance().setLanguage(static_cast<I18n::Language>(lang));
 
+    // i18n 键集合自检：三张表对不上的键打到日志里，避免界面上直接显示标识符
+    // （tr() 现在已经会回退到简中兜底，这里只是把缺口暴露出来便于补齐）
+    const QStringList missingI18nKeys = I18n::missingKeys();
+    if (!missingI18nKeys.isEmpty()) {
+        qWarning() << "[i18n] 语言表缺键" << missingI18nKeys.size() << "个:" << missingI18nKeys;
+    }
+
     // 首次启动：须先阅读并同意用户协议与隐私政策，否则退出
     if (!Legal::hasAcceptedConsent()) {
         LegalConsentDialog consentDialog;

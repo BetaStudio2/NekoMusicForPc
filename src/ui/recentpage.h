@@ -9,6 +9,7 @@
 class QLabel;
 class QPushButton;
 class SongListWidget;
+class BatchActionBar;
 
 /** 最近播放 — 1:1 SPlayer History.vue (标题 + 播放/清空 + SongList) */
 class RecentPage : public QWidget
@@ -32,6 +33,10 @@ signals:
     void downloadAllRequested(const QList<MusicInfo> &songs);
     void favoriteRequested(int musicId);
     void playPauseRequested();
+    /** 批量操作：加入歌单 / 批量下载 / 批量取消收藏 */
+    void batchAddToPlaylistRequested(const QList<MusicInfo> &songs);
+    void batchDownloadRequested(const QList<MusicInfo> &songs);
+    void batchFavoriteToggleRequested(const QList<int> &musicIds);
 
 protected:
     void paintEvent(QPaintEvent *event) override;
@@ -46,6 +51,13 @@ private:
     int currentPlayingMusicId() const;
     void showPageStatus(const QString &text, const char *iconName = nullptr);
     void hidePageStatus();
+    /** 批量编辑模式：按钮排 ↔ 批量操作条切换 */
+    void setupBatchBar();
+    void enterBatchMode();
+    void exitBatchMode();
+    void onBatchSelectionChanged(int count);
+    /** 一键把当前列表的全部曲目加入本地播放队列 */
+    void addAllToQueue();
 
     QWidget *m_header = nullptr;
     QLabel *m_titleLbl = nullptr;
@@ -53,6 +65,10 @@ private:
     QPushButton *m_playBtn = nullptr;
     QPushButton *m_downloadAllBtn = nullptr;
     QPushButton *m_clearBtn = nullptr;
+    QWidget *m_menuRow = nullptr;
+    QPushButton *m_addAllToQueueBtn = nullptr;
+    QPushButton *m_batchManageBtn = nullptr;
+    BatchActionBar *m_batchBar = nullptr;
 
     SongListWidget *m_songList = nullptr;
     QWidget *m_emptyWrap = nullptr;

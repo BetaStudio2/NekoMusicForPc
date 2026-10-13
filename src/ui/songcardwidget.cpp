@@ -25,6 +25,8 @@
 #include <QTimer>
 #include <QStyle>
 #include <QStyleOption>
+#include <QPainterPath>
+#include <QPixmap>
 
 namespace {
 
@@ -49,6 +51,38 @@ QColor songBorder(bool playing, bool hover)
     if (hover)
         return QColor(kPrimary.red(), kPrimary.green(), kPrimary.blue(), 120);
     return QColor(kPrimary.red(), kPrimary.green(), kPrimary.blue(), 28);
+}
+
+/** 批量模式下「已选中」的行底色（播放态以外的一层独立高亮） */
+QColor batchFill(bool dark)
+{
+    Q_UNUSED(dark);
+    return QColor(kPrimary.red(), kPrimary.green(), kPrimary.blue(), 40);
+}
+
+QColor batchBorder()
+{
+    return QColor(kPrimary.red(), kPrimary.green(), kPrimary.blue(), 150);
+}
+
+/** 复选框圆角方块里的对勾（自己画，避免依赖字体里是否有 ✓） */
+QPixmap checkMarkPixmap(int size, const QColor &color)
+{
+    QPixmap pm(size, size);
+    pm.fill(Qt::transparent);
+    QPainter p(&pm);
+    p.setRenderHint(QPainter::Antialiasing, true);
+    QPen pen(color, qMax(2.0, size / 7.0));
+    pen.setCapStyle(Qt::RoundCap);
+    pen.setJoinStyle(Qt::RoundJoin);
+    p.setPen(pen);
+    QPainterPath path;
+    path.moveTo(size * 0.22, size * 0.52);
+    path.lineTo(size * 0.42, size * 0.72);
+    path.lineTo(size * 0.78, size * 0.30);
+    p.drawPath(path);
+    p.end();
+    return pm;
 }
 
 QString formatByteSize(qint64 bytes)
@@ -157,6 +191,18 @@ void SongCardWidget::rebuildLayout()
     m_indexLbl->setAlignment(Qt::AlignCenter);
     m_indexLbl->setAttribute(Qt::WA_TransparentForMouseEvents, true);
 
+    // 批量模式的复选框：与「编号」标签同位置，进入批量模式后顶替它显示。
+    // 自己画勾/框（见 updateBatchBox），不依赖平台样式，深浅色主题下都一致。
+    m_batchBox = new QPushButton(m_numCol);
+    m_batchBox->setGeometry(0, 0, 40, 74);
+    m_batchBox->setFlat(true);
+    m_batchBox->setCursor(Qt::PointingHandCursor);
+    m_batchBox->hide();
+    connect(m_batchBox, &QPushButton::clicked, this, [this](bool) {
+        if (onBatchToggle)
+            onBatchToggle(m_info);
+    });
+
     m_playOverlay = new QPushButton(m_numCol);
     m_playOverlay->setFlat(true);
     m_playOverlay->setFixedSize(28, 28);
@@ -245,6 +291,8 @@ void SongCardWidget::rebuildLayout()
     m_heartBtn->setFlat(true);
     m_heartBtn->setCursor(Qt::PointingHandCursor);
     connect(m_heartBtn, &QPushButton::clicked, this, [this](bool) {
+        if (m_batchMode)
+            return;
         if (m_downloadTaskMode) {
             if (onCancelDownload)
                 onCancelDownload(m_info.id);
@@ -260,6 +308,8 @@ void SongCardWidget::rebuildLayout()
     m_downloadBtn->setFlat(true);
     m_downloadBtn->setCursor(Qt::PointingHandCursor);
     connect(m_downloadBtn, &QPushButton::clicked, this, [this](bool) {
+        if (m_batchMode)
+            return;
         if (onDownload && !m_downloaded)
             onDownload(m_info);
     });
@@ -277,6 +327,8 @@ void SongCardWidget::rebuildLayout()
     m_moreBtn->setFlat(true);
     m_moreBtn->setCursor(Qt::PointingHandCursor);
     connect(m_moreBtn, &QPushButton::clicked, this, [this](bool) {
+        if (m_batchMode)
+            return;
         if (onContextMenu)
             onContextMenu(m_info, m_moreBtn->mapToGlobal(QPoint(0, m_moreBtn->height())));
     });
@@ -289,6 +341,9 @@ void SongCardWidget::rebuildLayout()
         lbl->setAttribute(Qt::WA_TransparentForMouseEvents, true);
 
     installContentEventFilters();
+    // 整行（含卡片自身空白区）都要能切换选中，所以在自己身上也装一个过滤器
+    setMouseTracking(true);
+    installEventFilter(this);
     applyTheme();
 }
 
@@ -312,7 +367,7 @@ void SongCardWidget::installContentEventFilters()
 bool SongCardWidget::isInteractiveButton(QObject *obj) const
 {
     return obj == m_heartBtn || obj == m_downloadBtn || obj == m_moreBtn || obj == m_playOverlay
-        || obj == m_statusOverlay;
+        || obj == m_statusOverlay || obj == m_batchBox;
 }
 
 void SongCardWidget::setHover(bool hover)
@@ -335,6 +390,42 @@ bool SongCardWidget::eventFilter(QObject *watched, QEvent *event)
 {
     if (isInteractiveButton(watched))
         return QWidget::eventFilter(watched, event);
+
+    // 批量模式：整行单击 = 切换选中；悬停只在复选框上给出播放提示，
+    // 不弹菜单、不播放、不触发播放/暂停。
+    if (m_batchMode) {
+        switch (event->type()) {
+        case QEvent::MouseButtonPress: {
+            auto *me = static_cast<QMouseEvent *>(event);
+            if (me->button() == Qt::LeftButton)
+                m_batchPressRow = (watched == this);
+            break;
+        }
+        case QEvent::MouseButtonRelease: {
+            auto *me = static_cast<QMouseEvent *>(event);
+            if (me->button() == Qt::LeftButton && m_batchPressRow) {
+                m_batchPressRow = false;
+                if (onBatchToggle)
+                    onBatchToggle(m_info);
+                return true;
+            }
+            m_batchPressRow = false;
+            break;
+        }
+        case QEvent::Enter:
+            setHover(true);
+            break;
+        case QEvent::Leave:
+            QTimer::singleShot(0, this, [this]() { syncHoverFromCursor(); });
+            break;
+        case QEvent::ContextMenu:
+            // 批量模式下右键不再弹统一菜单，交给整行点击语义
+            return true;
+        default:
+            break;
+        }
+        return QWidget::eventFilter(watched, event);
+    }
 
     switch (event->type()) {
     case QEvent::Enter:
@@ -362,6 +453,7 @@ void SongCardWidget::prepareForPool()
     disconnect(m_coverConn);
     m_coverConn = {};
     m_coverKey.clear();
+    m_batchPressRow = false;
     setHover(false);
 }
 
@@ -513,6 +605,70 @@ void SongCardWidget::setDownloadTaskState(bool active, qint64 received, qint64 t
     m_progressTotal = total;
     if (m_downloadTaskMode)
         updateDownloadTaskUi();
+}
+
+void SongCardWidget::setBatchMode(bool enabled)
+{
+    if (m_batchMode == enabled)
+        return;
+
+    m_batchMode = enabled;
+    m_batchPressRow = false;
+    if (m_batchBox)
+        m_batchBox->setVisible(enabled);
+    if (m_moreBtn)
+        m_moreBtn->setEnabled(!enabled);
+    setCursor(enabled ? Qt::ArrowCursor : Qt::PointingHandCursor);
+    updateIndexColumn();
+    updateHoverOverlays();
+    update();
+}
+
+void SongCardWidget::setBatchChecked(bool checked)
+{
+    if (m_batchChecked == checked)
+        return;
+    m_batchChecked = checked;
+    updateBatchBox();
+    update();
+}
+
+void SongCardWidget::updateBatchBox()
+{
+    if (!m_batchBox)
+        return;
+
+    const bool dark = Theme::ThemeManager::instance().isDarkMode();
+    constexpr int kBoxSize = 22;
+    constexpr int kIconSize = 18;
+    QPixmap pm(kBoxSize, kBoxSize);
+    pm.fill(Qt::transparent);
+    {
+        QPainter p(&pm);
+        p.setRenderHint(QPainter::Antialiasing, true);
+        if (m_batchChecked) {
+            p.setPen(Qt::NoPen);
+            p.setBrush(kPrimary);
+            p.drawRoundedRect(QRectF(0.5, 0.5, kBoxSize - 1.0, kBoxSize - 1.0), 6, 6);
+        } else {
+            p.setPen(QPen(dark ? QColor(244, 246, 255, 150) : QColor(33, 37, 41, 130), 1.6));
+            p.setBrush(Qt::NoBrush);
+            p.drawRoundedRect(QRectF(0.8, 0.8, kBoxSize - 1.6, kBoxSize - 1.6), 6, 6);
+        }
+    }
+    if (m_batchChecked) {
+        QPainter p(&pm);
+        p.setRenderHint(QPainter::Antialiasing, true);
+        p.drawPixmap((kBoxSize - kIconSize) / 2, (kBoxSize - kIconSize) / 2,
+                     checkMarkPixmap(kIconSize, Qt::white));
+    }
+
+    // 勾选框上方叠一个播放提示：批量模式下点整行/点框都是「选中」，不误以为会播放
+    m_batchBox->setIcon(QIcon(pm));
+    m_batchBox->setIconSize(QSize(kBoxSize, kBoxSize));
+    m_batchBox->setStyleSheet(QStringLiteral(
+        "QPushButton { background: transparent; border: none; }"));
+    m_batchBox->setToolTip(I18n::instance().tr(QStringLiteral("batchRowHint")));
 }
 
 void SongCardWidget::updateDownloadTaskUi()
@@ -690,6 +846,7 @@ void SongCardWidget::applyTheme()
     }
     updateMoreIcon();
     updateOverlayIcons();
+    updateBatchBox();
     updateLocalBadge();
     updateLrcBadge();
     updateQualityBadge();
@@ -758,14 +915,21 @@ void SongCardWidget::paintEvent(QPaintEvent *)
     path.addRoundedRect(r, 12, 12);
 
     const bool dark = Theme::ThemeManager::instance().isDarkMode();
-    p.fillPath(path, songFill(dark, m_playing, m_hover && !m_playing));
-    p.setPen(QPen(songBorder(m_playing, m_hover && !m_playing), 2));
+    if (m_batchMode && m_batchChecked) {
+        p.fillPath(path, batchFill(dark));
+        p.setPen(QPen(batchBorder(), 2));
+        p.drawPath(path);
+        return;
+    }
+    p.fillPath(path, songFill(dark, m_playing, !m_batchMode && m_hover && !m_playing));
+    p.setPen(QPen(songBorder(m_playing, !m_batchMode && m_hover && !m_playing), 2));
     p.drawPath(path);
 }
 
 void SongCardWidget::enterEvent(QEnterEvent *e)
 {
-    setHover(true);
+    if (!m_batchMode)
+        setHover(true);
     QWidget::enterEvent(e);
 }
 
@@ -777,13 +941,18 @@ void SongCardWidget::leaveEvent(QEvent *e)
 
 void SongCardWidget::contextMenuEvent(QContextMenuEvent *event)
 {
-    if (onContextMenu)
+    // 批量模式下整行点击即选中，不再弹统一菜单
+    if (!m_batchMode && onContextMenu)
         onContextMenu(m_info, event->globalPos());
     event->accept();
 }
 
 void SongCardWidget::mouseDoubleClickEvent(QMouseEvent *event)
 {
+    if (m_batchMode) {
+        event->accept();
+        return;
+    }
     if (event->button() == Qt::LeftButton && onActivate)
         onActivate(m_info);
     QWidget::mouseDoubleClickEvent(event);
@@ -791,6 +960,20 @@ void SongCardWidget::mouseDoubleClickEvent(QMouseEvent *event)
 
 void SongCardWidget::updateIndexColumn()
 {
+    if (m_batchMode) {
+        // 批量模式：编号列换成复选框，播放态只体现在行底色上
+        m_indexLbl->setPixmap(QPixmap());
+        m_indexLbl->setText(QString());
+        m_indexLbl->setVisible(false);
+        if (m_batchBox) {
+            m_batchBox->setVisible(true);
+            updateBatchBox();
+        }
+        updateHoverOverlays();
+        update();
+        return;
+    }
+
     if (m_playing) {
         m_indexLbl->setPixmap(Icons::renderNamed("Music", 22, kPrimary));
         m_indexLbl->setText(QString());
@@ -804,6 +987,13 @@ void SongCardWidget::updateIndexColumn()
 
 void SongCardWidget::updateHoverOverlays()
 {
+    if (m_batchMode) {
+        // 批量模式不使用编号列上的播放/暂停悬浮层
+        m_playOverlay->hide();
+        m_statusOverlay->hide();
+        return;
+    }
+
     const bool showPlay = !m_downloadTaskMode && m_hover && !m_playing;
     const bool showStatus = !m_downloadTaskMode && m_hover && m_playing;
 

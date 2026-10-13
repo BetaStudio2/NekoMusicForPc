@@ -38,6 +38,7 @@
 #include <QEasingCurve>
 #include <QTimer>
 #include <functional>
+#include <memory>
 
 namespace {
 
@@ -229,9 +230,36 @@ protected:
 } // namespace
 
 AddToPlaylistDialog::AddToPlaylistDialog(const MusicInfo &music, ApiClient *apiClient, QWidget *parent)
-    : QWidget(parent), m_music(music), m_apiClient(apiClient)
+    : QWidget(parent), m_music(music), m_musics({music}), m_apiClient(apiClient)
 {
     m_isLocal = music.id < 0;
+    setAttribute(Qt::WA_DeleteOnClose, true);
+    setAttribute(Qt::WA_StyledBackground, false);
+    setFocusPolicy(Qt::StrongFocus);
+    setupUi();
+    applyTheme();
+    loadPlaylists();
+    updateCardHeight();
+
+    m_backdropRefreshTimer = new QTimer(this);
+    m_backdropRefreshTimer->setSingleShot(true);
+    connect(m_backdropRefreshTimer, &QTimer::timeout, this, &AddToPlaylistDialog::refreshBackdrop);
+
+    connect(&Theme::ThemeManager::instance(), &Theme::ThemeManager::themeChanged, this,
+            [this]() { applyTheme(); });
+}
+
+AddToPlaylistDialog::AddToPlaylistDialog(const QList<MusicInfo> &musics, ApiClient *apiClient,
+                                         QWidget *parent)
+    : QWidget(parent), m_apiClient(apiClient)
+{
+    m_musics = musics;
+    if (!m_musics.isEmpty())
+        m_music = m_musics.first();
+    // 批量加入只面向在线歌单（本地歌单走 PlaylistDatabase 的批量插入）
+    m_isLocal = m_musics.size() == 1 && m_music.id < 0;
+    m_batchTotal = m_musics.size();
+
     setAttribute(Qt::WA_DeleteOnClose, true);
     setAttribute(Qt::WA_StyledBackground, false);
     setFocusPolicy(Qt::StrongFocus);
@@ -549,8 +577,13 @@ void AddToPlaylistDialog::setupUi()
     header->setContentsMargins(0, 0, 0, 0);
     m_titleLbl = new QLabel(m_cardBody);
     m_titleLbl->setObjectName(QStringLiteral("playlistAddTitle"));
-    m_titleLbl->setText(I18n::instance().tr(m_isLocal ? QStringLiteral("addToLocalPlaylist")
-                                                        : QStringLiteral("addToPlaylist")));
+    if (m_batchTotal > 1) {
+        m_titleLbl->setText(I18n::instance().tr(QStringLiteral("batchAddToPlaylistTitle"))
+                                .arg(m_batchTotal));
+    } else {
+        m_titleLbl->setText(I18n::instance().tr(m_isLocal ? QStringLiteral("addToLocalPlaylist")
+                                                          : QStringLiteral("addToPlaylist")));
+    }
     header->addWidget(m_titleLbl, 1);
 
     m_closeBtn = new QPushButton(QStringLiteral("×"), m_cardBody);
@@ -915,6 +948,12 @@ void AddToPlaylistDialog::addToPlaylist(int playlistId)
         return;
     }
 
+    // 批量加入：接口一次只吃一首，逐首串行调用，全部结束后统一报结果
+    if (m_batchTotal > 1) {
+        addBatchToOnlinePlaylist(playlistId);
+        return;
+    }
+
     if (m_music.id <= 0) {
         Toast::show(this, I18n::instance().tr(QStringLiteral("addToPlaylistFailed")), Toast::Error);
         return;
@@ -935,4 +974,83 @@ void AddToPlaylistDialog::addToPlaylist(int playlistId)
             message.isEmpty() ? I18n::instance().tr(QStringLiteral("addToPlaylistFailed")) : message;
         Toast::show(this, msg, Toast::Error);
     });
+}
+
+void AddToPlaylistDialog::addBatchToOnlinePlaylist(int playlistId)
+{
+    QList<MusicInfo> pending;
+    pending.reserve(m_musics.size());
+    for (const MusicInfo &info : m_musics) {
+        if (info.id > 0)
+            pending.append(info);
+    }
+
+    const int total = pending.size();
+    if (total <= 0) {
+        Toast::show(this, I18n::instance().tr(QStringLiteral("addToPlaylistFailed")), Toast::Error);
+        return;
+    }
+
+    m_adding = true;
+    m_batchTotal = total;
+    m_batchDone = 0;
+    m_batchSuccess = 0;
+    m_batchFailed = 0;
+    showBatchProgress(0, total);
+
+    // 逐首串行：一次只发一个请求，回调里再发下一首。
+    // QPointer 保住浮层在请求返回前被关掉（ESC / 点遮罩）的场合。
+    auto step = std::make_shared<std::function<void(int)>>();
+    QPointer<AddToPlaylistDialog> guard(this);
+    *step = [this, guard, playlistId, pending, total, step](int index) {
+        if (!guard)
+            return;
+        if (index >= total) {
+            m_adding = false;
+            emit playlistsChanged();
+            reportBatchResult(m_batchSuccess, m_batchFailed);
+            return;
+        }
+
+        const int musicId = pending.at(index).id;
+        m_apiClient->addMusicToPlaylist(
+            playlistId, musicId, [this, guard, index, total, step](bool success, const QString &) {
+                if (!guard)
+                    return;
+                if (success)
+                    ++m_batchSuccess;
+                else
+                    ++m_batchFailed;
+                m_batchDone = index + 1;
+                showBatchProgress(m_batchDone, total);
+                (*step)(index + 1);
+            });
+    };
+    (*step)(0);
+}
+
+void AddToPlaylistDialog::showBatchProgress(int done, int total)
+{
+    if (done <= 0) {
+        Toast::show(this, I18n::instance().tr(QStringLiteral("batchAddingToPlaylist")).arg(total),
+                    Toast::Info);
+        return;
+    }
+    Toast::show(this,
+                I18n::instance().tr(QStringLiteral("batchAddProgress")).arg(done).arg(total),
+                Toast::Info, 1500);
+}
+
+void AddToPlaylistDialog::reportBatchResult(int success, int failed)
+{
+    if (failed <= 0) {
+        Toast::show(this, I18n::instance().tr(QStringLiteral("batchDone")).arg(success), Toast::Success);
+    } else if (success <= 0) {
+        Toast::show(this, I18n::instance().tr(QStringLiteral("batchFailed")).arg(failed), Toast::Error);
+    } else {
+        Toast::show(this,
+                    I18n::instance().tr(QStringLiteral("batchPartialDone")).arg(success).arg(failed),
+                    Toast::Info);
+    }
+    dismissAnimated();
 }
