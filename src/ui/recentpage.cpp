@@ -162,12 +162,18 @@ void RecentPage::setupBatchBar()
             m_songList->setBatchSelectAll(!m_songList->batchAllSelected());
     });
     connect(m_batchBar, &BatchActionBar::addToPlaylistRequested, this, [this]() {
-        if (m_songList)
-            emit batchAddToPlaylistRequested(m_songList->batchSelectedSongs());
+        const QList<MusicInfo> picked = m_songList ? m_songList->batchSelectedSongs() : QList<MusicInfo>();
+        if (picked.isEmpty())
+            return;
+        emit batchAddToPlaylistRequested(picked);
+        exitBatchMode(); // 动作已派发：立刻退出并清空选择，避免重复点重复请求
     });
     connect(m_batchBar, &BatchActionBar::downloadRequested, this, [this]() {
-        if (m_songList)
-            emit batchDownloadRequested(m_songList->batchSelectedSongs());
+        const QList<MusicInfo> picked = m_songList ? m_songList->batchSelectedSongs() : QList<MusicInfo>();
+        if (picked.isEmpty())
+            return;
+        emit batchDownloadRequested(picked);
+        exitBatchMode();
     });
     // 最近播放页的「收藏」是切换语义，批量动作名义上是取消收藏，实际逐首走主窗口的开关
     connect(m_batchBar, &BatchActionBar::unfavoriteRequested, this, [this]() {
@@ -177,8 +183,10 @@ void RecentPage::setupBatchBar()
             for (const MusicInfo &info : picked)
                 ids.append(info.id);
         }
-        if (!ids.isEmpty())
-            emit batchFavoriteToggleRequested(ids);
+        if (ids.isEmpty())
+            return;
+        emit batchFavoriteToggleRequested(ids);
+        exitBatchMode();
     });
     connect(m_batchBar, &BatchActionBar::addToQueueRequested, this, [this]() {
         if (!m_songList)
@@ -189,6 +197,7 @@ void RecentPage::setupBatchBar()
         PlaylistManager::instance().addAllToPlaylist(picked);
         Toast::show(this, I18n::instance().tr(QStringLiteral("batchQueueAdded")).arg(picked.size()),
                     Toast::Success);
+        exitBatchMode();
     });
     connect(m_songList, &SongListWidget::batchSelectionChanged, this,
             &RecentPage::onBatchSelectionChanged);

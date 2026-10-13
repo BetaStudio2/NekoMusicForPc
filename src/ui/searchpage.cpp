@@ -659,6 +659,10 @@ void SearchPage::fetchMusicResults(bool append)
 void SearchPage::applyMusicResults()
 {
     if (m_musicResults.isEmpty()) {
+        // 列表空了就没有可批量的对象：先退出批量模式（与其它 6 个列表页一致），
+        // 否则批量操作条会空挂在没有结果的搜索结果上
+        if (m_songList && m_songList->batchMode())
+            exitBatchMode();
         if (m_songList)
             m_songList->setSongs({});
         if (m_songsActionRow)
@@ -964,12 +968,18 @@ void SearchPage::setupBatchBar()
             m_songList->setBatchSelectAll(!m_songList->batchAllSelected());
     });
     connect(m_batchBar, &BatchActionBar::addToPlaylistRequested, this, [this]() {
-        if (m_songList)
-            emit batchAddToPlaylistRequested(m_songList->batchSelectedSongs());
+        const QList<MusicInfo> picked = m_songList ? m_songList->batchSelectedSongs() : QList<MusicInfo>();
+        if (picked.isEmpty())
+            return;
+        emit batchAddToPlaylistRequested(picked);
+        exitBatchMode(); // 动作已派发：立刻退出并清空选择，避免重复点重复请求
     });
     connect(m_batchBar, &BatchActionBar::downloadRequested, this, [this]() {
-        if (m_songList)
-            emit batchDownloadRequested(m_songList->batchSelectedSongs());
+        const QList<MusicInfo> picked = m_songList ? m_songList->batchSelectedSongs() : QList<MusicInfo>();
+        if (picked.isEmpty())
+            return;
+        emit batchDownloadRequested(picked);
+        exitBatchMode();
     });
     connect(m_batchBar, &BatchActionBar::unfavoriteRequested, this, [this]() {
         QList<int> ids;
@@ -978,8 +988,10 @@ void SearchPage::setupBatchBar()
             for (const MusicInfo &info : picked)
                 ids.append(info.id);
         }
-        if (!ids.isEmpty())
-            emit batchFavoriteToggleRequested(ids);
+        if (ids.isEmpty())
+            return;
+        emit batchFavoriteToggleRequested(ids);
+        exitBatchMode();
     });
     connect(m_batchBar, &BatchActionBar::addToQueueRequested, this, [this]() {
         if (!m_songList)
@@ -990,6 +1002,7 @@ void SearchPage::setupBatchBar()
         PlaylistManager::instance().addAllToPlaylist(picked);
         Toast::show(this, I18n::instance().tr(QStringLiteral("batchQueueAdded")).arg(picked.size()),
                     Toast::Success);
+        exitBatchMode();
     });
     connect(m_songList, &SongListWidget::batchSelectionChanged, this,
             &SearchPage::onBatchSelectionChanged);

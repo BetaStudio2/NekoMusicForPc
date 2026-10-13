@@ -52,7 +52,13 @@ public:
     /** 全选 / 取消全选按钮文案跟随当前是否已全选 */
     void setAllSelected(bool allSelected);
     /** 退出批量模式时复位（数量归零、全选态复位） */
-    void reset() { setAllSelected(false); setSelectedCount(0); }
+    void reset()
+    {
+        // 顺序要紧：先归零数量，再复位全选态。反过来的话 setAllSelected→retranslate
+        // 会用旧的 m_selectedCount 把「批量操作 (N) ▾」写回去，退出后残留旧数字。
+        setSelectedCount(0);
+        setAllSelected(false);
+    }
 
     void retranslate();
     void applyTheme();
@@ -70,6 +76,8 @@ signals:
 
 private:
     QPushButton *makeActionButton(const char *iconName, const char *textKey);
+    /** 同步「已选 N 首」的两处显示：横排计数标签 + 紧凑模式的触发按钮 */
+    void updateCountLabels();
 
     QLabel *m_countLbl = nullptr;
     QPushButton *m_selectAllBtn = nullptr;

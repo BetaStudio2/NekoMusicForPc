@@ -16,8 +16,10 @@
 #include <QList>
 #include <QHash>
 #include <QSet>
+#include <QPointer>
 #include <functional>
 #include "core/musicinfo.h"
+#include "ui/songcontextmenu.h"
 
 class QScrollArea;
 class QVBoxLayout;
@@ -97,6 +99,8 @@ private:
     void exitBatchMode();
     /** 弹出批量操作的竖排悬浮菜单（400px 抽屉里横排放不下，改成浮层） */
     void showBatchActionsMenu();
+    /** 组装批量浮层的条目（「全选」原地刷新时用它重建一份新状态的） */
+    QList<SongContextMenuPopup::Entry> buildBatchMenuEntries();
     /** 竖排浮层的锚点：紧凑触发按钮正下方 */
     QPoint batchMenuAnchorPos() const;
     /** 批量移出播放队列：按序本地移除，收尾一次 Toast */
@@ -123,6 +127,8 @@ private:
     QWidget *m_actionRow = nullptr;
     QPushButton *m_batchBtn = nullptr;
     BatchActionBar *m_batchBar = nullptr;
+    /** 当前打开的批量浮层（WA_DeleteOnClose，必须弱引用）；「全选」原地刷新它 */
+    QPointer<SongContextMenuPopup> m_batchMenu = nullptr;
     QHash<int, QWidget *> m_rowCards;
     QList<QWidget *> m_cardPool;
     QList<MusicInfo> m_displayPlaylist;

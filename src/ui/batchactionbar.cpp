@@ -206,16 +206,29 @@ void BatchActionBar::setCompactTrigger(bool compact)
 void BatchActionBar::setSelectedCount(int count)
 {
     m_selectedCount = qMax(0, count);
-    if (m_countLbl) {
-        m_countLbl->setText(
-            I18n::instance().tr(QStringLiteral("batchSelected")).arg(m_selectedCount));
-    }
+    updateCountLabels();
 
     const bool hasSelection = m_selectedCount > 0;
     for (QPushButton *btn : {m_addToPlaylistBtn, m_addToQueueBtn, m_downloadBtn, m_unfavoriteBtn,
                              m_removeFromPlaylistBtn}) {
         if (btn)
             btn->setEnabled(hasSelection);
+    }
+}
+
+/**
+ * 「已选 N 首」的两处显示：横排的计数标签 + 紧凑模式的「批量操作 (N) ▾」触发按钮。
+ * 必须由 setSelectedCount() 直接驱动——只靠 retranslate() 会漏掉 0→1 的变化
+ * （setAllSelected() 状态没变就 return，走不到 retranslate）。
+ */
+void BatchActionBar::updateCountLabels()
+{
+    auto &i18n = I18n::instance();
+    if (m_countLbl) {
+        m_countLbl->setText(i18n.tr(QStringLiteral("batchSelected")).arg(m_selectedCount));
+    }
+    if (m_triggerBtn && m_compactTrigger) {
+        m_triggerBtn->setText(i18n.tr(QStringLiteral("batchActionsCount")).arg(m_selectedCount));
     }
 }
 
@@ -230,9 +243,6 @@ void BatchActionBar::setAllSelected(bool allSelected)
 void BatchActionBar::retranslate()
 {
     auto &i18n = I18n::instance();
-    if (m_countLbl) {
-        m_countLbl->setText(i18n.tr(QStringLiteral("batchSelected")).arg(m_selectedCount));
-    }
     if (m_selectAllBtn) {
         m_selectAllBtn->setText(i18n.tr(m_allSelected ? QStringLiteral("batchCancelSelectAll")
                                                       : QStringLiteral("batchSelectAll")));
@@ -250,11 +260,7 @@ void BatchActionBar::retranslate()
         btn->setText(overridden != m_textOverrides.constEnd() ? overridden.value() : i18n.tr(key));
     }
 
-    // 紧凑模式下触发按钮上再带一次数量，抽屉里不点开也能看到「已选 N 首」
-    if (m_triggerBtn && m_compactTrigger) {
-        m_triggerBtn->setText(
-            i18n.tr(QStringLiteral("batchActionsCount")).arg(m_selectedCount));
-    }
+    updateCountLabels();
 }
 
 void BatchActionBar::applyTheme()

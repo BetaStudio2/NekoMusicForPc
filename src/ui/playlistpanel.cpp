@@ -33,8 +33,6 @@
 #include <QResizeEvent>
 #include <QComboBox>
 #include <QSignalBlocker>
-#include <QApplication>
-#include <QTimer>
 #include <functional>
 
 namespace {
@@ -167,6 +165,9 @@ public:
 
         updateLocalBadge(dark);
         elideTexts();
+        // 构造末尾统一按「非批量、非只读」定一次行内按钮状态，保证初始态明确
+        applyRowButtonState();
+        setReadOnly(false);
     }
 
     std::function<void(int)> onClicked;
@@ -196,8 +197,9 @@ public:
         updateIndexDisplay();
         applyTitleStyle(dark);
         applyArtistStyle(dark);
-        applyRemoveBtnStyle(dark);
-        applyMoreBtnStyle(dark);
+        // 走 applyRowButtonState() 而不是单独调样式函数，
+        // 这样当前行切换时 ⋮ / 🗑 的 enabled 也会跟着批量模式同步
+        applyRowButtonState();
         updateBatchBox();
         updateLocalBadge(dark);
         update();
@@ -221,6 +223,9 @@ public:
         m_batchBox->setVisible(enabled);
         if (m_indexLbl)
             m_indexLbl->setVisible(!enabled);
+        // 行内 ⋮ / 🗑 在批量模式下点击会被吞掉，所以置灰而不是装成能点：
+        // 与 SongCardWidget 里三点按钮的 setEnabled(!enabled) 行为对齐
+        applyRowButtonState();
         setCursor(enabled ? Qt::ArrowCursor : Qt::PointingHandCursor);
         updateBatchBox();
         update();
@@ -351,7 +356,9 @@ private:
 
     void applyRemoveBtnStyle(bool dark)
     {
-        const QColor ic = dark ? QColor(244, 246, 255, 140) : QColor(33, 37, 41, 140);
+        const bool on = !m_batchMode;
+        const QColor ic = dark ? QColor(244, 246, 255, on ? 140 : 70)
+                               : QColor(33, 37, 41, on ? 140 : 70);
         m_removeBtn->setIcon(Icons::renderNamed("Delete", 20, ic));
         m_removeBtn->setIconSize(QSize(20, 20));
         m_removeBtn->setStyleSheet(rowButtonStyle());
@@ -359,10 +366,27 @@ private:
 
     void applyMoreBtnStyle(bool dark)
     {
-        const QColor ic = dark ? QColor(244, 246, 255, 165) : QColor(33, 37, 41, 140);
+        const bool on = !m_batchMode;
+        const QColor ic = dark ? QColor(244, 246, 255, on ? 165 : 80)
+                               : QColor(33, 37, 41, on ? 140 : 80);
         m_moreBtn->setIcon(Icons::renderNamed("More", 20, ic));
         m_moreBtn->setIconSize(QSize(20, 20));
         m_moreBtn->setStyleSheet(rowButtonStyle());
+    }
+
+    /** 批量模式下把 ⋮ / 🗑 一起置灰（图标调淡 + 禁用 + 箭头光标） */
+    void applyRowButtonState()
+    {
+        const bool enabled = !m_batchMode;
+        const bool dark = Theme::ThemeManager::instance().isDarkMode();
+        for (QPushButton *btn : {m_moreBtn, m_removeBtn}) {
+            if (!btn)
+                continue;
+            btn->setEnabled(enabled);
+            btn->setCursor(enabled ? Qt::PointingHandCursor : Qt::ArrowCursor);
+        }
+        applyMoreBtnStyle(dark);
+        applyRemoveBtnStyle(dark);
     }
 
     static QString rowButtonStyle()
@@ -611,16 +635,14 @@ QList<MusicInfo> PlaylistPanel::batchSelectedSongs() const
 }
 
 /**
- * 批量操作的竖排悬浮菜单。
+ * 组装批量浮层的条目（计数行 + 全选/取消全选 + 加入歌单 + 下载 +
+ * 取消收藏 + 移出播放队列 + 退出）。
  *
- * 直接复用 SongContextMenuPopup（与其同一套面板 chrome / 行高 / hover 高亮），
- * 只在条目上扩展：第一行是置灰的「已选 N 首」计数，其余为动作项。
- * 选中 0 首时动作项置灰不可点。面板位置由 SongContextMenuPopup::positionAt()
- * 做屏幕边界收敛，因此在 400px 宽的抽屉里也不会溢出被裁。
+ * 抽成独立函数是为了让「全选」能**原地刷新**同一份浮层：
+ * 它需要一份内容相同、只有文案与置灰状态变了的新条目表。
  */
-void PlaylistPanel::showBatchActionsMenu()
-{
-    const int count = m_batchSelectedIds.size();
+QList<SongContextMenuPopup::Entry> PlaylistPanel::buildBatchMenuEntries()
+{    const int count = m_batchSelectedIds.size();
     const bool hasSelection = count > 0;
     auto &i18n = I18n::instance();
 
@@ -648,16 +670,13 @@ void PlaylistPanel::showBatchActionsMenu()
         m_rowBatchChecked.clear();
         syncBatchToVisibleRows();
         refreshBatchBar();
-        // 全选后菜单里的文案与置灰状态都变了：关掉当前这份，延后一帧重开新的
-        // （行点击处理器里对每个 action 都是同一套先 action 后 close 的顺序）
-        if (QWidget *popup = QApplication::activePopupWidget())
-            popup->close();
-        QTimer::singleShot(0, this, [this]() {
-            if (m_batchMode && !m_remoteView)
-                showBatchActionsMenu();
-        });
+        // 全选后计数、全选文案、动作项置灰状态都变了：
+        // 直接原地换掉同一份浮层的内容，不关窗重开（避免一次可见闪动 / 叠层）
+        if (m_batchMenu)
+            m_batchMenu->setEntries(buildBatchMenuEntries());
     };
     entries.append(selectAll);
+
     // 3) 加入歌单
     SongContextMenuPopup::Entry addToPlaylist;
     addToPlaylist.iconName = "PlaylistAdd";
@@ -723,8 +742,35 @@ void PlaylistPanel::showBatchActionsMenu()
     exitMode.action = [this]() { exitBatchMode(); };
     entries.append(exitMode);
 
+    return entries;
+}
+
+/**
+ * 弹出批量操作的竖排悬浮菜单。
+ *
+ * 直接复用 SongContextMenuPopup（与其同一套面板 chrome / 行高 / hover 高亮），
+ * 只在条目上扩展：第一行是置灰的「已选 N 首」计数，其余为动作项，
+ * 选中 0 首时动作项置灰不可点。位置由 SongContextMenuPopup 做屏幕边界收敛，
+ * 因此在 400px 宽的抽屉里也不会溢出被裁。
+ *
+ * m_batchMenu 持有这份浮层，供「全选」原地 setEntries() 刷新与退出时关闭。
+ */
+void PlaylistPanel::showBatchActionsMenu()
+{
+    if (m_remoteView || !m_batchMode)
+        return;
+
+    const QList<SongContextMenuPopup::Entry> entries = buildBatchMenuEntries();
+    if (entries.isEmpty())
+        return;
+
+    // 已经开着就先收掉，避免叠两层
+    if (m_batchMenu)
+        m_batchMenu->close();
+
     QWidget *anchor = window() ? window() : this;
-    SongContextMenuPopup::showAt(anchor, batchMenuAnchorPos(), entries);
+    // 拿到实例是为了让「全选」能原地 setEntries() 刷新，而不是关掉重开
+    m_batchMenu = SongContextMenuPopup::showAt(anchor, batchMenuAnchorPos(), entries, true);
 }
 
 /** 竖排浮层的锚点：紧凑触发按钮的右下角（取不到就退回面板右上角） */
@@ -791,6 +837,10 @@ void PlaylistPanel::exitBatchMode()
     m_batchMode = false;
     m_batchSelectedIds.clear();
     m_rowBatchChecked.clear();
+
+    // 批量模式退出了，浮层也没必要留着
+    if (m_batchMenu && m_batchMenu->isVisible())
+        m_batchMenu->close();
 
     for (auto it = m_rowCards.constBegin(); it != m_rowCards.constEnd(); ++it) {
         if (auto *card = static_cast<PlaylistItemCard *>(it.value())) {

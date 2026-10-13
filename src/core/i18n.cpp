@@ -5,6 +5,7 @@
 
 #include "i18n.h"
 #include <QMap>
+#include <QSet>
 
 I18n &I18n::instance()
 {
@@ -727,6 +728,13 @@ static QMap<QString, QString> zhCN()
     m["systemNotifyHint"] = QStringLiteral("有人回复你的评论时，除应用内提醒外也弹出桌面通知");
     m["systemNotifyMissedFmt"] = QStringLiteral("断线期间收到 %1 条新消息");
 
+    // --- 扫码登录补漏（此前只有英表有，简中/猫娘会显示键名）---
+    m["qrLoginExpired"] = QStringLiteral("二维码已过期，请点击刷新");
+    m["qrLoginFailed"] = QStringLiteral("二维码生成失败，请点击刷新");
+    m["qrLoginRefresh"] = QStringLiteral("刷新二维码");
+    // --- 登录提示（此前三张表都没有，会直接显示 loginRequired）---
+    m["loginRequired"] = QStringLiteral("请先登录");
+
     return m;
 }
 
@@ -1191,7 +1199,12 @@ static QMap<QString, QString> nyaCN()
     m["invalidKugouLink"] = QStringLiteral("这个链接看不懂喵...给个正确的嘛~");
     m["emptyKugouPlaylist"] = QStringLiteral("歌单空空的没有歌喵...");
     m["kugouPlaylistInfo"] = QStringLiteral("歌单：%1（共 %2 首歌曲喵）");
-    
+
+    // --- 扫码登录补漏 ---
+    m["qrLoginExpired"] = QStringLiteral("喵码过期啦，点一下换新的喵");
+    // --- 登录提示 ---
+    m["loginRequired"] = QStringLiteral("要先登录才行喵~");
+
     return m;
 }
 
@@ -1920,6 +1933,9 @@ static QMap<QString, QString> enUS()
     m["systemNotifyHint"] = "Also pop a desktop notification when someone replies to your comment";
     m["systemNotifyMissedFmt"] = "%1 new messages arrived while reconnecting";
 
+    // --- Sign-in prompt (was missing from every table) ---
+    m["loginRequired"] = "Please sign in first";
+
     return m;
 }
 
@@ -1930,7 +1946,49 @@ QString I18n::tr(const QString &key) const
     auto it = map.constFind(key);
     if (it != map.constEnd())
         return it.value();
+
+    // 兜底：非简中表里缺键时退回简中，避免直接把标识符（如 duration）暴露到界面上。
+    // 简中表本身也缺时才返回键名（此时只能靠 missingKeys() 报出来补）。
+    if (m_lang != ZhCN) {
+        const auto &zh = zhCN();
+        auto zhIt = zh.constFind(key);
+        if (zhIt != zh.constEnd())
+            return zhIt.value();
+    }
     return key;
+}
+
+QStringList I18n::missingKeys()
+{
+    // 简中表是基准：enUS 与 nyaCN 都必须能覆盖它的每一个键
+    // （nyaCN() 本身以 zhCN() 为底，正常情况下不会缺；缺了就说明有人改坏了那一行）
+    const QStringList base = zhCN().keys();
+    const QSet<QString> baseSet(base.begin(), base.end());
+    const QStringList enKeys = enUS().keys();
+    const QSet<QString> enSet(enKeys.begin(), enKeys.end());
+    const QStringList nyaKeys = nyaCN().keys();
+    const QSet<QString> nyaSet(nyaKeys.begin(), nyaKeys.end());
+
+    QStringList missing;
+    for (const QString &key : base) {
+        if (!enSet.contains(key))
+            missing.append(QStringLiteral("enUS:") + key);
+        if (!nyaSet.contains(key))
+            missing.append(QStringLiteral("nyaCN:") + key);
+    }
+    // 反向：英文/猫娘有而简中没的键，在 tr() 里等于「简中兜底兜不住」
+    for (const QString &key : enKeys) {
+        if (!baseSet.contains(key))
+            missing.append(QStringLiteral("zhCN:") + key);
+    }
+    for (const QString &key : nyaKeys) {
+        if (!baseSet.contains(key))
+            missing.append(QStringLiteral("zhCN:") + key);
+    }
+
+    missing.removeDuplicates();
+    missing.sort();
+    return missing;
 }
 
 QString I18n::settingsTitle() const { return tr("settings"); }
