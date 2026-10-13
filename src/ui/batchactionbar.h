@@ -36,6 +36,17 @@ public:
      */
     void setActionText(const char *actionKey, const QString &text);
 
+    /**
+     * 紧凑触发模式：横向动作按钮全部收起，只留「已选 N 首」计数 + 一个
+     * 「批量操作 ▾」触发按钮（点它触发 actionsRequested()，由调用方弹竖排浮层）。
+     * 给 400px 宽的播放队列抽屉这类窄容器用，避免横向文案被压扁截断。
+     * 列表页不调用它，保持原来的横向按钮排。
+     */
+    void setCompactTrigger(bool compact);
+    bool compactTrigger() const { return m_compactTrigger; }
+    /** 紧凑模式下的「批量操作 ▾」触发按钮（非紧凑模式返回 nullptr） */
+    QPushButton *triggerButton() const { return m_triggerBtn; }
+
     /** 已选数量：更新「已选 N 首」文案与各按钮可用状态 */
     void setSelectedCount(int count);
     /** 全选 / 取消全选按钮文案跟随当前是否已全选 */
@@ -54,6 +65,8 @@ signals:
     void removeFromPlaylistRequested();
     void selectAllToggled();
     void exitRequested();
+    /** 紧凑模式下点了「批量操作 ▾」触发按钮：调用方负责弹出竖排浮层 */
+    void actionsRequested();
 
 private:
     QPushButton *makeActionButton(const char *iconName, const char *textKey);
@@ -66,9 +79,14 @@ private:
     QPushButton *m_unfavoriteBtn = nullptr;
     QPushButton *m_removeFromPlaylistBtn = nullptr;
     QPushButton *m_exitBtn = nullptr;
+    /** 紧凑模式下的「批量操作 ▾」触发按钮（非紧凑模式下为 nullptr） */
+    QPushButton *m_triggerBtn = nullptr;
+    /** 紧凑模式下承载「计数 + 触发按钮」的那一行容器 */
+    QWidget *m_actionRow = nullptr;
 
     int m_selectedCount = 0;
     bool m_allSelected = false;
+    bool m_compactTrigger = false;
     /** actionKey → 覆盖文案；非空时 retranslate() 不覆盖它（语言切换后仍按调用方给的文案） */
     QHash<QString, QString> m_textOverrides;
 };

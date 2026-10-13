@@ -252,6 +252,8 @@ static QMap<QString, QString> zhCN()
     m["batchUnfavoriteNone"] = QStringLiteral("选中的歌曲都不在收藏里");
     m["batchRemoveFromQueue"] = QStringLiteral("移出播放队列");
     m["batchQueueRemoved"] = QStringLiteral("已移出播放队列 %1 首");
+    m["batchActions"] = QStringLiteral("批量操作");
+    m["batchActionsCount"] = QStringLiteral("批量操作 (%1) ▾");
     m["addAllToQueue"] = QStringLiteral("全部加入队列");
     m["addAllToQueueDone"] = QStringLiteral("已加入播放队列：%1 首");
     m["queueAddAllNone"] = QStringLiteral("这些歌都已经在播放队列里了");
@@ -857,6 +859,8 @@ static QMap<QString, QString> nyaCN()
     m["batchUnfavoriteNone"] = QStringLiteral("挑中的歌本来就没在收藏里喵~");
     m["batchRemoveFromQueue"] = QStringLiteral("从队列里拿走喵");
     m["batchQueueRemoved"] = QStringLiteral("已经从队列里拿走 %1 首喵~");
+    m["batchActions"] = QStringLiteral("批量小动作喵");
+    m["batchActionsCount"] = QStringLiteral("批量小动作 (%1) ▾");
     m["addAllToQueue"] = QStringLiteral("全都排队去喵");
     m["addAllToQueueDone"] = QStringLiteral("已经排进播放队列啦：%1 首喵~");
     m["queueAddAllNone"] = QStringLiteral("这些歌早就在队列里排着啦喵~");
@@ -1434,6 +1438,8 @@ static QMap<QString, QString> enUS()
     m["batchUnfavoriteNone"] = "None of the selected songs are favorited";
     m["batchRemoveFromQueue"] = "Remove from Queue";
     m["batchQueueRemoved"] = "Removed %1 songs from the queue";
+    m["batchActions"] = "Batch Actions";
+    m["batchActionsCount"] = "Batch Actions (%1) ▾";
     m["addAllToQueue"] = "Add All to Queue";
     m["addAllToQueueDone"] = "Added to play queue: %1";
     m["queueAddAllNone"] = "These songs are already in the play queue";

@@ -104,6 +104,105 @@ void BatchActionBar::setActionText(const char *actionKey, const QString &text)
     }
 }
 
+namespace {
+
+/** 拆掉旧布局但不动其中的 widget（QHBoxLayout 只 QLayoutItem::takeAt 不会删 widget）。 */
+void dropLayout(QLayout *lay)
+{
+    if (!lay)
+        return;
+    while (QLayoutItem *item = lay->takeAt(0))
+        delete item;
+    delete lay;
+}
+
+} // namespace
+
+void BatchActionBar::setCompactTrigger(bool compact)
+{
+    if (m_compactTrigger == compact)
+        return;
+    m_compactTrigger = compact;
+
+    // 先把所有控件从旧布局摘下来（removeWidget 不删控件），再换布局重新排
+    for (QPushButton *btn : {m_selectAllBtn, m_addToPlaylistBtn, m_addToQueueBtn, m_downloadBtn,
+                             m_unfavoriteBtn, m_removeFromPlaylistBtn, m_exitBtn}) {
+        if (btn && layout())
+            layout()->removeWidget(btn);
+    }
+    if (m_countLbl && layout())
+        layout()->removeWidget(m_countLbl);
+    if (m_actionRow && layout())
+        layout()->removeWidget(m_actionRow);
+
+    dropLayout(layout());
+
+    if (compact) {
+        // 横向动作按钮全部收起，只留「已选 N 首」计数 + 「批量操作 ▾」触发按钮
+        for (QPushButton *btn : {m_selectAllBtn, m_addToPlaylistBtn, m_addToQueueBtn, m_downloadBtn,
+                                 m_unfavoriteBtn, m_removeFromPlaylistBtn, m_exitBtn}) {
+            if (btn)
+                btn->hide();
+        }
+
+        m_actionRow = new QWidget(this);
+        auto *row = new QHBoxLayout(m_actionRow);
+        row->setContentsMargins(0, 0, 0, 0);
+        row->setSpacing(10);
+
+        m_countLbl->setParent(m_actionRow);
+        m_countLbl->setMinimumWidth(0);
+        row->addWidget(m_countLbl);
+
+        m_triggerBtn = makeActionButton("Menu", "batchActions");
+        m_triggerBtn->setFixedHeight(32);
+        connect(m_triggerBtn, &QPushButton::clicked, this, &BatchActionBar::actionsRequested);
+        row->addWidget(m_triggerBtn);
+        row->addStretch();
+
+        auto *lay = new QHBoxLayout(this);
+        lay->setContentsMargins(0, 0, 0, 0);
+        lay->setSpacing(0);
+        lay->addWidget(m_actionRow);
+        lay->addStretch();
+    } else {
+        if (m_triggerBtn) {
+            m_triggerBtn->hide();
+            m_triggerBtn->deleteLater();
+            m_triggerBtn = nullptr;
+        }
+        if (m_actionRow) {
+            m_actionRow->hide();
+            m_actionRow->deleteLater();
+            m_actionRow = nullptr;
+        }
+
+        auto *lay = new QHBoxLayout(this);
+        lay->setContentsMargins(0, 0, 0, 0);
+        lay->setSpacing(12);
+        m_countLbl->setParent(this);
+        m_countLbl->setMinimumWidth(96);
+        lay->addWidget(m_countLbl);
+        for (QPushButton *btn : {m_selectAllBtn, m_addToPlaylistBtn, m_addToQueueBtn, m_downloadBtn,
+                                 m_unfavoriteBtn, m_removeFromPlaylistBtn}) {
+            if (btn) {
+                btn->setParent(this);
+                lay->addWidget(btn);
+                btn->show();
+            }
+        }
+        lay->addStretch();
+        if (m_exitBtn) {
+            m_exitBtn->setParent(this);
+            lay->addWidget(m_exitBtn);
+            m_exitBtn->show();
+        }
+    }
+
+    retranslate();
+    applyTheme();
+}
+
 void BatchActionBar::setSelectedCount(int count)
 {
     m_selectedCount = qMax(0, count);
@@ -140,7 +239,7 @@ void BatchActionBar::retranslate()
     }
 
     for (QPushButton *btn : {m_selectAllBtn, m_addToPlaylistBtn, m_addToQueueBtn, m_downloadBtn,
-                             m_unfavoriteBtn, m_removeFromPlaylistBtn, m_exitBtn}) {
+                             m_unfavoriteBtn, m_removeFromPlaylistBtn, m_exitBtn, m_triggerBtn}) {
         if (!btn)
             continue;
         const QString key = btn->property("batchTextKey").toString();
@@ -149,6 +248,12 @@ void BatchActionBar::retranslate()
         // 调用方给过覆盖文案的（如队列抽屉的「移出播放队列」）优先
         const auto overridden = m_textOverrides.constFind(key);
         btn->setText(overridden != m_textOverrides.constEnd() ? overridden.value() : i18n.tr(key));
+    }
+
+    // 紧凑模式下触发按钮上再带一次数量，抽屉里不点开也能看到「已选 N 首」
+    if (m_triggerBtn && m_compactTrigger) {
+        m_triggerBtn->setText(
+            i18n.tr(QStringLiteral("batchActionsCount")).arg(m_selectedCount));
     }
 }
 
@@ -204,5 +309,23 @@ void BatchActionBar::applyTheme()
         btn->setIcon(Icons::renderNamed(btn->property("batchIcon").toString().toUtf8().constData(), 18,
                                         primary ? primaryIc : secondaryIc));
         btn->setIconSize(QSize(18, 18));
+    }
+
+    // 紧凑模式的触发按钮：窄抽屉里的次级胶囊（文案长，不能再用 20px 大内边距）
+    if (m_triggerBtn) {
+        m_triggerBtn->setStyleSheet(QStringLiteral(
+            "QPushButton {"
+            "  background: %1;"
+            "  color: %2;"
+            "  border: none;"
+            "  border-radius: 16px;"
+            "  font-size: 13px;"
+            "  font-weight: 500;"
+            "  padding: 0 14px;"
+            "}"
+            "QPushButton:hover { background: rgba(230,57,80,0.15); }")
+                                        .arg(secondaryBg, secondaryFg));
+        m_triggerBtn->setIcon(Icons::renderNamed("Menu", 16, secondaryIc));
+        m_triggerBtn->setIconSize(QSize(16, 16));
     }
 }

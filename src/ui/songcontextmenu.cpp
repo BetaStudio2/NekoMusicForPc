@@ -34,7 +34,7 @@ public:
         : QWidget(parent), m_entry(entry)
     {
         setFixedHeight(kRowH);
-        setCursor(Qt::PointingHandCursor);
+        setCursor(entry.disabled ? Qt::ArrowCursor : Qt::PointingHandCursor);
         setAttribute(Qt::WA_StyledBackground, true);
 
         auto *lay = new QHBoxLayout(this);
@@ -58,6 +58,8 @@ public:
 protected:
     void enterEvent(QEnterEvent *) override
     {
+        if (m_entry.disabled)
+            return;
         m_hovered = true;
         update();
     }
@@ -71,6 +73,11 @@ protected:
     void mousePressEvent(QMouseEvent *event) override
     {
         if (event->button() == Qt::LeftButton) {
+            if (m_entry.disabled) {
+                // 置灰项点了不消失也不执行，避免"点了没反应还关掉菜单"的困惑
+                event->accept();
+                return;
+            }
             if (m_entry.action)
                 m_entry.action();
             if (auto *popup = window())
@@ -81,7 +88,7 @@ protected:
 
     void paintEvent(QPaintEvent *) override
     {
-        if (!m_hovered)
+        if (!m_hovered || m_entry.disabled)
             return;
         QPainter p(this);
         p.setRenderHint(QPainter::Antialiasing, true);
@@ -102,8 +109,12 @@ private:
 void SongContextMenuRow::applyTheme()
 {
     const bool dark = Theme::ThemeManager::instance().isDarkMode();
-    const QString fg = dark ? QString::fromUtf8(Theme::kTextMain) : QStringLiteral("#212529");
-    const QColor ic = dark ? QColor(244, 246, 255, 210) : QColor(33, 37, 41, 210);
+    const bool off = m_entry.disabled;
+    const QString fg = off ? (dark ? QStringLiteral("rgba(244,246,255,0.38)")
+                                   : QStringLiteral("rgba(33,37,41,0.35)"))
+                           : (dark ? QString::fromUtf8(Theme::kTextMain) : QStringLiteral("#212529"));
+    const QColor ic = off ? (dark ? QColor(244, 246, 255, 90) : QColor(33, 37, 41, 85))
+                          : (dark ? QColor(244, 246, 255, 210) : QColor(33, 37, 41, 210));
     if (m_iconLbl && m_entry.iconName)
         m_iconLbl->setPixmap(Icons::renderNamed(m_entry.iconName, kIconSize, ic));
     if (m_textLbl) {

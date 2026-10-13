@@ -33,6 +33,8 @@
 #include <QResizeEvent>
 #include <QComboBox>
 #include <QSignalBlocker>
+#include <QApplication>
+#include <QTimer>
 #include <functional>
 
 namespace {
@@ -608,6 +610,135 @@ QList<MusicInfo> PlaylistPanel::batchSelectedSongs() const
     return picked;
 }
 
+/**
+ * 批量操作的竖排悬浮菜单。
+ *
+ * 直接复用 SongContextMenuPopup（与其同一套面板 chrome / 行高 / hover 高亮），
+ * 只在条目上扩展：第一行是置灰的「已选 N 首」计数，其余为动作项。
+ * 选中 0 首时动作项置灰不可点。面板位置由 SongContextMenuPopup::positionAt()
+ * 做屏幕边界收敛，因此在 400px 宽的抽屉里也不会溢出被裁。
+ */
+void PlaylistPanel::showBatchActionsMenu()
+{
+    const int count = m_batchSelectedIds.size();
+    const bool hasSelection = count > 0;
+    auto &i18n = I18n::instance();
+
+    QList<SongContextMenuPopup::Entry> entries;
+
+    // 1) 计数行：不可点击，只做展示
+    SongContextMenuPopup::Entry counter;
+    counter.label = i18n.tr(QStringLiteral("batchSelected")).arg(count);
+    counter.disabled = true;
+    entries.append(counter);
+
+    // 2) 全选 / 取消全选（跟随当前状态切文案）
+    SongContextMenuPopup::Entry selectAll;
+    selectAll.iconName = "PlaylistAddCheck";
+    selectAll.label = i18n.tr(m_batchSelectedIds.size() >= m_displayPlaylist.size()
+                                  ? QStringLiteral("batchCancelSelectAll")
+                                  : QStringLiteral("batchSelectAll"));
+    selectAll.action = [this]() {
+        const bool selectAll = m_batchSelectedIds.size() < m_displayPlaylist.size();
+        m_batchSelectedIds.clear();
+        if (selectAll) {
+            for (const MusicInfo &song : m_displayPlaylist)
+                m_batchSelectedIds.insert(song.id);
+        }
+        m_rowBatchChecked.clear();
+        syncBatchToVisibleRows();
+        refreshBatchBar();
+        // 全选后菜单里的文案与置灰状态都变了：关掉当前这份，延后一帧重开新的
+        // （行点击处理器里对每个 action 都是同一套先 action 后 close 的顺序）
+        if (QWidget *popup = QApplication::activePopupWidget())
+            popup->close();
+        QTimer::singleShot(0, this, [this]() {
+            if (m_batchMode && !m_remoteView)
+                showBatchActionsMenu();
+        });
+    };
+    entries.append(selectAll);
+    // 3) 加入歌单
+    SongContextMenuPopup::Entry addToPlaylist;
+    addToPlaylist.iconName = "PlaylistAdd";
+    addToPlaylist.label = i18n.tr(QStringLiteral("batchAddToPlaylist"));
+    addToPlaylist.disabled = !hasSelection;
+    if (hasSelection) {
+        addToPlaylist.action = [this]() {
+            const QList<MusicInfo> picked = batchSelectedSongs();
+            if (!picked.isEmpty())
+                emit batchAddToPlaylistRequested(picked);
+            exitBatchMode();
+        };
+    }
+    entries.append(addToPlaylist);
+
+    // 4) 下载
+    SongContextMenuPopup::Entry download;
+    download.iconName = "Download";
+    download.label = i18n.tr(QStringLiteral("batchDownload"));
+    download.disabled = !hasSelection;
+    if (hasSelection) {
+        download.action = [this]() {
+            const QList<MusicInfo> picked = batchSelectedSongs();
+            if (!picked.isEmpty())
+                emit batchDownloadRequested(picked);
+            exitBatchMode();
+        };
+    }
+    entries.append(download);
+
+    // 5) 取消收藏（沿用「只取消不添加」语义）
+    SongContextMenuPopup::Entry unfavorite;
+    unfavorite.iconName = "HeartBroken";
+    unfavorite.label = i18n.tr(QStringLiteral("batchUnfavorite"));
+    unfavorite.disabled = !hasSelection;
+    if (hasSelection) {
+        unfavorite.action = [this]() {
+            QList<int> ids;
+            const QList<MusicInfo> picked = batchSelectedSongs();
+            ids.reserve(picked.size());
+            for (const MusicInfo &info : picked)
+                ids.append(info.id);
+            if (!ids.isEmpty())
+                emit batchUnfavoriteRequested(ids);
+            exitBatchMode();
+        };
+    }
+    entries.append(unfavorite);
+
+    // 6) 移出播放队列（队列抽屉特有）
+    SongContextMenuPopup::Entry removeFromQueue;
+    removeFromQueue.iconName = "Delete";
+    removeFromQueue.label = i18n.tr(QStringLiteral("batchRemoveFromQueue"));
+    removeFromQueue.disabled = !hasSelection;
+    if (hasSelection)
+        removeFromQueue.action = [this]() { removeSelectedFromQueue(); };
+    entries.append(removeFromQueue);
+
+    // 7) 退出批量模式
+    SongContextMenuPopup::Entry exitMode;
+    exitMode.iconName = "Close";
+    exitMode.label = i18n.tr(QStringLiteral("batchExit"));
+    exitMode.action = [this]() { exitBatchMode(); };
+    entries.append(exitMode);
+
+    QWidget *anchor = window() ? window() : this;
+    SongContextMenuPopup::showAt(anchor, batchMenuAnchorPos(), entries);
+}
+
+/** 竖排浮层的锚点：紧凑触发按钮的右下角（取不到就退回面板右上角） */
+QPoint PlaylistPanel::batchMenuAnchorPos() const
+{
+    if (m_batchBar) {
+        if (QPushButton *trigger = m_batchBar->triggerButton()) {
+            if (trigger->isVisible())
+                return trigger->mapToGlobal(QPoint(0, trigger->height() + 4));
+        }
+    }
+    return mapToGlobal(QPoint(width() - 16, 60));
+}
+
 void PlaylistPanel::syncBatchToVisibleRows()
 {
     for (auto it = m_rowCards.constBegin(); it != m_rowCards.constEnd(); ++it) {
@@ -827,43 +958,16 @@ void PlaylistPanel::setupUi()
     m_actionStack->addWidget(m_actionRow);
 
     m_batchBar = new BatchActionBar(m_actionStack);
-    // 「移出歌单」这个按钮在队列语境下的说法是「移出播放队列」
+    // 400px 宽的抽屉放不下横排 5 个动作按钮（文案会被压扁截断）：
+    // 只留「已选 N 首」计数 + 「批量操作 (N) ▾」触发按钮，点了弹竖排浮层。
+    // 「移出歌单」这个按钮的语义在队列里是「移出播放队列」，文案在浮层里给。
     m_batchBar->setCapabilities(true, false, true, true, true);
+    m_batchBar->setCompactTrigger(true);
     m_batchBar->setActionText("removeFromPlaylist",
                               I18n::instance().tr(QStringLiteral("batchRemoveFromQueue")));
-    connect(m_batchBar, &BatchActionBar::removeFromPlaylistRequested, this,
-            &PlaylistPanel::removeSelectedFromQueue);
+    connect(m_batchBar, &BatchActionBar::actionsRequested, this, &PlaylistPanel::showBatchActionsMenu);
+    // 紧凑模式下横排按钮都藏着，动作条上的「退出」也用不上——退出入口在浮层里
     connect(m_batchBar, &BatchActionBar::exitRequested, this, &PlaylistPanel::exitBatchMode);
-    connect(m_batchBar, &BatchActionBar::selectAllToggled, this, [this]() {
-        const bool selectAll = m_batchSelectedIds.size() < m_displayPlaylist.size();
-        m_batchSelectedIds.clear();
-        if (selectAll) {
-            for (const MusicInfo &song : m_displayPlaylist)
-                m_batchSelectedIds.insert(song.id);
-        }
-        m_rowBatchChecked.clear();
-        syncBatchToVisibleRows();
-        refreshBatchBar();
-    });
-    connect(m_batchBar, &BatchActionBar::addToPlaylistRequested, this, [this]() {
-        const QList<MusicInfo> picked = batchSelectedSongs();
-        if (!picked.isEmpty())
-            emit batchAddToPlaylistRequested(picked);
-    });
-    connect(m_batchBar, &BatchActionBar::downloadRequested, this, [this]() {
-        const QList<MusicInfo> picked = batchSelectedSongs();
-        if (!picked.isEmpty())
-            emit batchDownloadRequested(picked);
-    });
-    connect(m_batchBar, &BatchActionBar::unfavoriteRequested, this, [this]() {
-        QList<int> ids;
-        const QList<MusicInfo> picked = batchSelectedSongs();
-        ids.reserve(picked.size());
-        for (const MusicInfo &info : picked)
-            ids.append(info.id);
-        if (!ids.isEmpty())
-            emit batchUnfavoriteRequested(ids);
-    });
     m_actionStack->addWidget(m_batchBar);
     m_actionStack->setCurrentIndex(0);
 

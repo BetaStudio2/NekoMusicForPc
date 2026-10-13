@@ -95,6 +95,10 @@ private:
     void refreshBatchBar();
     void enterBatchMode();
     void exitBatchMode();
+    /** 弹出批量操作的竖排悬浮菜单（400px 抽屉里横排放不下，改成浮层） */
+    void showBatchActionsMenu();
+    /** 竖排浮层的锚点：紧凑触发按钮正下方 */
+    QPoint batchMenuAnchorPos() const;
     /** 批量移出播放队列：按序本地移除，收尾一次 Toast */
     void removeSelectedFromQueue();
 
