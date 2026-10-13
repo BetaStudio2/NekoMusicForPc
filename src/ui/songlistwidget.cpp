@@ -204,6 +204,106 @@ void SongListWidget::setRemoveMode(bool remove)
         card->setRemoveMode(remove);
 }
 
+void SongListWidget::setBatchMode(bool enabled)
+{
+    if (m_batchMode == enabled)
+        return;
+
+    m_batchMode = enabled;
+    if (!enabled)
+        m_batchSelectedIds.clear();
+    m_rowBatchChecked.clear();
+
+    for (SongCardWidget *card : m_rowCards)
+        card->setBatchMode(enabled);
+    for (SongCardWidget *card : m_cardPool)
+        card->setBatchMode(enabled);
+
+    syncBatchToVisibleRows();
+    emit batchModeChanged(enabled);
+    emit batchSelectionChanged(m_batchSelectedIds.size());
+}
+
+void SongListWidget::clearBatchSelection()
+{
+    if (m_batchSelectedIds.isEmpty())
+        return;
+    m_batchSelectedIds.clear();
+    m_rowBatchChecked.clear();
+    syncBatchToVisibleRows();
+    emit batchSelectionChanged(0);
+}
+
+QList<MusicInfo> SongListWidget::batchSelectedSongs() const
+{
+    QList<MusicInfo> picked;
+    if (m_batchSelectedIds.isEmpty())
+        return picked;
+    picked.reserve(m_batchSelectedIds.size());
+    for (const MusicInfo &song : m_songs) {
+        if (m_batchSelectedIds.contains(song.id))
+            picked.append(song);
+    }
+    return picked;
+}
+
+bool SongListWidget::batchAllSelected() const
+{
+    return !m_songs.isEmpty() && m_batchSelectedIds.size() >= m_songs.size();
+}
+
+void SongListWidget::setBatchSelectAll(bool selectAll)
+{
+    if (selectAll)
+        pruneBatchSelection();
+    m_batchSelectedIds.clear();
+    if (selectAll) {
+        for (const MusicInfo &song : m_songs)
+            m_batchSelectedIds.insert(song.id);
+    }
+    m_rowBatchChecked.clear();
+    syncBatchToVisibleRows();
+    emit batchSelectionChanged(m_batchSelectedIds.size());
+}
+
+void SongListWidget::toggleBatchSelection(const MusicInfo &info)
+{
+    if (!m_batchMode)
+        return;
+    if (m_batchSelectedIds.contains(info.id))
+        m_batchSelectedIds.remove(info.id);
+    else
+        m_batchSelectedIds.insert(info.id);
+    syncBatchToVisibleRows();
+    emit batchSelectionChanged(m_batchSelectedIds.size());
+}
+
+void SongListWidget::syncBatchToVisibleRows()
+{
+    for (auto it = m_rowCards.constBegin(); it != m_rowCards.constEnd(); ++it) {
+        SongCardWidget *card = it.value();
+        if (!card)
+            continue;
+        const bool checked = m_batchMode && m_batchSelectedIds.contains(card->info().id);
+        if (checked)
+            m_rowBatchChecked.insert(it.key());
+        else
+            m_rowBatchChecked.remove(it.key());
+        card->setBatchChecked(checked);
+    }
+}
+
+void SongListWidget::pruneBatchSelection()
+{
+    if (m_batchSelectedIds.isEmpty())
+        return;
+    QSet<int> valid;
+    valid.reserve(m_songs.size());
+    for (const MusicInfo &song : m_songs)
+        valid.insert(song.id);
+    m_batchSelectedIds.intersect(valid);
+}
+
 bool SongListWidget::hasCurrentPlaying() const
 {
     return m_currentRowInList >= 0;
@@ -238,6 +338,15 @@ void SongListWidget::setSongs(const QList<MusicInfo> &songs)
 
     m_songs = songs;
     rebuildCurrentRowCache();
+
+    // 列表内容被整批替换（切页 / 刷新 / 过滤）时，选中集合里已经不存在的曲目要丢掉，
+    // 否则「已选 N 首」会把看不见的曲目也算进去。
+    const int before = m_batchSelectedIds.size();
+    pruneBatchSelection();
+    m_rowBatchChecked.clear();
+    if (m_batchSelectedIds.size() != before)
+        emit batchSelectionChanged(m_batchSelectedIds.size());
+
     syncContainerHeight();
     if (songs.size() > 40)
         scheduleVisibleUpdate();
@@ -519,7 +628,9 @@ void SongListWidget::releaseCard(SongCardWidget *card)
     card->onDownload = nullptr;
     card->onCancelDownload = nullptr;
     card->onTogglePlayPause = nullptr;
+    card->onBatchToggle = nullptr;
     card->setDownloadTaskMode(false);
+    card->setBatchChecked(false);
     m_cardPool.append(card);
 }
 
@@ -545,8 +656,10 @@ void SongListWidget::updateVisibleRows()
         if (it.key() < first || it.key() > last)
             stale.append(it.key());
     }
-    for (int row : stale)
+    for (int row : stale) {
+        m_rowBatchChecked.remove(row);
         releaseCard(m_rowCards.take(row));
+    }
 
     const int w = viewW;
     for (int row = first; row <= last; ++row) {
@@ -571,9 +684,11 @@ void SongListWidget::updateVisibleRows()
             card->onDownload = onDownload;
             card->onCancelDownload = onCancelDownload;
             card->onTogglePlayPause = onTogglePlayPause;
+            card->onBatchToggle = [this](const MusicInfo &info) { toggleBatchSelection(info); };
             card->setRemoveMode(m_removeMode);
             card->setShowDownloadButton(m_showDownloadActions);
             card->setDownloadTaskMode(m_downloadTaskMode);
+            card->setBatchMode(m_batchMode);
             card->setDisplayMode(static_cast<SongCardWidget::DisplayMode>(m_listDisplayMode));
         }
 
@@ -582,6 +697,15 @@ void SongListWidget::updateVisibleRows()
         if (songChanged) {
             card->setFavorited(isFavorited ? isFavorited(song.id) : false);
             card->setDownloaded(isDownloaded ? isDownloaded(song.id) : false);
+        }
+        // 行被回收复用后选中态必须按 music_id 重新回灌，否则滚动会把选中态带错行
+        if (m_batchMode || m_rowBatchChecked.contains(row)) {
+            const bool checked = m_batchSelectedIds.contains(song.id);
+            if (checked)
+                m_rowBatchChecked.insert(row);
+            else
+                m_rowBatchChecked.remove(row);
+            card->setBatchChecked(checked);
         }
         if (m_downloadTaskMode) {
             const bool active = isActiveDownload ? isActiveDownload(song.id) : false;

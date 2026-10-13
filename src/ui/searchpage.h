@@ -23,6 +23,7 @@ class ApiClient;
 class SongListWidget;
 class CoverListCard;
 class CoverGridHost;
+class BatchActionBar;
 
 class SearchPage : public QWidget
 {
@@ -48,6 +49,10 @@ signals:
     void openArtist(const QVariantMap &artist);
     void favoriteRequested(int musicId);
     void playPauseRequested();
+    /** 批量操作：加入歌单 / 批量下载 / 批量收藏切换（该页语义为切换收藏） */
+    void batchAddToPlaylistRequested(const QList<MusicInfo> &songs);
+    void batchDownloadRequested(const QList<MusicInfo> &songs);
+    void batchFavoriteToggleRequested(const QList<int> &musicIds);
 
 protected:
     void showEvent(QShowEvent *event) override;
@@ -78,6 +83,13 @@ private:
     void onSongListScrolled(int scrollTop);
     void showSongContextMenu(const MusicInfo &info, const QPoint &globalPos);
     int currentPlayingMusicId() const;
+    /** 批量编辑模式：按钮排 ↔ 批量操作条切换（仅「歌曲」标签页开放） */
+    void setupBatchBar();
+    void enterBatchMode();
+    void exitBatchMode();
+    void onBatchSelectionChanged(int count);
+    /** 一键把当前搜索结果的全部曲目加入本地播放队列 */
+    void addAllToQueue();
 
     static MusicInfo musicFromMap(const QVariantMap &item);
 
@@ -93,6 +105,9 @@ private:
     QWidget *m_songsActionRow = nullptr;
     QPushButton *m_songsPlayAllBtn = nullptr;
     QPushButton *m_songsDownloadAllBtn = nullptr;
+    QPushButton *m_songsAddAllToQueueBtn = nullptr;
+    QPushButton *m_songsBatchManageBtn = nullptr;
+    BatchActionBar *m_batchBar = nullptr;
     SongListWidget *m_songList = nullptr;
     QWidget *m_songsEmptyWrap = nullptr;
     QLabel *m_songsEmptyIcon = nullptr;

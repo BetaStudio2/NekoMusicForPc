@@ -15,6 +15,7 @@ class QLabel;
 class QPushButton;
 class ApiClient;
 class SongListWidget;
+class BatchActionBar;
 
 class MusicListPage : public QWidget
 {
@@ -35,6 +36,10 @@ signals:
     void favoriteRequested(int musicId);
     void playPauseRequested();
     void backRequested();
+    /** 批量操作：加入歌单 / 批量下载 / 批量收藏切换（该页语义为切换收藏） */
+    void batchAddToPlaylistRequested(const QList<MusicInfo> &songs);
+    void batchDownloadRequested(const QList<MusicInfo> &songs);
+    void batchFavoriteToggleRequested(const QList<int> &musicIds);
 
 public slots:
     void refresh();
@@ -64,6 +69,13 @@ private:
     void backfillDurationsFromMusicInfo(int gen);
     QString pageTitle() const;
     QString pageDesc() const;
+    /** 批量编辑模式：按钮排 ↔ 批量操作条切换 */
+    void setupBatchBar();
+    void enterBatchMode();
+    void exitBatchMode();
+    void onBatchSelectionChanged(int count);
+    /** 一键把整页曲目加入本地播放队列 */
+    void addAllToQueue();
 
     Type m_type;
     ApiClient *m_api = nullptr;
@@ -75,6 +87,10 @@ private:
     QLabel *m_countLbl = nullptr;
     QPushButton *m_playAllBtn = nullptr;
     QPushButton *m_downloadAllBtn = nullptr;
+    QWidget *m_menuRow = nullptr;
+    QPushButton *m_addAllToQueueBtn = nullptr;
+    QPushButton *m_batchManageBtn = nullptr;
+    BatchActionBar *m_batchBar = nullptr;
 
     SongListWidget *m_songList = nullptr;
     QWidget *m_emptyWrap = nullptr;

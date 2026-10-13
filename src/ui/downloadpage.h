@@ -10,6 +10,7 @@ class QLabel;
 class QPushButton;
 class QStackedWidget;
 class SongListWidget;
+class BatchActionBar;
 
 /** 下载管理 — 正在下载 / 已完成 两个分区 */
 class DownloadPage : public QWidget
@@ -31,6 +32,9 @@ signals:
     void playAllRequested(const QList<MusicInfo> &songs);
     void favoriteRequested(int musicId);
     void playPauseRequested();
+    /** 批量操作：加入歌单 / 批量取消收藏（已完成分区才有意义） */
+    void batchAddToPlaylistRequested(const QList<MusicInfo> &songs);
+    void batchFavoriteToggleRequested(const QList<int> &musicIds);
 
 protected:
     void paintEvent(QPaintEvent *event) override;
@@ -51,6 +55,13 @@ private:
     void showPageStatus(const QString &text, const char *iconName = nullptr);
     void hidePageStatus();
     QList<MusicInfo> activeSongs() const;
+    /** 批量编辑模式：按钮排 ↔ 批量操作条切换（仅「已完成」分区开放） */
+    void setupBatchBar();
+    void enterBatchMode();
+    void exitBatchMode();
+    void onBatchSelectionChanged(int count);
+    /** 一键把当前分区（已完成）的全部曲目加入本地播放队列 */
+    void addAllToQueue();
 
     QWidget *m_header = nullptr;
     QLabel *m_titleLbl = nullptr;
@@ -61,6 +72,10 @@ private:
     QPushButton *m_tabCompleted = nullptr;
     QPushButton *m_playBtn = nullptr;
     QPushButton *m_clearBtn = nullptr;
+    QWidget *m_menuRow = nullptr;
+    QPushButton *m_addAllToQueueBtn = nullptr;
+    QPushButton *m_batchManageBtn = nullptr;
+    BatchActionBar *m_batchBar = nullptr;
 
     QStackedWidget *m_contentStack = nullptr;
     SongListWidget *m_songList = nullptr;

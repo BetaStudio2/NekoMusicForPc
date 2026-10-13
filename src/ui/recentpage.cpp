@@ -5,6 +5,7 @@
 
 #include "recentpage.h"
 #include "songlistwidget.h"
+#include "batchactionbar.h"
 #include "core/i18n.h"
 #include "core/playlistdb.h"
 #include "core/playlistmanager.h"
@@ -63,6 +64,7 @@ void RecentPage::setupUi()
 
     auto *menuRow = new QWidget(m_header);
     menuRow->setFixedHeight(40);
+    m_menuRow = menuRow;
     auto *menuLay = new QHBoxLayout(menuRow);
     menuLay->setContentsMargins(0, 0, 0, 0);
     menuLay->setSpacing(12);
@@ -85,11 +87,25 @@ void RecentPage::setupUi()
     });
     menuLay->addWidget(m_downloadAllBtn);
 
+    // 一键把整页歌曲加入本地播放队列
+    m_addAllToQueueBtn = new QPushButton(I18n::instance().tr(QStringLiteral("addAllToQueue")), menuRow);
+    m_addAllToQueueBtn->setCursor(Qt::PointingHandCursor);
+    m_addAllToQueueBtn->setFixedHeight(40);
+    connect(m_addAllToQueueBtn, &QPushButton::clicked, this, &RecentPage::addAllToQueue);
+    menuLay->addWidget(m_addAllToQueueBtn);
+
     m_clearBtn = new QPushButton(I18n::instance().tr(QStringLiteral("clearRecentList")), menuRow);
     m_clearBtn->setCursor(Qt::PointingHandCursor);
     m_clearBtn->setFixedHeight(40);
     connect(m_clearBtn, &QPushButton::clicked, this, &RecentPage::confirmClearRecent);
     menuLay->addWidget(m_clearBtn);
+
+    // 批量管理入口：进入后这排按钮整体让位给 BatchActionBar
+    m_batchManageBtn = new QPushButton(I18n::instance().tr(QStringLiteral("batchManage")), menuRow);
+    m_batchManageBtn->setCursor(Qt::PointingHandCursor);
+    m_batchManageBtn->setFixedHeight(40);
+    connect(m_batchManageBtn, &QPushButton::clicked, this, &RecentPage::enterBatchMode);
+    menuLay->addWidget(m_batchManageBtn);
 
     menuLay->addStretch();
     headerLay->addWidget(menuRow);
@@ -122,8 +138,112 @@ void RecentPage::setupUi()
     m_emptyWrap->hide();
     root->addWidget(m_emptyWrap);
 
+    setupBatchBar();
+
     applyPageStyle();
     loadRecentPlays();
+}
+
+/** 批量编辑模式：顶部按钮排 ↔ 批量操作条 的公共接线 */
+void RecentPage::setupBatchBar()
+{
+    if (!m_menuRow || !m_songList)
+        return;
+
+    m_batchBar = new BatchActionBar(m_menuRow->parentWidget());
+    m_batchBar->setCapabilities(true, true, true, true, false);
+    m_batchBar->hide();
+    if (auto *lay = qobject_cast<QBoxLayout *>(m_menuRow->parentWidget()->layout()))
+        lay->insertWidget(lay->indexOf(m_menuRow), m_batchBar);
+
+    connect(m_batchBar, &BatchActionBar::exitRequested, this, &RecentPage::exitBatchMode);
+    connect(m_batchBar, &BatchActionBar::selectAllToggled, this, [this]() {
+        if (m_songList)
+            m_songList->setBatchSelectAll(!m_songList->batchAllSelected());
+    });
+    connect(m_batchBar, &BatchActionBar::addToPlaylistRequested, this, [this]() {
+        if (m_songList)
+            emit batchAddToPlaylistRequested(m_songList->batchSelectedSongs());
+    });
+    connect(m_batchBar, &BatchActionBar::downloadRequested, this, [this]() {
+        if (m_songList)
+            emit batchDownloadRequested(m_songList->batchSelectedSongs());
+    });
+    // 最近播放页的「收藏」是切换语义，批量动作名义上是取消收藏，实际逐首走主窗口的开关
+    connect(m_batchBar, &BatchActionBar::unfavoriteRequested, this, [this]() {
+        QList<int> ids;
+        if (m_songList) {
+            const QList<MusicInfo> picked = m_songList->batchSelectedSongs();
+            for (const MusicInfo &info : picked)
+                ids.append(info.id);
+        }
+        if (!ids.isEmpty())
+            emit batchFavoriteToggleRequested(ids);
+    });
+    connect(m_batchBar, &BatchActionBar::addToQueueRequested, this, [this]() {
+        if (!m_songList)
+            return;
+        const QList<MusicInfo> picked = m_songList->batchSelectedSongs();
+        if (picked.isEmpty())
+            return;
+        PlaylistManager::instance().addAllToPlaylist(picked);
+        Toast::show(this, I18n::instance().tr(QStringLiteral("batchQueueAdded")).arg(picked.size()),
+                    Toast::Success);
+    });
+    connect(m_songList, &SongListWidget::batchSelectionChanged, this,
+            &RecentPage::onBatchSelectionChanged);
+}
+
+void RecentPage::enterBatchMode()
+{
+    if (!m_songList || !m_batchBar || m_allRecent.isEmpty())
+        return;
+
+    m_songList->clearBatchSelection();
+    m_songList->setBatchMode(true);
+    m_batchBar->reset();
+    m_menuRow->hide();
+    m_batchBar->show();
+}
+
+void RecentPage::exitBatchMode()
+{
+    if (!m_songList || !m_batchBar)
+        return;
+
+    m_songList->setBatchMode(false);
+    m_batchBar->reset();
+    m_batchBar->hide();
+    if (m_menuRow)
+        m_menuRow->show();
+}
+
+void RecentPage::onBatchSelectionChanged(int count)
+{
+    if (!m_batchBar || !m_songList)
+        return;
+    m_batchBar->setSelectedCount(count);
+    m_batchBar->setAllSelected(m_songList->batchAllSelected());
+}
+
+/** 一键把当前列表的全部曲目加入本地播放队列 */
+void RecentPage::addAllToQueue()
+{
+    if (m_allRecent.isEmpty()) {
+        Toast::show(this, I18n::instance().tr(QStringLiteral("queueAddAllEmpty")), Toast::Info);
+        return;
+    }
+
+    auto &mgr = PlaylistManager::instance();
+    const int before = mgr.count();
+    mgr.addAllToPlaylist(m_allRecent);
+    const int added = qMax(0, mgr.count() - before);
+
+    if (added <= 0)
+        Toast::show(this, I18n::instance().tr(QStringLiteral("queueAddAllNone")), Toast::Info);
+    else
+        Toast::show(this, I18n::instance().tr(QStringLiteral("addAllToQueueDone")).arg(added),
+                    Toast::Success);
 }
 
 void RecentPage::applyPageStyle()
@@ -196,6 +316,42 @@ void RecentPage::applyPageStyle()
             "QPushButton:disabled { color: rgba(128,128,128,0.8); }")
                                      .arg(secondaryBg, secondaryFg));
     }
+    if (m_batchManageBtn) {
+        m_batchManageBtn->setIcon(Icons::renderNamed("Batch", 18, secondaryIc));
+        m_batchManageBtn->setIconSize(QSize(18, 18));
+        m_batchManageBtn->setStyleSheet(QStringLiteral(
+            "QPushButton {"
+            "  background: %1;"
+            "  color: %2;"
+            "  border: none;"
+            "  border-radius: 20px;"
+            "  font-size: 14px;"
+            "  font-weight: 500;"
+            "  padding: 0 20px;"
+            "}"
+            "QPushButton:hover { background: rgba(230,57,80,0.15); }"
+            "QPushButton:disabled { color: rgba(128,128,128,0.8); }")
+                                            .arg(secondaryBg, secondaryFg));
+    }
+    if (m_addAllToQueueBtn) {
+        m_addAllToQueueBtn->setIcon(Icons::renderNamed("MusicList", 18, secondaryIc));
+        m_addAllToQueueBtn->setIconSize(QSize(18, 18));
+        m_addAllToQueueBtn->setStyleSheet(QStringLiteral(
+            "QPushButton {"
+            "  background: %1;"
+            "  color: %2;"
+            "  border: none;"
+            "  border-radius: 20px;"
+            "  font-size: 14px;"
+            "  font-weight: 500;"
+            "  padding: 0 20px;"
+            "}"
+            "QPushButton:hover:enabled { background: rgba(230,57,80,0.15); }"
+            "QPushButton:disabled { color: rgba(128,128,128,0.8); }")
+                                              .arg(secondaryBg, secondaryFg));
+    }
+    if (m_batchBar)
+        m_batchBar->applyTheme();
 
     if (m_statusLabel) {
         m_statusLabel->setStyleSheet(QStringLiteral(
@@ -216,6 +372,12 @@ void RecentPage::retranslate()
         m_downloadAllBtn->setText(I18n::instance().tr(QStringLiteral("downloadAll")));
     if (m_clearBtn)
         m_clearBtn->setText(I18n::instance().tr(QStringLiteral("clearRecentList")));
+    if (m_batchManageBtn)
+        m_batchManageBtn->setText(I18n::instance().tr(QStringLiteral("batchManage")));
+    if (m_addAllToQueueBtn)
+        m_addAllToQueueBtn->setText(I18n::instance().tr(QStringLiteral("addAllToQueue")));
+    if (m_batchBar)
+        m_batchBar->retranslate();
     if (m_songList)
         m_songList->retranslate();
     updateHeaderMeta();
@@ -259,6 +421,17 @@ void RecentPage::updateHeaderMeta()
         m_downloadAllBtn->setEnabled(hasSongs);
     if (m_clearBtn)
         m_clearBtn->setEnabled(hasSongs);
+    // 列表空了就没有可批量的对象：入口置灰，已经进去了就退出来
+    const bool batchActive = m_songList && m_songList->batchMode();
+    if (m_batchManageBtn)
+        m_batchManageBtn->setEnabled(hasSongs);
+    if (m_addAllToQueueBtn)
+        m_addAllToQueueBtn->setEnabled(hasSongs);
+    if (!hasSongs && batchActive)
+        exitBatchMode();
+    // 批量模式下按钮排已让位给批量操作条
+    else if (m_menuRow && batchActive)
+        m_menuRow->hide();
 }
 
 void RecentPage::refreshDownloadDisplay()
