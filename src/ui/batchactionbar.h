@@ -13,6 +13,7 @@
  */
 
 #include <QWidget>
+#include <QHash>
 
 class QLabel;
 class QPushButton;
@@ -27,6 +28,13 @@ public:
     /** 页面能力：false 的按钮不创建/不显示 */
     void setCapabilities(bool canAddToPlaylist, bool canAddToQueue, bool canDownload,
                          bool canUnfavorite, bool canRemoveFromPlaylist);
+
+    /**
+     * 复用同一个按钮但换个说法（如播放队列抽屉里「移出歌单」语义为「移出播放队列」）。
+     * @param actionKey "removeFromPlaylist" / "addToPlaylist" / "addToQueue" /
+     *                  "download" / "unfavorite"
+     */
+    void setActionText(const char *actionKey, const QString &text);
 
     /** 已选数量：更新「已选 N 首」文案与各按钮可用状态 */
     void setSelectedCount(int count);
@@ -61,4 +69,6 @@ private:
 
     int m_selectedCount = 0;
     bool m_allSelected = false;
+    /** actionKey → 覆盖文案；非空时 retranslate() 不覆盖它（语言切换后仍按调用方给的文案） */
+    QHash<QString, QString> m_textOverrides;
 };

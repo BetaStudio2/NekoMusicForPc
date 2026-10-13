@@ -1287,6 +1287,17 @@ void MainWindow::setupUi()
             m_playlistPanel->refresh();
     });
 
+    // 播放队列抽屉的行内菜单：收藏态查主窗口的收藏缓存（不猜），下载走既有链路
+    m_playlistPanel->isFavorited = [this](int musicId) { return checkIsFavorited(musicId); };
+    m_playlistPanel->onToggleFavorite = [this](const MusicInfo &info) { toggleFavorite(info.id); };
+    m_playlistPanel->onDownload = [this](const MusicInfo &info) { downloadMusic(info); };
+    connect(m_playlistPanel, &PlaylistPanel::batchAddToPlaylistRequested, this,
+            [this](const QList<MusicInfo> &songs) { showAddToPlaylistDialogForSongs(songs); });
+    connect(m_playlistPanel, &PlaylistPanel::batchDownloadRequested, this,
+            [this](const QList<MusicInfo> &songs) { downloadMusicBatch(songs); });
+    connect(m_playlistPanel, &PlaylistPanel::batchUnfavoriteRequested, this,
+            [this](const QList<int> &ids) { unfavoriteMusicBatch(ids); });
+
     connect(m_vipPage, &VipPage::loginRequested, this, [this]() {
         LoginDialog dlg(this);
         if (dlg.exec() == QDialog::Accepted)
@@ -3065,6 +3076,9 @@ void MainWindow::loadFavoritesCache()
 void MainWindow::syncListPageFavoriteIds()
 {
     const QSet<int> ids(m_favoritesCache.begin(), m_favoritesCache.end());
+    // 播放队列抽屉的行内菜单也要按同一份收藏缓存显示「收藏 / 取消收藏」
+    if (m_playlistPanel)
+        m_playlistPanel->refreshFavoriteDisplay();
     if (m_playlistDetailPage)
         m_playlistDetailPage->setFavoritedMusicIds(ids);
     if (m_recentPage)

@@ -1,6 +1,11 @@
 #include "ui/playlistpanel.h"
+#include "ui/batchactionbar.h"
+#include "ui/songcontextmenu.h"
+#include "ui/songmenubuilder.h"
+#include "ui/toast.h"
 #include "core/playlistmanager.h"
 #include "core/landevicemanager.h"
+#include "core/musicdownloadmanager.h"
 #include "core/i18n.h"
 #include "theme/theme.h"
 #include "theme/thememanager.h"
@@ -14,6 +19,7 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QPushButton>
+#include <QStackedWidget>
 #include <QPainter>
 #include <QPainterPath>
 #include <QMouseEvent>
@@ -38,6 +44,26 @@ constexpr int kListPad = 16;
 
 constexpr QColor kPrimary(230, 57, 80);
 
+/** 复选框圆角方块里的对勾（自己画，避免依赖字体里是否有 ✓） */
+QPixmap checkMarkPixmap(int size, const QColor &color)
+{
+    QPixmap pm(size, size);
+    pm.fill(Qt::transparent);
+    QPainter p(&pm);
+    p.setRenderHint(QPainter::Antialiasing, true);
+    QPen pen(color, qMax(2.0, size / 7.0));
+    pen.setCapStyle(Qt::RoundCap);
+    pen.setJoinStyle(Qt::RoundJoin);
+    p.setPen(pen);
+    QPainterPath path;
+    path.moveTo(size * 0.22, size * 0.52);
+    path.lineTo(size * 0.42, size * 0.72);
+    path.lineTo(size * 0.78, size * 0.30);
+    p.drawPath(path);
+    p.end();
+    return pm;
+}
+
 } // namespace
 
 // ─── 播放队列项（对齐 SPlayer SongPlayList .song-node）────────────────
@@ -57,12 +83,29 @@ public:
         lay->setContentsMargins(8, 8, 8, 8);
         lay->setSpacing(8);
 
-        m_indexLbl = new QLabel(this);
-        m_indexLbl->setFixedWidth(36);
+        // 序号列：编号标签与批量复选框同位置互斥（与 SongCardWidget 的约定一致）
+        auto *indexCol = new QWidget(this);
+        indexCol->setFixedWidth(36);
+        m_indexCol = indexCol;
+
+        m_indexLbl = new QLabel(indexCol);
+        m_indexLbl->setGeometry(0, 0, 36, 48);
         m_indexLbl->setAlignment(Qt::AlignCenter);
+        m_indexLbl->setAttribute(Qt::WA_TransparentForMouseEvents, true);
         applyIndexLabelStyle(dark);
         updateIndexDisplay();
-        lay->addWidget(m_indexLbl);
+
+        m_batchBox = new QPushButton(indexCol);
+        m_batchBox->setGeometry(0, 0, 36, 48);
+        m_batchBox->setFlat(true);
+        m_batchBox->setCursor(Qt::PointingHandCursor);
+        m_batchBox->hide();
+        connect(m_batchBox, &QPushButton::clicked, this, [this](bool) {
+            if (batchToggleRequested)
+                batchToggleRequested(m_info);
+        });
+
+        lay->addWidget(indexCol);
 
         auto *infoV = new QWidget(this);
         infoV->setAttribute(Qt::WA_TranslucentBackground);
@@ -93,12 +136,28 @@ public:
 
         lay->addWidget(infoV, 1);
 
+        // 行右侧三点菜单：与右键共用统一菜单（SongMenuBuilder）
+        m_moreBtn = new QPushButton(this);
+        m_moreBtn->setFixedSize(32, 32);
+        m_moreBtn->setCursor(Qt::PointingHandCursor);
+        m_moreBtn->setFlat(true);
+        applyMoreBtnStyle(dark);
+        connect(m_moreBtn, &QPushButton::clicked, this, [this](bool) {
+            if (m_batchMode)
+                return;
+            if (menuRequested)
+                menuRequested(m_info, m_moreBtn->mapToGlobal(QPoint(0, m_moreBtn->height())));
+        });
+        lay->addWidget(m_moreBtn);
+
         m_removeBtn = new QPushButton(this);
-        m_removeBtn->setFixedSize(36, 36);
+        m_removeBtn->setFixedSize(32, 32);
         m_removeBtn->setCursor(Qt::PointingHandCursor);
         m_removeBtn->setFlat(true);
         applyRemoveBtnStyle(dark);
         connect(m_removeBtn, &QPushButton::clicked, this, [this](bool) {
+            if (m_batchMode)
+                return;
             if (removeRequested)
                 removeRequested(m_musicId);
         });
@@ -110,6 +169,10 @@ public:
 
     std::function<void(int)> onClicked;
     std::function<void(int)> removeRequested;
+    std::function<void(const MusicInfo &, const QPoint &)> menuRequested;
+    std::function<void(const MusicInfo &)> batchToggleRequested;
+
+    const MusicInfo &info() const { return m_info; }
 
     void bind(const MusicInfo &info, int index, bool isCurrent)
     {
@@ -132,14 +195,42 @@ public:
         applyTitleStyle(dark);
         applyArtistStyle(dark);
         applyRemoveBtnStyle(dark);
+        applyMoreBtnStyle(dark);
+        updateBatchBox();
         updateLocalBadge(dark);
         update();
     }
 
     void setReadOnly(bool readOnly)
     {
+        m_readOnly = readOnly;
         m_removeBtn->setVisible(!readOnly);
+        m_moreBtn->setVisible(!readOnly);
         setCursor(readOnly ? Qt::ArrowCursor : Qt::PointingHandCursor);
+    }
+
+    /** 批量编辑模式：序号列换复选框，整行点击 = 切换选中，不触发播放/移除/菜单 */
+    void setBatchMode(bool enabled)
+    {
+        if (m_batchMode == enabled)
+            return;
+        m_batchMode = enabled;
+        m_batchPressRow = false;
+        m_batchBox->setVisible(enabled);
+        if (m_indexLbl)
+            m_indexLbl->setVisible(!enabled);
+        setCursor(enabled ? Qt::ArrowCursor : Qt::PointingHandCursor);
+        updateBatchBox();
+        update();
+    }
+
+    void setBatchChecked(bool checked)
+    {
+        if (m_batchChecked == checked)
+            return;
+        m_batchChecked = checked;
+        updateBatchBox();
+        update();
     }
 
 protected:
@@ -152,10 +243,13 @@ protected:
         QPainterPath path;
         path.addRoundedRect(rect(), 8, 8);
 
-        if (m_isCurrent) {
+        if (m_batchMode && m_batchChecked) {
             p.fillPath(path, QColor(kPrimary.red(), kPrimary.green(), kPrimary.blue(), 74));
             p.strokePath(path, QPen(kPrimary, 1.0));
-        } else if (m_hover) {
+        } else if (m_isCurrent) {
+            p.fillPath(path, QColor(kPrimary.red(), kPrimary.green(), kPrimary.blue(), 74));
+            p.strokePath(path, QPen(kPrimary, 1.0));
+        } else if (m_hover && !m_batchMode) {
             p.fillPath(path, QColor(kPrimary.red(), kPrimary.green(), kPrimary.blue(), 20));
             p.strokePath(path, QPen(kPrimary, 1.0));
         } else {
@@ -185,15 +279,36 @@ protected:
 
     void mousePressEvent(QMouseEvent *e) override
     {
-        if (e->button() == Qt::LeftButton && onClicked)
-            onClicked(m_musicId);
+        if (e->button() == Qt::LeftButton) {
+            if (m_batchMode) {
+                // 批量模式：整行点击只切换选中，不播放
+                m_batchPressRow = true;
+                e->accept();
+                return;
+            }
+            if (onClicked)
+                onClicked(m_musicId);
+        }
         QWidget::mousePressEvent(e);
+    }
+
+    void mouseReleaseEvent(QMouseEvent *e) override
+    {
+        if (m_batchMode && e->button() == Qt::LeftButton && m_batchPressRow) {
+            m_batchPressRow = false;
+            if (batchToggleRequested)
+                batchToggleRequested(m_info);
+            e->accept();
+            return;
+        }
+        QWidget::mouseReleaseEvent(e);
     }
 
 private:
     int textColumnWidth() const
     {
-        int w = qMax(40, width() - 36 - 36 - 8 * 4);
+        // 右侧两个 32px 按钮 + 序号列 36px + 内外间距
+        int w = qMax(40, width() - 36 - 32 - 32 - 8 * 5);
         if (m_localBadge && m_localBadge->isVisible())
             w = qMax(40, w - m_localBadge->sizeHint().width() - 6);
         return w;
@@ -237,9 +352,59 @@ private:
         const QColor ic = dark ? QColor(244, 246, 255, 140) : QColor(33, 37, 41, 140);
         m_removeBtn->setIcon(Icons::renderNamed("Delete", 20, ic));
         m_removeBtn->setIconSize(QSize(20, 20));
-        m_removeBtn->setStyleSheet(QStringLiteral(
+        m_removeBtn->setStyleSheet(rowButtonStyle());
+    }
+
+    void applyMoreBtnStyle(bool dark)
+    {
+        const QColor ic = dark ? QColor(244, 246, 255, 165) : QColor(33, 37, 41, 140);
+        m_moreBtn->setIcon(Icons::renderNamed("More", 20, ic));
+        m_moreBtn->setIconSize(QSize(20, 20));
+        m_moreBtn->setStyleSheet(rowButtonStyle());
+    }
+
+    static QString rowButtonStyle()
+    {
+        return QStringLiteral(
             "QPushButton { background: transparent; border: none; border-radius: 8px; }"
-            "QPushButton:hover { background: rgba(255,255,255,0.08); }"));
+            "QPushButton:hover { background: rgba(255,255,255,0.08); }");
+    }
+
+    void updateBatchBox()
+    {
+        if (!m_batchBox)
+            return;
+
+        const bool dark = Theme::ThemeManager::instance().isDarkMode();
+        constexpr int kBoxSize = 20;
+        constexpr int kIconSize = 16;
+        QPixmap pm(kBoxSize, kBoxSize);
+        pm.fill(Qt::transparent);
+        {
+            QPainter p(&pm);
+            p.setRenderHint(QPainter::Antialiasing, true);
+            if (m_batchChecked) {
+                p.setPen(Qt::NoPen);
+                p.setBrush(kPrimary);
+                p.drawRoundedRect(QRectF(0.5, 0.5, kBoxSize - 1.0, kBoxSize - 1.0), 5, 5);
+            } else {
+                p.setPen(QPen(dark ? QColor(244, 246, 255, 150) : QColor(33, 37, 41, 130), 1.6));
+                p.setBrush(Qt::NoBrush);
+                p.drawRoundedRect(QRectF(0.8, 0.8, kBoxSize - 1.6, kBoxSize - 1.6), 5, 5);
+            }
+        }
+        if (m_batchChecked) {
+            QPainter p(&pm);
+            p.setRenderHint(QPainter::Antialiasing, true);
+            p.drawPixmap((kBoxSize - kIconSize) / 2, (kBoxSize - kIconSize) / 2,
+                         checkMarkPixmap(kIconSize, Qt::white));
+        }
+
+        m_batchBox->setIcon(QIcon(pm));
+        m_batchBox->setIconSize(QSize(kBoxSize, kBoxSize));
+        m_batchBox->setStyleSheet(QStringLiteral(
+            "QPushButton { background: transparent; border: none; }"));
+        m_batchBox->setToolTip(I18n::instance().tr(QStringLiteral("batchRowHint")));
     }
 
     void updateIndexDisplay()
@@ -259,10 +424,17 @@ private:
     int m_index;
     bool m_isCurrent = false;
     bool m_hover = false;
+    bool m_readOnly = false;
+    bool m_batchMode = false;
+    bool m_batchChecked = false;
+    bool m_batchPressRow = false;
+    QWidget *m_indexCol = nullptr;
     QLabel *m_indexLbl = nullptr;
+    QPushButton *m_batchBox = nullptr;
     QLabel *m_localBadge = nullptr;
     QLabel *m_titleLbl = nullptr;
     QLabel *m_artistLbl = nullptr;
+    QPushButton *m_moreBtn = nullptr;
     QPushButton *m_removeBtn = nullptr;
 };
 
@@ -273,6 +445,9 @@ void releasePlaylistCard(PlaylistItemCard *card, QList<QWidget *> &pool)
     card->hide();
     card->onClicked = nullptr;
     card->removeRequested = nullptr;
+    card->menuRequested = nullptr;
+    card->batchToggleRequested = nullptr;
+    card->setBatchChecked(false);
     pool.append(card);
 }
 
@@ -281,29 +456,6 @@ PlaylistItemCard *acquirePlaylistCard(QWidget *container, QList<QWidget *> &pool
     if (!pool.isEmpty())
         return static_cast<PlaylistItemCard *>(pool.takeLast());
     return new PlaylistItemCard(MusicInfo{}, 0, false, container);
-}
-
-void bindPlaylistCard(PlaylistItemCard *card, int row, QWidget *container,
-                      QHash<int, QWidget *> &rowCards, QList<QWidget *> &pool,
-                      const QList<MusicInfo> &playlist, int currentIndex, bool readOnly,
-                      const std::function<void(int)> &playCb)
-{
-    const MusicInfo &info = playlist[row];
-    const bool isCurrent = row == currentIndex;
-    card->bind(info, row, isCurrent);
-    card->setReadOnly(readOnly);
-
-    const int musicId = info.id;
-    card->onClicked = [playCb, musicId](int) { playCb(musicId); };
-    card->removeRequested = readOnly ? std::function<void(int)>() :
-        [](int localId) { PlaylistManager::instance().removeFromPlaylist(localId); };
-
-    const int w = qMax(40, container->width() - 2 * kListPad);
-    card->setParent(container);
-    card->setFixedSize(w, kPlaylistRowHeight);
-    card->move(kListPad, kListPad + row * kPlaylistRowStride);
-    card->show();
-    rowCards[row] = card;
 }
 
 // ─── PlaylistPanel ──────────────────────────────────────
@@ -340,6 +492,201 @@ PlaylistPanel::PlaylistPanel(QWidget *parent)
     m_displayPlaylist = PlaylistManager::instance().playlist();
     m_displayCurrentIndex = PlaylistManager::instance().currentIndex();
     refreshDevices();
+    refresh();
+}
+
+/** 收藏缓存变化后刷新行状态（菜单里的收藏项文案/图标按它决定） */
+void PlaylistPanel::refreshFavoriteDisplay()
+{
+    for (auto it = m_rowCards.constBegin(); it != m_rowCards.constEnd(); ++it) {
+        auto *card = static_cast<PlaylistItemCard *>(it.value());
+        if (card)
+            card->updateCurrentState(it.key() == m_displayCurrentIndex);
+    }
+}
+
+/** 把某一行绑定到卡片（含批量模式状态回灌） */
+void PlaylistPanel::bindRowCard(PlaylistItemCard *card, int row)
+{
+    if (!card || row < 0 || row >= m_displayPlaylist.size())
+        return;
+
+    const MusicInfo &info = m_displayPlaylist[row];
+    card->bind(info, row, row == m_displayCurrentIndex);
+    card->setReadOnly(m_remoteView);
+
+    // 远端设备的队列是只读视图：批量模式与移除/菜单都不开放
+    card->setBatchMode(m_batchMode && !m_remoteView);
+
+    const int musicId = info.id;
+    card->onClicked = [this, musicId](int) {
+        if (m_batchMode)
+            return; // 批量模式下整行点击只用于选中，不触发播放
+        emit playRequested(musicId);
+    };
+    card->removeRequested = m_remoteView ? std::function<void(int)>() :
+        [](int localId) { PlaylistManager::instance().removeFromPlaylist(localId); };
+    card->menuRequested = [this](const MusicInfo &song, const QPoint &pos) {
+        showSongMenu(song, pos);
+    };
+    card->batchToggleRequested = [this](const MusicInfo &song) {
+        if (!m_batchMode)
+            return;
+        if (m_batchSelectedIds.contains(song.id))
+            m_batchSelectedIds.remove(song.id);
+        else
+            m_batchSelectedIds.insert(song.id);
+        syncBatchToVisibleRows();
+        refreshBatchBar();
+    };
+
+    // 行被卡片池复用后选中态必须按 music_id 重新回灌，否则滚动会把选中态带错行
+    if (m_batchMode || m_rowBatchChecked.contains(row)) {
+        const bool checked = m_batchMode && m_batchSelectedIds.contains(info.id);
+        if (checked)
+            m_rowBatchChecked.insert(row);
+        else
+            m_rowBatchChecked.remove(row);
+        card->setBatchChecked(checked);
+    }
+
+    const int w = qMax(40, m_listContainer->width() - 2 * kListPad);
+    card->setParent(m_listContainer);
+    card->setFixedSize(w, kPlaylistRowHeight);
+    card->move(kListPad, kListPad + row * kPlaylistRowStride);
+    card->show();
+    m_rowCards[row] = card;
+}
+
+/** 单曲统一菜单（与其它列表页同一套 SongMenuBuilder） */
+void PlaylistPanel::showSongMenu(const MusicInfo &info, const QPoint &globalPos)
+{
+    if (m_remoteView)
+        return;
+    if (info.id <= 0 && info.localPath.isEmpty())
+        return;
+
+    SongMenuBuilder::State state;
+    // 队列里的曲目必然“已在播放队列”，所以这一项固定显示「从播放队列移除」
+    state.inPlayQueue = true;
+    state.favorited = isFavorited ? isFavorited(info.id) : false;
+    state.downloaded = MusicDownloadManager::instance().isDownloaded(info.id);
+    state.canQueue = info.id > 0;
+
+    SongMenuBuilder::Handlers handlers;
+    handlers.playNext = [info]() { SongMenuBuilder::playNextNow(info); };
+    if (onToggleFavorite)
+        handlers.toggleFavorite = [this, info]() { onToggleFavorite(info); };
+    handlers.toggleQueue = [info]() {
+        // PlaylistManager::removeFromPlaylist 内部按 music id 匹配（见 findIndexByLocalId）
+        PlaylistManager::instance().removeFromPlaylist(info.id);
+    };
+    if (onDownload)
+        handlers.download = [this, info]() { onDownload(info); };
+    state.canFavorite = static_cast<bool>(handlers.toggleFavorite);
+    state.canDownload = static_cast<bool>(handlers.download);
+
+    const QList<SongContextMenuPopup::Entry> entries =
+        SongMenuBuilder::buildStandard(info, state, handlers);
+    if (entries.isEmpty())
+        return;
+
+    SongContextMenuPopup::showAt(window() ? window() : this, globalPos, entries);
+}
+
+/** 当前队列里已选中的曲目（按队列顺序返回） */
+QList<MusicInfo> PlaylistPanel::batchSelectedSongs() const
+{
+    QList<MusicInfo> picked;
+    if (m_batchSelectedIds.isEmpty())
+        return picked;
+    picked.reserve(m_batchSelectedIds.size());
+    for (const MusicInfo &song : m_displayPlaylist) {
+        if (m_batchSelectedIds.contains(song.id))
+            picked.append(song);
+    }
+    return picked;
+}
+
+void PlaylistPanel::syncBatchToVisibleRows()
+{
+    for (auto it = m_rowCards.constBegin(); it != m_rowCards.constEnd(); ++it) {
+        auto *card = static_cast<PlaylistItemCard *>(it.value());
+        if (!card)
+            continue;
+        const bool checked = m_batchMode && m_batchSelectedIds.contains(card->info().id);
+        if (checked)
+            m_rowBatchChecked.insert(it.key());
+        else
+            m_rowBatchChecked.remove(it.key());
+        card->setBatchChecked(checked);
+    }
+}
+
+void PlaylistPanel::refreshBatchBar()
+{
+    if (!m_batchBar)
+        return;
+    m_batchBar->setSelectedCount(m_batchSelectedIds.size());
+    m_batchBar->setAllSelected(!m_displayPlaylist.isEmpty()
+                               && m_batchSelectedIds.size() >= m_displayPlaylist.size());
+}
+
+void PlaylistPanel::enterBatchMode()
+{
+    if (m_remoteView || m_batchMode || m_displayPlaylist.isEmpty())
+        return;
+
+    m_batchMode = true;
+    m_batchSelectedIds.clear();
+    m_rowBatchChecked.clear();
+
+    for (auto it = m_rowCards.constBegin(); it != m_rowCards.constEnd(); ++it) {
+        if (auto *card = static_cast<PlaylistItemCard *>(it.value()))
+            card->setBatchMode(true);
+    }
+    syncBatchToVisibleRows();
+    refreshBatchBar();
+
+    if (m_actionStack)
+        m_actionStack->setCurrentWidget(m_batchBar);
+}
+
+void PlaylistPanel::exitBatchMode()
+{
+    if (!m_batchMode)
+        return;
+
+    m_batchMode = false;
+    m_batchSelectedIds.clear();
+    m_rowBatchChecked.clear();
+
+    for (auto it = m_rowCards.constBegin(); it != m_rowCards.constEnd(); ++it) {
+        if (auto *card = static_cast<PlaylistItemCard *>(it.value())) {
+            card->setBatchMode(false);
+            card->setBatchChecked(false);
+        }
+    }
+    if (m_batchBar)
+        m_batchBar->reset();
+    if (m_actionStack && m_actionRow)
+        m_actionStack->setCurrentWidget(m_actionRow);
+}
+
+/** 批量移出播放队列：本地操作，按序移除后收尾一次 Toast；执行完自动退出批量模式 */
+void PlaylistPanel::removeSelectedFromQueue()
+{
+    const QList<MusicInfo> picked = batchSelectedSongs();
+    if (picked.isEmpty())
+        return;
+
+    auto &manager = PlaylistManager::instance();
+    for (const MusicInfo &info : picked)
+        manager.removeFromPlaylist(info.id); // 内部按 music id 匹配
+
+    Toast::show(this, I18n::instance().tr(QStringLiteral("batchQueueRemoved")).arg(picked.size()),
+                Toast::Success);
+    exitBatchMode();
     refresh();
 }
 
@@ -383,6 +730,21 @@ void PlaylistPanel::applyPanelChrome()
         m_clearBtn->setStyleSheet(footerBtn);
     if (m_scrollCurrentBtn)
         m_scrollCurrentBtn->setStyleSheet(footerBtn);
+    if (m_batchBtn) {
+        const QColor ic = dark ? QColor(244, 246, 255, 200) : QColor(33, 37, 41, 200);
+        m_batchBtn->setIcon(Icons::renderNamed("Batch", 16, ic));
+        m_batchBtn->setIconSize(QSize(16, 16));
+        m_batchBtn->setStyleSheet(QStringLiteral(
+            "QPushButton { background: rgba(255,255,255,%1); border: none; border-radius: 8px; "
+            "color: %2; font-size: 13px; font-weight: 500; min-height: 32px; padding: 0 14px; }"
+            "QPushButton:hover:enabled { background: rgba(255,255,255,%3); }"
+            "QPushButton:disabled { color: rgba(128,128,128,0.8); }")
+                                      .arg(dark ? 8 : 12)
+                                      .arg(textMain)
+                                      .arg(dark ? 14 : 20));
+    }
+    if (m_batchBar)
+        m_batchBar->applyTheme();
     const QColor closeIc = dark ? QColor(244, 246, 255, 180) : QColor(33, 37, 41, 180);
     if (m_closeBtn) {
         m_closeBtn->setIcon(Icons::renderNamed("Close", 18, closeIc));
@@ -445,6 +807,67 @@ void PlaylistPanel::setupUi()
     headerLay->addWidget(m_closeBtn, 0, Qt::AlignTop);
 
     lay->addWidget(header);
+
+    // 批量模式：「批量」按钮那排与批量操作条占同一行位置，进出模式互相切换
+    m_actionStack = new QStackedWidget(this);
+    m_actionStack->setFixedHeight(40);
+
+    m_actionRow = new QWidget(m_actionStack);
+    auto *actionLay = new QHBoxLayout(m_actionRow);
+    actionLay->setContentsMargins(16, 0, 16, 8);
+    actionLay->setSpacing(12);
+
+    m_batchBtn = new QPushButton(I18n::instance().tr(QStringLiteral("batchManage")), m_actionRow);
+    m_batchBtn->setCursor(Qt::PointingHandCursor);
+    m_batchBtn->setFixedHeight(32);
+    connect(m_batchBtn, &QPushButton::clicked, this, &PlaylistPanel::enterBatchMode);
+    actionLay->addWidget(m_batchBtn);
+    actionLay->addStretch();
+
+    m_actionStack->addWidget(m_actionRow);
+
+    m_batchBar = new BatchActionBar(m_actionStack);
+    // 「移出歌单」这个按钮在队列语境下的说法是「移出播放队列」
+    m_batchBar->setCapabilities(true, false, true, true, true);
+    m_batchBar->setActionText("removeFromPlaylist",
+                              I18n::instance().tr(QStringLiteral("batchRemoveFromQueue")));
+    connect(m_batchBar, &BatchActionBar::removeFromPlaylistRequested, this,
+            &PlaylistPanel::removeSelectedFromQueue);
+    connect(m_batchBar, &BatchActionBar::exitRequested, this, &PlaylistPanel::exitBatchMode);
+    connect(m_batchBar, &BatchActionBar::selectAllToggled, this, [this]() {
+        const bool selectAll = m_batchSelectedIds.size() < m_displayPlaylist.size();
+        m_batchSelectedIds.clear();
+        if (selectAll) {
+            for (const MusicInfo &song : m_displayPlaylist)
+                m_batchSelectedIds.insert(song.id);
+        }
+        m_rowBatchChecked.clear();
+        syncBatchToVisibleRows();
+        refreshBatchBar();
+    });
+    connect(m_batchBar, &BatchActionBar::addToPlaylistRequested, this, [this]() {
+        const QList<MusicInfo> picked = batchSelectedSongs();
+        if (!picked.isEmpty())
+            emit batchAddToPlaylistRequested(picked);
+    });
+    connect(m_batchBar, &BatchActionBar::downloadRequested, this, [this]() {
+        const QList<MusicInfo> picked = batchSelectedSongs();
+        if (!picked.isEmpty())
+            emit batchDownloadRequested(picked);
+    });
+    connect(m_batchBar, &BatchActionBar::unfavoriteRequested, this, [this]() {
+        QList<int> ids;
+        const QList<MusicInfo> picked = batchSelectedSongs();
+        ids.reserve(picked.size());
+        for (const MusicInfo &info : picked)
+            ids.append(info.id);
+        if (!ids.isEmpty())
+            emit batchUnfavoriteRequested(ids);
+    });
+    m_actionStack->addWidget(m_batchBar);
+    m_actionStack->setCurrentIndex(0);
+
+    lay->addWidget(m_actionStack);
 
     m_scroll = new QScrollArea(this);
     m_scroll->setObjectName(QStringLiteral("ppScroll"));
@@ -579,11 +1002,12 @@ void PlaylistPanel::updateVisibleRows()
         if (it.key() < first || it.key() > last)
             stale.append(it.key());
     }
-    for (int row : stale)
+    for (int row : stale) {
+        m_rowBatchChecked.remove(row);
         releasePlaylistCard(static_cast<PlaylistItemCard *>(m_rowCards.take(row)), m_cardPool);
+    }
 
     const int w = qMax(40, m_listContainer->width() - 2 * kListPad);
-    const auto playCb = [this](int musicId) { emit playRequested(musicId); };
     for (int row = first; row <= last; ++row) {
         if (m_rowCards.contains(row)) {
             auto *card = static_cast<PlaylistItemCard *>(m_rowCards[row]);
@@ -591,9 +1015,7 @@ void PlaylistPanel::updateVisibleRows()
             card->setFixedWidth(w);
             continue;
         }
-        bindPlaylistCard(acquirePlaylistCard(m_listContainer, m_cardPool), row, m_listContainer,
-                         m_rowCards, m_cardPool, m_displayPlaylist, m_displayCurrentIndex,
-                         m_remoteView, playCb);
+        bindRowCard(acquirePlaylistCard(m_listContainer, m_cardPool), row);
     }
 }
 
@@ -613,8 +1035,29 @@ void PlaylistPanel::refresh()
     }
 
     const int count = m_displayPlaylist.size();
+
+    // 队列增删后：把已经不在队列里的选中项丢掉，避免「已选 N 首」把看不见的曲目也算进去
+    {
+        QSet<int> valid;
+        valid.reserve(count);
+        for (const MusicInfo &song : m_displayPlaylist)
+            valid.insert(song.id);
+        const int before = m_batchSelectedIds.size();
+        m_batchSelectedIds.intersect(valid);
+        m_rowBatchChecked.clear();
+        if (m_batchSelectedIds.size() != before)
+            refreshBatchBar();
+    }
+
     updateCountLabel();
     updateFooterButtonIcons();
+    if (m_batchBtn) {
+        // 远端设备的队列是只读视图，也没有可批量移除的东西
+        m_batchBtn->setEnabled(!m_remoteView && !m_displayPlaylist.isEmpty());
+    }
+    // 远端视图 / 空队列下批量模式不成立（切设备后要自动退出）
+    if (m_batchMode && (m_remoteView || count == 0))
+        exitBatchMode();
     if (m_clearBtn)
         m_clearBtn->setEnabled(!m_remoteView || !m_displayPlaylist.isEmpty());
     if (m_scrollCurrentBtn)
@@ -702,6 +1145,14 @@ void PlaylistPanel::retranslate()
         m_titleLabel->setText(I18n::instance().tr(QStringLiteral("playQueue")));
     if (m_emptyLabel)
         m_emptyLabel->setText(I18n::instance().tr(QStringLiteral("emptyPlaylistHint")));
+    if (m_batchBtn)
+        m_batchBtn->setText(I18n::instance().tr(QStringLiteral("batchManage")));
+    if (m_batchBar) {
+        // 队列语境下这个按钮是「移出播放队列」而不是「移出歌单」
+        m_batchBar->setActionText("removeFromPlaylist",
+                                  I18n::instance().tr(QStringLiteral("batchRemoveFromQueue")));
+        m_batchBar->retranslate();
+    }
     updateCountLabel();
     updateFooterButtonIcons();
     applyPanelChrome();
@@ -719,7 +1170,6 @@ void PlaylistPanel::resizeEvent(QResizeEvent *event)
     for (auto *card : m_rowCards)
         static_cast<PlaylistItemCard *>(card)->setFixedWidth(w);
 }
-
 void PlaylistPanel::syncToHost()
 {
     QWidget *host = parentWidget();

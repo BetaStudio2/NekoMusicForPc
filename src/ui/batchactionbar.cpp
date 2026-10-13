@@ -91,6 +91,19 @@ void BatchActionBar::setCapabilities(bool canAddToPlaylist, bool canAddToQueue, 
     setSelectedCount(m_selectedCount);
 }
 
+void BatchActionBar::setActionText(const char *actionKey, const QString &text)
+{
+    const QString key = QString::fromUtf8(actionKey);
+    m_textOverrides.insert(key, text);
+    for (QPushButton *btn : {m_addToPlaylistBtn, m_addToQueueBtn, m_downloadBtn, m_unfavoriteBtn,
+                             m_removeFromPlaylistBtn}) {
+        if (btn && btn->property("batchTextKey").toString() == key) {
+            btn->setText(text);
+            return;
+        }
+    }
+}
+
 void BatchActionBar::setSelectedCount(int count)
 {
     m_selectedCount = qMax(0, count);
@@ -131,8 +144,11 @@ void BatchActionBar::retranslate()
         if (!btn)
             continue;
         const QString key = btn->property("batchTextKey").toString();
-        if (!key.isEmpty())
-            btn->setText(i18n.tr(key));
+        if (key.isEmpty())
+            continue;
+        // 调用方给过覆盖文案的（如队列抽屉的「移出播放队列」）优先
+        const auto overridden = m_textOverrides.constFind(key);
+        btn->setText(overridden != m_textOverrides.constEnd() ? overridden.value() : i18n.tr(key));
     }
 }
 
