@@ -5,6 +5,7 @@
 
 #include "core/nekonetworkaccessmanager.h"
 #include "core/replaynonce.h"
+#include "core/usermanager.h"
 #include "theme/theme.h"
 #include "version.h"
 
@@ -310,6 +311,13 @@ QNetworkReply *NekoNetworkAccessManager::createRequest(Operation op,
         // X-Neko-Client 同样强制统一。
         req.setRawHeader("X-Neko-Client",
                          QStringLiteral("pc+%1").arg(version).toUtf8());
+        // 已登录用户令牌：调用方不必逐个记着带（历史代码里有的写 `Bearer x`、有的直接塞裸 token），
+        // 这里统一补成 `Bearer <token>`，访问日志才能把请求落到具体账号。
+        // 调用方显式设过则不覆盖，避免踩到第三方 / 特殊令牌的调用点。
+        const QString token = UserManager::instance().token();
+        if (!token.isEmpty() && !req.hasRawHeader("Authorization")) {
+            req.setRawHeader("Authorization", QByteArrayLiteral("Bearer ") + token.toUtf8());
+        }
     }
 
     // 防重放：只包装发往本站的受保护路径；静态资源 / 豁免接口保持原样（流式、可缓存）。

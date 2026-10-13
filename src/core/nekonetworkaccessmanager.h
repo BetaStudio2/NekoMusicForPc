@@ -16,9 +16,10 @@ class QNetworkReply;
  * @brief 为发往**本站后端**的请求统一附加客户端标识与防重放 nonce
  *
  * 拦截本管理器的全部出站请求，对与 `Theme::kApiBase` 同主机的请求强制注入：
- *   - User-Agent:    NekoMusic-PC/<APP_VERSION>
- *   - X-Neko-Client: pc+<APP_VERSION>
- *   - X-Neko-Nonce:  一次性 nonce（仅受保护路径，见下）
+ *   - User-Agent:     NekoMusic-PC/<APP_VERSION>
+ *   - X-Neko-Client:  pc+<APP_VERSION>
+ *   - Authorization:  `Bearer <用户令牌>`（已登录时补空缺；调用方显式设过的不覆盖）
+ *   - X-Neko-Nonce:   一次性 nonce（仅受保护路径，见下）
  *
  * 两个标识标头都是**强制统一**的：调用方即使自己设置过 User-Agent 也会被覆盖，
  * 保证全链路客户端标识与后端放行规则严格一致；第三方主机（更新检查 / CDN /
