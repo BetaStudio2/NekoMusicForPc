@@ -1331,10 +1331,81 @@ void MainWindow::setupMcpServer()
 {
     m_mcpBridge = new McpBridge(m_engine, m_apiClient, this);
     m_mcpBridge->setPlayCallback([this](const MusicInfo &info) {
-        playMusicById(info.id, info.title, info.artist, info.coverUrl);
+        playMusicFromInfo(info);
     });
     m_mcpBridge->setNextCallback([this]() { playNext(); });
     m_mcpBridge->setPreviousCallback([this]() { playPrevious(); });
+    m_mcpBridge->setPlayNextCallback([this](const MusicInfo &info) { queueAsNextTrack(info); });
+    m_mcpBridge->setReplaceQueueCallback([this](const QList<MusicInfo> &tracks, int index) {
+        PlaylistManager::instance().replacePlaylist(tracks, index);
+        if (index >= 0 && index < tracks.size())
+            playMusicFromInfo(tracks.at(index));
+    });
+    m_mcpBridge->setFavoriteQueryCallback([this](int musicId) { return checkIsFavorited(musicId); });
+    m_mcpBridge->setFavoritesRefreshCallback([this]() {
+        loadFavoritesCache();
+        if (m_favoritesPage)
+            m_favoritesPage->refresh();
+        syncListPageFavoriteIds();
+    });
+    m_mcpBridge->setOpenPageCallback([this](const QString &page) {
+        if (page == QLatin1String("home")) {
+            switchPage(m_homePage);
+        } else if (page == QLatin1String("favorites")) {
+            if (m_favoritesPage) {
+                m_favoritesPage->refresh();
+                switchPage(m_favoritesPage);
+            }
+        } else if (page == QLatin1String("recent")) {
+            if (m_recentPage) {
+                m_recentPage->refresh();
+                switchPage(m_recentPage);
+            }
+        } else if (page == QLatin1String("downloads")) {
+            if (m_downloadPage) {
+                m_downloadPage->refresh();
+                switchPage(m_downloadPage);
+            }
+        } else if (page == QLatin1String("hot")) {
+            showMusicListPage(true);
+        } else if (page == QLatin1String("latest")) {
+            showMusicListPage(false);
+        } else if (page == QLatin1String("daily")) {
+            showDailyRecommendationsPage();
+        } else if (page == QLatin1String("settings")) {
+            if (m_settingsPage)
+                switchPage(m_settingsPage);
+        }
+    });
+    m_mcpBridge->setAudioQualityQueryCallback([this]() {
+        return m_playerBar ? m_playerBar->selectedAudioQuality() : QStringLiteral("hq");
+    });
+    m_mcpBridge->setAudioQualityCallback([this](const QString &quality) {
+        return m_playerBar && m_playerBar->setAudioQuality(quality);
+    });
+    m_mcpBridge->setDesktopLyricsQueryCallback([this]() {
+        return QSettings().value(QStringLiteral("desktopLyrics"), false).toBool();
+    });
+    m_mcpBridge->setDesktopLyricsCallback([this](bool enabled) {
+        applyDesktopLyricsEnabled(enabled, true);
+    });
+    m_mcpBridge->setOpenLocalFileCallback([this](const QString &path) { openAudioFileFromPath(path); });
+    m_mcpBridge->setOpenPlaylistPageCallback([this](int playlistId) {
+        m_playlistDetailPage->loadPlaylist(playlistId);
+        switchPage(m_playlistDetailPage);
+    });
+    m_mcpBridge->setOpenArtistPageCallback([this](const QString &query) {
+        if (!m_apiClient)
+            return;
+        m_apiClient->searchArtists(query, [this](bool ok, const QVariantMap &artist) {
+            if (!ok || artist.isEmpty())
+                return;
+            syncListPageFavoriteIds();
+            m_artistDetailPage->loadArtist(artist);
+            switchPage(m_artistDetailPage);
+        });
+    });
+    m_mcpBridge->setCheckUpdateCallback([this]() { checkForUpdates(true); });
 
     m_mcpServer = new McpServer(this);
     m_mcpServer->setHost(m_mcpBridge);

@@ -27,6 +27,11 @@ public:
     void fetchLatest(int limit, MusicListCb cb);
     void fetchDailyRecommendations(MusicListCb cb);
     void fetchFavorites(MusicListCb cb);
+
+    // 收藏 / 取消收藏单曲（供 MCP 等非 UI 调用方复用统一网络栈）
+    using FavoriteOpCb = std::function<void(bool ok, const QString &message)>;
+    void addFavorite(int musicId, FavoriteOpCb cb);
+    void removeFavorite(int musicId, FavoriteOpCb cb);
     
     // 音乐搜索
     using MusicSearchCb = std::function<void(bool, int, int, int, const QList<QVariantMap>&)>;

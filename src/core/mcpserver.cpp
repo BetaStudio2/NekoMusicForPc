@@ -385,8 +385,10 @@ void McpServer::processRpc(const QJsonObject &request, const Target &target,
              QJsonObject{{QStringLiteral("name"), QStringLiteral("NekoMusic")},
                          {QStringLiteral("version"), QStringLiteral(APP_VERSION)}}},
             {QStringLiteral("instructions"),
-             QStringLiteral("Neko 云音乐桌面端：可查询当前播放与队列，控制播放/暂停/上一首/下一首/进度/音量，"
-                            "搜索曲库并按 ID 播放。")},
+             QStringLiteral("Neko 云音乐桌面端：可查询并控制播放（含音质、桌面歌词、主题、麦克风同步）；"
+                            "搜索曲库/歌手/站内歌单，读取排行榜/最新/每日推荐/歌词/评论；管理播放队列与收藏；"
+                            "读写在线与本地歌单；查询与发起下载、导入站外歌单；创建分享视频渲染任务；"
+                            "读取账户与站内消息；切换界面页面。")},
         };
         reply(result);
         return;

@@ -111,9 +111,53 @@ cmake --install build/linux-release --prefix /usr/local
 
 ### 工具
 
-`get_playback_state`、`get_current_track`、`get_queue`、`play`、`pause`、`toggle_playback`、
-`stop`、`next_track`、`previous_track`、`seek`、`set_volume`、`set_play_mode`、
-`search_music`、`play_music`、`play_search_result`。
+共 101 个工具，覆盖播放与音质、队列、内容检索、收藏、歌单、本地库、下载、外部歌单导入、
+分享视频渲染、账户消息、界面偏好与导航。所有工具均返回 `content` 文本；多数还附带
+`structuredContent` 便于程序化处理。
+
+**播放控制**：`get_playback_state`、`get_current_track`、`play`、`pause`、`toggle_playback`、
+`stop`、`next_track`、`previous_track`、`seek`、`set_volume`、`set_play_mode`
+
+**播放队列**：`get_queue`、`play_queue_index`、`add_to_queue`、`add_search_result_to_queue`、
+`play_next`（插队作为下一首）、`remove_from_queue`、`clear_queue`
+
+**音质/输出/偏好**：`get_audio_quality`、`set_audio_quality`、`get_desktop_lyrics`、
+`set_desktop_lyrics`、`get_theme_mode`、`set_theme_mode`、`get_mic_sync`、`set_mic_sync`
+
+**局域网**：`list_lan_devices`、`select_lan_device`、`get_remote_queue`
+
+**搜索与内容**：`search_music`、`play_music`、`play_search_result`、`search_artists`、
+`get_ranking`、`get_latest_music`、`get_daily_recommendations`、`get_music_detail`、
+`get_lyrics`、`get_comments`
+
+**收藏**：`get_favorites`、`is_favorite`、`add_favorite`、`remove_favorite`、`toggle_favorite`
+
+**在线歌单**：`list_playlists`、`get_playlist_detail`、`get_playlist_tracks`、`play_playlist`、
+`create_playlist`、`update_playlist`、`delete_playlist`、`add_music_to_playlist`、
+`remove_music_from_playlist`、`list_favorite_playlists`、`favorite_playlist`、`unfavorite_playlist`、
+`search_playlists`、`get_uploaded_music`
+
+**本地库**：`list_local_playlists`、`get_local_playlist_tracks`、`create_local_playlist`、
+`delete_local_playlist`、`add_music_to_local_playlist`、`remove_music_from_local_playlist`、
+`play_local_playlist`、`update_local_playlist`、`get_recently_played`、`clear_recently_played`、
+`open_local_file`、`resume_last_played`
+
+**下载**：`list_downloads`、`download_music`、`download_playlist`、`cancel_download`、`remove_download`
+
+**外部歌单导入**：`get_external_playlist`、`start_external_import`、`get_import_status`
+
+**分享视频渲染**：`create_video_render`、`get_video_render_status`、`download_video_render`
+
+**批量操作**：`batch_search_music`、`batch_add_favorites`、`batch_add_to_playlist`
+
+**评论与消息**：`get_comments`、`post_comment`、`delete_comment`、`get_notifications`、
+`mark_notifications_read`
+
+**账户**：`get_user_info`、`get_vip_status`、`get_vip_pricing`、`logout`、`change_nickname`
+
+**界面导航 / 一键播放**：`open_page`（`home` / `favorites` / `recent` / `downloads` / `hot` /
+`latest` / `daily` / `settings`）、`open_playlist_page`、`open_artist_page`、`check_update`、
+`play_ranking`、`play_latest_music`、`play_daily_recommendations`、`play_favorites`
 
 ### 客户端配置示例
 

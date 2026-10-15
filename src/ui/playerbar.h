@@ -52,6 +52,8 @@ public:
      *  占位调用（换歌时先置 hq）传 false，避免在真实上限未知前就夹取显示档位。 */
     void setMaxQuality(const QString &quality, bool authoritative = true);
     QString selectedAudioQuality() const;
+    /** 以程序方式切换音质（校验档位后更新偏好、下拉框与设置，并发出 audioQualityChanged）。 */
+    bool setAudioQuality(const QString &quality);
     int currentMusicId() const { return m_currentMusicId; }
     void setFavoriteStatus(bool isFavorited);
     void setDesktopLyricsChecked(bool checked);

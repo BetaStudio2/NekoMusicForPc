@@ -1644,6 +1644,26 @@ QString PlayerBar::selectedAudioQuality() const
     return m_qualitySelector ? m_qualitySelector->currentData().toString() : QStringLiteral("hq");
 }
 
+bool PlayerBar::setAudioQuality(const QString &quality)
+{
+    if (!m_qualitySelector)
+        return false;
+    const QString normalized = quality.trimmed().toLower();
+    const int index = m_qualitySelector->findData(normalized);
+    if (index < 0)
+        return false;
+    if (m_qualitySelector->currentIndex() != index)
+        m_qualitySelector->setCurrentIndex(index); // 触发已有 currentIndexChanged 逻辑
+    else {
+        // 档位未变时下拉框不会发信号，这里手动落盘并广播，保证调用方预期成立。
+        m_preferredQuality = normalized;
+        QSettings settings;
+        settings.setValue(QStringLiteral("player/audioQuality"), normalized);
+        emit audioQualityChanged(normalized);
+    }
+    return true;
+}
+
 void PlayerBar::applyLocalBadgeChrome()
 {
     if (!m_localBadge)

@@ -152,6 +152,57 @@ void ApiClient::fetchFavorites(MusicListCb cb) {
     });
 }
 
+void ApiClient::addFavorite(int musicId, FavoriteOpCb cb) {
+    if (musicId <= 0) {
+        if (cb) cb(false, QStringLiteral("无效的曲目 ID"));
+        return;
+    }
+    if (!UserManager::instance().isLoggedIn()) {
+        if (cb) cb(false, QStringLiteral("请先登录"));
+        return;
+    }
+    QUrl url(QString::fromUtf8("%1/api/user/favorites").arg(Theme::kApiBase));
+    QNetworkRequest req(url);
+    req.setRawHeader("Authorization", UserManager::instance().token().toUtf8());
+    req.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+    QJsonObject body;
+    body["musicId"] = musicId;
+    auto *reply = m_nam.post(req, QJsonDocument(body).toJson());
+    connect(reply, &QNetworkReply::finished, this, [reply, cb]() {
+        reply->deleteLater();
+        const QJsonObject root = QJsonDocument::fromJson(reply->readAll()).object();
+        const bool ok = reply->error() == QNetworkReply::NoError && root.value("success").toBool();
+        QString message = root.value("message").toString();
+        if (message.isEmpty())
+            message = ok ? QString() : reply->errorString();
+        if (cb) cb(ok, message);
+    });
+}
+
+void ApiClient::removeFavorite(int musicId, FavoriteOpCb cb) {
+    if (musicId <= 0) {
+        if (cb) cb(false, QStringLiteral("无效的曲目 ID"));
+        return;
+    }
+    if (!UserManager::instance().isLoggedIn()) {
+        if (cb) cb(false, QStringLiteral("请先登录"));
+        return;
+    }
+    QUrl url(QString::fromUtf8("%1/api/user/favorites/%2").arg(Theme::kApiBase).arg(musicId));
+    QNetworkRequest req(url);
+    req.setRawHeader("Authorization", UserManager::instance().token().toUtf8());
+    auto *reply = m_nam.deleteResource(req);
+    connect(reply, &QNetworkReply::finished, this, [reply, cb]() {
+        reply->deleteLater();
+        const QJsonObject root = QJsonDocument::fromJson(reply->readAll()).object();
+        const bool ok = reply->error() == QNetworkReply::NoError && root.value("success").toBool();
+        QString message = root.value("message").toString();
+        if (message.isEmpty())
+            message = ok ? QString() : reply->errorString();
+        if (cb) cb(ok, message);
+    });
+}
+
 void ApiClient::login(const QString &email, const QString &password, AuthCb cb) {
     QUrl url(QString::fromUtf8("%1/api/user/login").arg(Theme::kApiBase));
     QNetworkRequest req(url);
