@@ -117,6 +117,10 @@ private:
     void refineAudioQualityFromEngine();
     void updateQualityBadgeStyle();
     void applyLyricLineStyle(QLabel *textLabel, QLabel *transLabel, bool isCurrent) const;
+    /** 歌词正文当前字号（依赖页面高度，供样式与折行量测共用） */
+    int lyricFontPx() const;
+    /** 把歌词容器的最小高度钉到内容高度，避免 QScrollArea 把容器压到内容以下后布局压扁每一行 */
+    void syncLyricsContainerSize();
     void syncLyricLinesVisual(int activeLine, int previousLine = -1);
     /** 视口中心清晰、上下渐模糊（对齐 Apple Music / SPlayer 歌词聚焦） */
     void applyLyricViewportFocusBlur();
@@ -246,6 +250,8 @@ private:
     QHash<int, QVector<LyricLine>> m_lyricsCache;
     QMetaObject::Connection m_coverConn;
     int m_currentLyricLine = -1;
+    /** 上一次套用到歌词标签的字号，用于页面尺寸变化时判断是否需要补齐 */
+    int m_lyricStyledPx = -1;
     QVector<QWidget *> m_lyricLineWidgets;
     QWidget *m_lyricIntroCountdown = nullptr;
     QPropertyAnimation *m_scrollAnim = nullptr;

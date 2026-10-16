@@ -100,6 +100,8 @@ constexpr qreal kLyricFocusBlurRampPx = 28.0;
 /** 顶部/底部渐隐区向内收：顶部消失线下移、底部消失线上移 */
 constexpr int kLyricFocusTopEasePx = 48;
 constexpr int kLyricFocusBottomEasePx = 48;
+/** 视口外多远才释放模糊效果对象（留余量，避免行在边界反复建/销毁效果） */
+constexpr int kLyricBlurKeepMargin = 240;
 /** SPlayer INTRO_THRESHOLD：首句歌词 ≥3s 时在顶部显示三圆点倒计时 */
 constexpr qint64 kLyricIntroCountdownMs = 3000;
 
@@ -925,15 +927,44 @@ void PlayerPage::refreshTintedPalette()
     }
 }
 
+int PlayerPage::lyricFontPx() const
+{
+    int pageH = height();
+    if (pageH < 480 && m_lyricsScroll && m_lyricsScroll->viewport())
+        pageH = qMax(pageH, m_lyricsScroll->viewport()->height());
+    return lyricMainFontPx(pageH);
+}
+
+/** 让歌词容器的最小高度等于内容高度。
+ *
+ *  QScrollArea(widgetResizable) 是按容器的最小尺寸把容器「按住视口大小」的，而歌词行的
+ *  minimumSizeHint 很小（QLabel 折行后 minimumSizeHint 只有几个像素高）。于是只要内容比
+ *  视口高，容器就仍可能被压回视口高度，此时 QVBoxLayout 会把所有行按比例压扁 —— 实测
+ *  行高 83→30、文字标签 63→9（文字被裁切），直到下一帧 adjustSize 才弹回。
+ *  换行会让内容高度突然 +63px，正好制造出这个「容器还没长高、布局已要求更高」的窗口，
+ *  看起来就是其它行短暂被压扁/弹开。
+ *
+ *  这里把最小高度钉在内容高度上，QScrollArea 就再也压不到内容以下；某些时刻量测偏大
+ *  也只会落到列表底部的空白 padding 里，不会影响观感。 */
+void PlayerPage::syncLyricsContainerSize()
+{
+    if (!m_lyricsContainer)
+        return;
+    if (m_lyricsLayout)
+        m_lyricsLayout->activate();
+    const int contentH = m_lyricsLayout ? m_lyricsLayout->sizeHint().height() : 0;
+    if (contentH > 0)
+        m_lyricsContainer->setMinimumHeight(contentH);
+    m_lyricsContainer->updateGeometry();
+    m_lyricsContainer->adjustSize();
+}
+
 void PlayerPage::applyLyricLineStyle(QLabel *textLabel, QLabel *transLabel, bool isCurrent) const
 {
     if (!textLabel)
         return;
 
-    int pageH = height();
-    if (pageH < 480 && m_lyricsScroll && m_lyricsScroll->viewport())
-        pageH = qMax(pageH, m_lyricsScroll->viewport()->height());
-    const int mainPx = lyricMainFontPx(pageH);
+    const int mainPx = lyricFontPx();
     const int tranPx = qMax(14, mainPx - 12);
     const QString chrome = QStringLiteral("background: transparent; padding: 0; margin: 0; border: none;");
 
@@ -1011,8 +1042,11 @@ void PlayerPage::applyLyricViewportFocusBlur()
         const int lineH = lineWidget->height();
         const int lineCenterY = lineTop + lineH / 2;
 
-        if (lineTop + lineH < scrollY - 120 || lineTop > scrollY + viewH + 120) {
-            lineWidget->setGraphicsEffect(nullptr);
+        if (lineTop + lineH < scrollY - kLyricBlurKeepMargin
+            || lineTop > scrollY + viewH + kLyricBlurKeepMargin) {
+            // 离视口足够远的行释放效果对象（每个模糊效果都持有一张缓存位图）
+            if (lineWidget->graphicsEffect())
+                lineWidget->setGraphicsEffect(nullptr);
             continue;
         }
 
@@ -1022,17 +1056,22 @@ void PlayerPage::applyLyricViewportFocusBlur()
         else
             signedDist = qMax(0, signedDist - kLyricFocusBottomEasePx);
         const qreal radius = blurForDistance(qAbs(signedDist));
-        if (radius <= 0.05) {
-            lineWidget->setGraphicsEffect(nullptr);
-            continue;
-        }
 
         auto *effect = qobject_cast<QGraphicsBlurEffect *>(lineWidget->graphicsEffect());
+        if (radius <= 0.05) {
+            // 该行应保持清晰：保留效果对象只把它关掉。之前这里每帧 setGraphicsEffect(nullptr)，
+            // 下一帧半径又 >0 时再 new 一个，逐帧反复销毁重建会让整行重绘抖动（换行改几何时尤其明显）。
+            if (effect && effect->isEnabled())
+                effect->setEnabled(false);
+            continue;
+        }
         if (!effect) {
             effect = new QGraphicsBlurEffect(lineWidget);
             effect->setBlurHints(QGraphicsBlurEffect::PerformanceHint);
             lineWidget->setGraphicsEffect(effect);
         }
+        if (!effect->isEnabled())
+            effect->setEnabled(true);
         if (!qFuzzyCompare(effect->blurRadius(), radius))
             effect->setBlurRadius(radius);
     }
@@ -1060,8 +1099,9 @@ void PlayerPage::syncLyricLinesVisual(int activeLine, int previousLine)
     }
 
     if (m_lyricsContainer)
-        m_lyricsContainer->adjustSize();
+        syncLyricsContainerSize();
 
+    m_lyricStyledPx = lyricFontPx();
     scheduleLyricFocusBlurUpdate();
 }
 
@@ -1074,6 +1114,11 @@ void PlayerPage::scrollLyricsToActiveLine(int line)
     if (!lineWidget)
         return;
 
+    // 先把布局落定再取几何：否则 activeLine 折行（行高变化）后这里可能取到旧位置，
+    // 滚动动画会朝错误的目标移动，视口中心短暂停在别的行上。
+    if (m_lyricsLayout)
+        m_lyricsLayout->activate();
+    m_lyricsContainer->updateGeometry();
     m_lyricsContainer->adjustSize();
 
     const int y = lineWidget->mapTo(m_lyricsContainer, QPoint(0, 0)).y();
@@ -1144,6 +1189,20 @@ void PlayerPage::updateLyricWrapWidth()
     if (textW <= 0)
         return;
 
+    // 页面高度变化会改变歌词字号（lyricMainFontPx 依赖 height()）。这里同步补齐，
+    // 否则字号要等到下一次换行才更新，而这些行的高度下限也已按旧字号量过。
+    if (const int px = lyricFontPx(); px != m_lyricStyledPx) {
+        for (auto *lineWidget : m_lyricLineWidgets) {
+            if (!lineWidget)
+                continue;
+            auto *textLabel = lineWidget->findChild<QLabel *>(QStringLiteral("lyricText"));
+            auto *transLabel = lineWidget->findChild<QLabel *>(QStringLiteral("lyricTranslation"));
+            applyLyricLineStyle(textLabel, transLabel,
+                                lineWidget->property("lyricIndex").toInt() == m_currentLyricLine);
+        }
+        m_lyricStyledPx = px;
+    }
+
     for (auto *lineWidget : m_lyricLineWidgets) {
         if (!lineWidget)
             continue;
@@ -1151,8 +1210,7 @@ void PlayerPage::updateLyricWrapWidth()
         relayoutSingleLyricLine(lineWidget, textW);
     }
 
-    m_lyricsContainer->updateGeometry();
-    m_lyricsContainer->adjustSize();
+    syncLyricsContainerSize();
     scheduleLyricFocusBlurUpdate();
 
     if (m_currentLyricLine >= 0 && !m_lyricUserScrolling) {
@@ -3078,6 +3136,9 @@ void PlayerPage::rebuildLyricLabels()
     }
 
     if (m_lyrics.isEmpty()) {
+        // 清掉上一首留下的容器最小高度，避免「无歌词」视图被钉在很高的高度上
+        if (m_lyricsContainer)
+            m_lyricsContainer->setMinimumHeight(0);
         auto *noData = new QLabel(QString::fromUtf8("\xe2\x99\xaa"), m_lyricsContainer);
         noData->setAlignment(Qt::AlignCenter);
         noData->setObjectName("noLyricsIcon");
@@ -3153,6 +3214,13 @@ void PlayerPage::rebuildLyricLabels()
         }
         applyLyricLineStyle(textLabel, transLabel, false);
 
+        // 立刻定宽并量出折行高度：QLabel 的 sizeHint/折行高度取决于它当时的宽度，
+        // 若等到延后的 updateLyricWrapWidth 才约束宽度，就会先按一个未约束宽度
+        // 参与布局（文字被裁切/行高全错）。
+        const int textW = lyricTextAreaWidth();
+        if (textW > 0)
+            relayoutSingleLyricLine(lineWidget, textW);
+
         m_lyricsLayout->addWidget(lineWidget);
         m_lyricLineWidgets.append(lineWidget);
     }
@@ -3162,6 +3230,12 @@ void PlayerPage::rebuildLyricLabels()
     botPad->setFixedHeight(200);
     botPad->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
     m_lyricsLayout->addWidget(botPad);
+
+    // 同步把容器撑到内容高度（见 syncLyricsContainerSize）：否则 QScrollArea 会先把容器
+    // 按住视口高度，内容更高时 QVBoxLayout 会把每一行都按比例压扁，下一帧才弹回。
+    syncLyricsContainerSize();
+    m_lyricStyledPx = lyricFontPx();
+
     emitDesktopLyricsPayload();
     emitBarLyricUpdate(-1);
 
