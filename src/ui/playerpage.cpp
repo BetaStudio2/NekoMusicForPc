@@ -1070,6 +1070,11 @@ void PlayerPage::scrollLyricsToActiveLine(int line)
     if (m_lyricUserScrolling || !m_lyricsScroll || !m_lyricsContainer || line < 0)
         return;
 
+    // 暂停/停止播放时关闭歌词自动定位：用户暂停后可以停在任意位置读歌词，
+    // 不会被反复拉回当前行；恢复播放时会重新定位（见 stateChanged 处理）。
+    if (m_engine && !m_engine->isActuallyPlaying())
+        return;
+
     QWidget *lineWidget = findLyricLineByIndex(m_lyricLineWidgets, line);
     if (!lineWidget)
         return;
@@ -1839,6 +1844,9 @@ void PlayerPage::connectPlayerControlEngine()
     connect(m_engine, &PlayerEngine::stateChanged, this, [this](PlayerEngine::PlaybackState st) {
         if (st == PlayerEngine::Playing && m_musicId > 0)
             QTimer::singleShot(300, this, [this]() { refreshAudioQuality(); });
+        // 暂停期间歌词不做自动定位，恢复播放时重新定位回当前行
+        if (st == PlayerEngine::Playing)
+            QTimer::singleShot(0, this, [this]() { scrollLyricsToActiveLine(m_currentLyricLine); });
     });
     connect(m_ppProgress, &QSlider::sliderReleased, this, [this]() {
         if (!m_engine || m_engine->duration() <= 0)
@@ -2252,8 +2260,16 @@ bool PlayerPage::eventFilter(QObject *watched, QEvent *event)
     if (m_lyricsScroll) {
         QWidget *lyricVp = m_lyricsScroll->viewport();
         QScrollBar *lyricBar = m_lyricsScroll->verticalScrollBar();
-        if (watched == lyricVp || watched == lyricBar) {
+        // 滚轮多数时候落在歌词行子控件（歌词文字）上，而不是 QScrollArea 视口本身，
+        // 只判断 watched == 视口会漏掉这些滚动：自动定位便不会暂停，浏览歌词时会被
+        // 反复拉回当前播放行。这里把歌词区域内的所有子控件都算作用户滚动。
+        auto *watchedWidget = qobject_cast<QWidget *>(watched);
+        const bool inLyricsArea = watched == lyricVp || watched == lyricBar
+                                  || (lyricVp && watchedWidget && lyricVp->isAncestorOf(watchedWidget));
+        if (inLyricsArea) {
             if (event->type() == QEvent::Wheel) {
+                // 每次滚轮都重新起算 3 秒（QTimer::start 会重置单次计时器），
+                // 即连续滚动期间一直暂停自动定位，停手 3 秒后才回到当前播放行
                 pauseLyricAutoScroll();
             }
             if (watched == lyricVp && event->type() == QEvent::Resize) {
