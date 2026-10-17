@@ -59,13 +59,21 @@ protected:
 
         const int baseStep = qMax(24, bar->singleStep() * QApplication::wheelScrollLines());
         const int distance = pixelDelta.isNull() ? rawDelta * baseStep / 120 : rawDelta;
-        const int start = m_targets.value(bar, bar->value());
+
+        QPointer<QPropertyAnimation> animationPtr = m_animations.value(bar);
+        auto *animation = animationPtr.data();
+        // 仅当上一段动画仍在运行时才基于其记录目标累加：动画已结束或滚动条被
+        // 外部复位（切换列表/刷新内容后 value 跳回顶部等）时，旧目标已与当前
+        // 位置脱节，必须从当前值重新起算，否则第一下滚动会从旧目标起跳爆冲。
+        const bool running = animation && animation->state() == QAbstractAnimation::Running;
+        const int recorded = m_targets.value(bar, bar->value());
+        const int start = (running && qAbs(recorded - bar->value()) <= 4 * baseStep)
+                              ? recorded
+                              : bar->value();
         const int target = qBound(bar->minimum(), start - distance, bar->maximum());
         if (target == bar->value())
             return true;
 
-        QPointer<QPropertyAnimation> animationPtr = m_animations.value(bar);
-        auto *animation = animationPtr.data();
         if (!animation) {
             animation = new QPropertyAnimation(bar, "value", this);
             animation->setEasingCurve(QEasingCurve::OutCubic);

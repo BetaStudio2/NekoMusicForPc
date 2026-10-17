@@ -42,6 +42,10 @@ constexpr int kPlaylistRowSpacing = 16;
 constexpr int kPlaylistRowStride = kPlaylistRowHeight + kPlaylistRowSpacing;
 constexpr int kListPad = 16;
 
+// 列表区右侧留白：抽屉贴住主窗口右缘，滚动条若不左移会整个落在无边框窗口
+// 的缩放/拖动手感区（8px）内，拖滚动条会被系统当成拖窗口边缘。
+constexpr int kScrollbarEdgeInset = 10;
+
 constexpr QColor kPrimary(230, 57, 80);
 
 /** 复选框圆角方块里的对勾（自己画，避免依赖字体里是否有 ✓） */
@@ -1023,7 +1027,14 @@ void PlaylistPanel::setupUi()
 
     lay->addWidget(m_actionStack);
 
-    m_scroll = new QScrollArea(this);
+    // 用一层右侧留白的容器包住滚动区，把垂直滚动条整体左移 kScrollbarEdgeInset，
+    // 脱离主窗口无边框边缘的缩放/拖动手感区（见 kScrollbarEdgeInset 注释）
+    auto *scrollHost = new QWidget(this);
+    auto *scrollHostLay = new QVBoxLayout(scrollHost);
+    scrollHostLay->setContentsMargins(0, 0, kScrollbarEdgeInset, 0);
+    scrollHostLay->setSpacing(0);
+
+    m_scroll = new QScrollArea(scrollHost);
     m_scroll->setObjectName(QStringLiteral("ppScroll"));
     m_scroll->setWidgetResizable(true);
     m_scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
@@ -1038,7 +1049,8 @@ void PlaylistPanel::setupUi()
 
     m_scroll->setWidget(m_listContainer);
     nekoPolishScrollAreaViewport(m_scroll);
-    lay->addWidget(m_scroll, 1);
+    scrollHostLay->addWidget(m_scroll);
+    lay->addWidget(scrollHost, 1);
 
     m_footer = new QWidget(this);
     auto *footerLay = new QHBoxLayout(m_footer);
