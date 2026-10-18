@@ -671,12 +671,9 @@ void PlayerBarInkButton::paintEvent(QPaintEvent *event)
             f.setBold(true);
             painter.setFont(f);
             const QFontMetrics fm(f);
-            const int bw = qMax(14, fm.horizontalAdvance(text) + 6);
+            const int bw = qMax(12, fm.horizontalAdvance(text) + 2);
             const QRect br(r.right() - bw + 1, r.top(), bw, 12);
-            painter.setPen(Qt::NoPen);
-            painter.setBrush(kPbIconAccent);
-            painter.drawRoundedRect(br, 6, 6);
-            painter.setPen(Qt::white);
+            painter.setPen(kPbIconAccent);
             painter.drawText(br, Qt::AlignCenter, text);
         }
     }

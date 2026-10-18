@@ -618,12 +618,9 @@ protected:
                 f.setBold(true);
                 painter.setFont(f);
                 const QFontMetrics fm(f);
-                const int bw = qMax(15, fm.horizontalAdvance(text) + 6);
+                const int bw = qMax(13, fm.horizontalAdvance(text) + 2);
                 const QRect br(r.right() - bw + 1, r.top() + 1, bw, 13);
-                painter.setPen(Qt::NoPen);
-                painter.setBrush(cA);
-                painter.drawRoundedRect(br, 6.5, 6.5);
-                painter.setPen(Qt::white);
+                painter.setPen(cA);
                 painter.drawText(br, Qt::AlignCenter, text);
             }
         }
