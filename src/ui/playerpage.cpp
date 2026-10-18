@@ -2952,7 +2952,7 @@ void PlayerPage::loadLyricsForTrack(const MusicInfo &info)
     rebuildLyricLabels();
 
     NekoNetworkAccessManager *nam = new NekoNetworkAccessManager(this);
-    QString url = QString::fromUtf8("%1/api/music/lyrics/%2")
+    QString url = QString::fromUtf8("%1/api/music/info/%2")
         .arg(QString::fromUtf8(Theme::kApiBase))
         .arg(musicId);
     QNetworkReply *reply = nam->get(QNetworkRequest(QUrl(url)));
@@ -2971,21 +2971,21 @@ void PlayerPage::loadLyricsForTrack(const MusicInfo &info)
             QJsonObject obj = doc.object();
             bool success = obj.value("success").toBool();
             if (success) {
-                QString lrc = obj.value("data").toString();
+                QString lrc = obj.value("data").toObject().value("lyrics").toString();
                 if (!lrc.isEmpty()) {
                     parseLrc(lrc);
                     rebuildLyricLabels();
                     cacheLyricsForKey(musicId);
                 } else {
-                    qDebug() << "歌词API返回空歌词内容，musicId:" << musicId << "，协议:"
+                    qDebug() << "音乐详情API返回空歌词内容，musicId:" << musicId << "，协议:"
                              << httpProtocolLabel(reply);
                 }
             } else {
-                qDebug() << "歌词API返回失败，musicId:" << musicId << "，协议:" << httpProtocolLabel(reply)
+                qDebug() << "音乐详情API返回失败，musicId:" << musicId << "，协议:" << httpProtocolLabel(reply)
                          << "，message:" << obj.value("message").toString();
             }
         } else {
-            qDebug() << "歌词API请求失败，musicId:" << musicId << "，协议:" << httpProtocolLabel(reply)
+            qDebug() << "音乐详情API请求失败，musicId:" << musicId << "，协议:" << httpProtocolLabel(reply)
                      << "，error:" << reply->errorString();
         }
         cleanup();

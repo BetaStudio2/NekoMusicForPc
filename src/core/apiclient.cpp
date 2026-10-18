@@ -458,7 +458,7 @@ void ApiClient::fetchMusicInfo(int musicId, MusicInfoCb cb) {
 }
 
 void ApiClient::fetchLyrics(int musicId, LyricsCb cb) {
-    QUrl url(QString::fromUtf8("%1/api/music/lyrics/%2")
+    QUrl url(QString::fromUtf8("%1/api/music/info/%2")
                  .arg(QString::fromUtf8(Theme::kApiBase))
                  .arg(musicId));
     auto *reply = m_nam.get(QNetworkRequest(url));
@@ -472,7 +472,7 @@ void ApiClient::fetchLyrics(int musicId, LyricsCb cb) {
         bool ok = doc.object().value("success").toBool();
         QString lyrics = "";
         if (ok) {
-            lyrics = doc.object().value("data").toString();
+            lyrics = doc.object().value("data").toObject().value("lyrics").toString();
         }
         if (cb) cb(ok, lyrics);
     });
