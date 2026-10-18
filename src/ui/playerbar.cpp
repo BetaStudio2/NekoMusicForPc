@@ -661,6 +661,25 @@ void PlayerBarInkButton::paintEvent(QPaintEvent *event)
     const QPoint topLeft(r.x() + (r.width() - pmLogical.width()) / 2,
                          r.y() + (r.height() - pmLogical.height()) / 2);
     painter.drawPixmap(topLeft, pm);
+
+    if (ink == PbInk::Heart) {
+        const int badge = property("pbBadge").toInt();
+        if (badge > 0) {
+            const QString text = badge > 99 ? QStringLiteral("99+") : QString::number(badge);
+            QFont f = painter.font();
+            f.setPixelSize(9);
+            f.setBold(true);
+            painter.setFont(f);
+            const QFontMetrics fm(f);
+            const int bw = qMax(14, fm.horizontalAdvance(text) + 6);
+            const QRect br(r.right() - bw + 1, r.top(), bw, 12);
+            painter.setPen(Qt::NoPen);
+            painter.setBrush(kPbIconAccent);
+            painter.drawRoundedRect(br, 6, 6);
+            painter.setPen(Qt::white);
+            painter.drawText(br, Qt::AlignCenter, text);
+        }
+    }
 }
 
 }
@@ -1757,6 +1776,14 @@ void PlayerBar::refreshBarLyricSlot()
     auto *slot = static_cast<PbLyricArtistSlot *>(m_lyricSlot);
     slot->updateSecondLine(showLyric, m_barLyricText, m_barLyricLineIndex);
     scheduleTitleMarqueeWidthUpdate();
+}
+
+void PlayerBar::setFavoriteCount(int count)
+{
+    if (!m_heartBtn)
+        return;
+    m_heartBtn->setProperty("pbBadge", count);
+    m_heartBtn->update();
 }
 
 void PlayerBar::setFavoriteStatus(bool isFavorited)

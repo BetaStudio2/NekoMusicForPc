@@ -56,6 +56,8 @@ public:
     bool setAudioQuality(const QString &quality);
     int currentMusicId() const { return m_currentMusicId; }
     void setFavoriteStatus(bool isFavorited);
+    /** 设置收藏数角标；<=0 时隐藏 */
+    void setFavoriteCount(int count);
     void setDesktopLyricsChecked(bool checked);
     void setLoading(bool loading);
     void updatePlayModeBtn(const QString &mode);

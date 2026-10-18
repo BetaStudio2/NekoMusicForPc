@@ -52,6 +52,10 @@ public:
     QColor idleIconColor() const;
     QColor accentIconColor() const;
     void setFavoriteStatus(bool isFavorited);
+    /** 设置收藏数角标；<=0 时隐藏 */
+    void setFavoriteCount(int count);
+    /** 设置评论数角标；<=0 时隐藏 */
+    void setCommentCount(int count);
     void setDesktopLyricsChecked(bool checked);
     void setVolumePercentSynced(int percent);
     void layoutPlayerPageChrome();

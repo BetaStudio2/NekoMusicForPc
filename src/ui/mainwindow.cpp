@@ -560,6 +560,10 @@ void MainWindow::setupUi()
     // 播放队列抽屉：贴窗口右缘滑入，层级盖住底栏播放器（对齐 SPlayer n-drawer）
     m_commentPanel = new CommentPanel(m_apiClient, central);
     connect(m_commentPanel, &CommentPanel::hideRequested, this, &MainWindow::hideCommentDrawer);
+    connect(m_commentPanel, &CommentPanel::commentCountChanged, this, [this](int count) {
+        if (m_playerPage)
+            m_playerPage->setCommentCount(count);
+    });
     // 切歌时抽屉若开着，自动加载新歌曲的评论（同一首歌暂停/继续不会重复请求）
     connect(m_engine, &PlayerEngine::musicStarted, this, [this](const MusicInfo &music) {
         if (m_commentPanel && m_commentPanel->isDrawerOpen())
@@ -870,6 +874,7 @@ void MainWindow::setupUi()
 
     // 记录最近播放，并刷新列表页正在播放高亮
     connect(m_engine, &PlayerEngine::musicStarted, this, [this](const MusicInfo &music) {
+        refreshMusicStats(music.id);
         PlaylistDatabase::instance().recordRecentPlay(music);
         if (m_favoritesPage)
             m_favoritesPage->updatePlayingHighlight();
@@ -2201,6 +2206,49 @@ void MainWindow::refreshPlayerMaxQuality(int musicId)
     });
 }
 
+void MainWindow::refreshMusicStats(int musicId)
+{
+    if (!m_playerBar || !m_playerPage)
+        return;
+    m_playerBar->setFavoriteCount(0);
+    m_playerPage->setFavoriteCount(0);
+    m_playerPage->setCommentCount(0);
+
+    if (musicId <= 0 || !m_apiClient)
+        return;
+
+    m_apiClient->fetchMusicInfo(musicId, [this, musicId](bool ok, const QVariantMap &info) {
+        if (!ok || !m_playerBar || m_playerBar->currentMusicId() != musicId)
+            return;
+        const int count = info.value(QStringLiteral("favoriteCount")).toInt();
+        m_playerBar->setFavoriteCount(count);
+        if (m_playerPage)
+            m_playerPage->setFavoriteCount(count);
+    });
+
+    m_apiClient->fetchComments(musicId, 1, 1,
+        [this, musicId](bool ok, const QString &, const QVariantMap &data) {
+            if (!ok || !m_playerBar || m_playerBar->currentMusicId() != musicId)
+                return;
+            if (m_playerPage)
+                m_playerPage->setCommentCount(data.value(QStringLiteral("totalComments")).toInt());
+        });
+}
+
+void MainWindow::refreshFavoriteCount(int musicId)
+{
+    if (musicId <= 0 || !m_apiClient)
+        return;
+    m_apiClient->fetchMusicInfo(musicId, [this, musicId](bool ok, const QVariantMap &info) {
+        if (!ok || !m_playerBar || m_playerBar->currentMusicId() != musicId)
+            return;
+        const int count = info.value(QStringLiteral("favoriteCount")).toInt();
+        m_playerBar->setFavoriteCount(count);
+        if (m_playerPage)
+            m_playerPage->setFavoriteCount(count);
+    });
+}
+
 void MainWindow::attachStreamPlaybackGuards(int musicId, quint64 playSeq)
 {
     cancelStreamWatch();
@@ -3015,6 +3063,7 @@ void MainWindow::toggleFavorite(int musicId)
                 m_playerBar->setFavoriteStatus(false);
                 if (m_playerPage)
                     m_playerPage->setFavoriteStatus(false);
+                refreshFavoriteCount(musicId);
                 if (m_favoritesPage)
                     m_favoritesPage->refresh();
                 syncListPageFavoriteIds();
@@ -3057,6 +3106,7 @@ void MainWindow::toggleFavorite(int musicId)
                 m_playerBar->setFavoriteStatus(true);
                 if (m_playerPage)
                     m_playerPage->setFavoriteStatus(true);
+                refreshFavoriteCount(musicId);
                 syncListPageFavoriteIds();
                 Toast::show(this, I18n::instance().tr("favoriteSuccess"), Toast::Success);
                 qDebug() << "[收藏] 已加入缓存并更新UI";

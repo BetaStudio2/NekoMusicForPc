@@ -179,6 +179,10 @@ private:
     void startResolvedRemotePlayback(int musicId, quint64 playSeq, const QUrl &remoteUrl,
                                      bool pauseWhenReady, qint64 resumeMs);
     void refreshPlayerMaxQuality(int musicId);
+    /** 拉取并刷新当前曲目的收藏数 / 评论数角标 */
+    void refreshMusicStats(int musicId);
+    /** 仅刷新收藏数（收藏状态变更后调用） */
+    void refreshFavoriteCount(int musicId);
     void startBackgroundCacheDownload(int musicId, quint64 playSeq, const QUrl &url);
     void attachStreamPlaybackGuards(int musicId, quint64 playSeq);
   /** @param midPlaybackError true=播放中途断流（Demuxing failed 等），需强制恢复 */

@@ -608,6 +608,25 @@ protected:
         const QPoint topLeft(r.x() + (r.width() - pmLogical.width()) / 2,
                              r.y() + (r.height() - pmLogical.height()) / 2);
         painter.drawPixmap(topLeft, pm);
+
+        if (ink == PpInk::Favorite || ink == PpInk::Comment) {
+            const int badge = property("ppBadge").toInt();
+            if (badge > 0) {
+                const QString text = badge > 99 ? QStringLiteral("99+") : QString::number(badge);
+                QFont f = painter.font();
+                f.setPixelSize(9);
+                f.setBold(true);
+                painter.setFont(f);
+                const QFontMetrics fm(f);
+                const int bw = qMax(15, fm.horizontalAdvance(text) + 6);
+                const QRect br(r.right() - bw + 1, r.top() + 1, bw, 13);
+                painter.setPen(Qt::NoPen);
+                painter.setBrush(cA);
+                painter.drawRoundedRect(br, 6.5, 6.5);
+                painter.setPen(Qt::white);
+                painter.drawText(br, Qt::AlignCenter, text);
+            }
+        }
         Q_UNUSED(event);
     }
 };
@@ -2079,6 +2098,22 @@ void PlayerPage::updatePlayModeBtn(const QString &mode)
         m_ppPlayModeBtn->setToolTip(I18n::instance().tr("playModeList"));
     }
     m_ppPlayModeBtn->update();
+}
+
+void PlayerPage::setFavoriteCount(int count)
+{
+    if (!m_ppHeartBtn)
+        return;
+    m_ppHeartBtn->setProperty("ppBadge", count);
+    m_ppHeartBtn->update();
+}
+
+void PlayerPage::setCommentCount(int count)
+{
+    if (!m_ppCommentBtn)
+        return;
+    m_ppCommentBtn->setProperty("ppBadge", count);
+    m_ppCommentBtn->update();
 }
 
 void PlayerPage::setFavoriteStatus(bool isFavorited)
